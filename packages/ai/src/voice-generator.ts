@@ -1,4 +1,11 @@
 import { Anthropic } from '@anthropic-ai/sdk';
+import type { TextBlock } from '@anthropic-ai/sdk/resources/messages.js';
+
+function extractText(content: Anthropic.ContentBlock[]): string {
+  const block = content.find((b): b is TextBlock => b.type === 'text');
+  if (!block) throw new Error('No text block in AI response');
+  return block.text;
+}
 
 export interface VoiceGenerationRequest {
   script: string;
@@ -59,12 +66,7 @@ Respond with a JSON object containing:
         ],
       });
 
-      const content = response.content[0];
-      if (content.type !== 'text') {
-        throw new Error('Unexpected response type');
-      }
-
-      const parsed = JSON.parse(content.text);
+      const parsed = JSON.parse(extractText(response.content));
       return {
         sentiment: parsed.sentiment,
         confidence: parsed.confidence,
@@ -104,12 +106,7 @@ Provide speaking instructions (e.g., "pause after first sentence", "emphasize th
         ],
       });
 
-      const content = response.content[0];
-      if (content.type !== 'text') {
-        throw new Error('Unexpected response type');
-      }
-
-      return content.text;
+      return extractText(response.content);
     } catch (err) {
       console.error('Failed to generate voice description:', err);
       return '';
@@ -135,12 +132,7 @@ Provide only the rewritten message, no explanation.`;
         ],
       });
 
-      const content = response.content[0];
-      if (content.type !== 'text') {
-        throw new Error('Unexpected response type');
-      }
-
-      return content.text;
+      return extractText(response.content);
     } catch (err) {
       console.error('Failed to generate emotional tone:', err);
       return script;
