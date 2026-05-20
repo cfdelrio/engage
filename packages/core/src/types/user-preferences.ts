@@ -57,8 +57,11 @@ export function minutesToTime(minutes: number): { hours: number; minutes: number
   };
 }
 
+import { isQuietHours } from '../utils/quiet-hours.js';
+
 /**
  * Check if current time (in user's timezone) is within quiet hours
+ * Wrapper for backward compatibility (params in different order than isQuietHours)
  */
 export function isInQuietHours(
   quietHoursStart: number | null,
@@ -66,20 +69,7 @@ export function isInQuietHours(
   userTimezone: string,
 ): boolean {
   if (!quietHoursStart || !quietHoursEnd) return false;
-
-  // Get current time in user's timezone
-  const now = new Date();
-  const userTime = new Date(
-    now.toLocaleString('en-US', { timeZone: userTimezone }),
-  );
-  const currentMinutes = userTime.getHours() * 60 + userTime.getMinutes();
-
-  // Handle wrap-around (e.g., 22:00 - 08:00)
-  if (quietHoursStart < quietHoursEnd) {
-    return currentMinutes >= quietHoursStart && currentMinutes < quietHoursEnd;
-  } else {
-    return currentMinutes >= quietHoursStart || currentMinutes < quietHoursEnd;
-  }
+  return isQuietHours(userTimezone, quietHoursStart, quietHoursEnd);
 }
 
 /**

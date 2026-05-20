@@ -41,6 +41,14 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         }
       }
 
+      // ─── Category-specific preferences ────────────────────────────────────
+      const decisionCategory = (decision.reasoning as Record<string, unknown> | null)?.['category'] as string | undefined ?? 'all';
+      const categoryPref = preferences.find((p) => p.category === decisionCategory);
+      if (categoryPref?.enabled === false) {
+        await suppress('category_preference_disabled');
+        return;
+      }
+
       // ─── Frequency cap ────────────────────────────────────────────────────
       const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, channel);
       const currentCount = parseInt(await redis.get(capKey) ?? '0', 10);
