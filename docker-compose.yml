@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: engage
+      POSTGRES_PASSWORD: engage
+      POSTGRES_DB: engage
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engage"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres_shadow:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: engage
+      POSTGRES_PASSWORD: engage
+      POSTGRES_DB: engage_shadow
+    ports:
+      - "5433:5432"
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  bullboard:
+    image: deadly0/bull-board:latest
+    ports:
+      - "3002:3000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:

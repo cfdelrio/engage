@@ -1,0 +1,654 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// MULTI-TENANCY
+// ─────────────────────────────────────────────
+
+model Tenant {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  brandingConfig Json     @default("{}")
+  settings       Json     @default("{}")
+  plan           String   @default("starter")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  apiKeys          TenantApiKey[]
+  users            User[]
+  eventDefinitions EventDefinition[]
+  events           Event[]
+  rules            Rule[]
+  campaigns        Campaign[]
+  channelProviders ChannelProvider[]
+  templates        Template[]
+  feeds            PublicFeed[]
+  polls            Poll[]
+  deliveries       Delivery[]
+  engagementDecisions EngagementDecision[]
+  globalUnsubscribes  GlobalUnsubscribe[]
+  frequencyCaps       FrequencyCap[]
+  engagementMetrics   EngagementMetric[]
+  aiDecisionMetrics   AIDecisionMetric[]
+  voiceCampaigns      VoiceCampaign[]
+  auditLogs           AuditLog[]
+
+  @@map("tenants")
+}
+
+model TenantApiKey {
+  id          String    @id @default(cuid())
+  tenantId    String
+  keyHash     String    @unique
+  keyPrefix   String
+  name        String
+  permissions Json      @default("[]")
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_api_keys")
+}
+
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  externalId   String
+  email        String?
+  phone        String?
+  deviceTokens Json     @default("[]")
+  timezone     String   @default("UTC")
+  locale       String   @default("en")
+  tags         String[]
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  preferences         UserPreference[]
+  engagementScore     UserEngagementScore?
+  sessions            UserSession[]
+  deliveries          Delivery[]
+  pollVotes           PollVote[]
+  engagementDecisions EngagementDecision[]
+  globalUnsubscribes  GlobalUnsubscribe[]
+  frequencyCaps       FrequencyCap[]
+  ruleExecutions      RuleExecution[]
+
+  @@unique([tenantId, externalId])
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@map("users")
+}
+
+model UserPreference {
+  id               String   @id @default(cuid())
+  userId           String
+  tenantId         String
+  channel          String
+  category         String   @default("all")
+  enabled          Boolean  @default(true)
+  quietHoursStart  Int?
+  quietHoursEnd    Int?
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId, channel, category])
+  @@index([userId, tenantId])
+  @@map("user_preferences")
+}
+
+model UserEngagementScore {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  tenantId         String
+  score            Float    @default(0)
+  fatigueScore     Float    @default(0)
+  openRate30d      Float    @default(0)
+  clickRate30d     Float    @default(0)
+  lastCalculatedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, fatigueScore])
+  @@map("user_engagement_scores")
+}
+
+model UserSession {
+  id         String   @id @default(cuid())
+  userId     String
+  tenantId   String
+  platform   String?
+  appVersion String?
+  startedAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, lastSeenAt])
+  @@map("user_sessions")
+}
+
+// ─────────────────────────────────────────────
+// EVENTS
+// ─────────────────────────────────────────────
+
+model EventDefinition {
+  id          String   @id @default(cuid())
+  tenantId    String
+  type        String
+  schema      Json     @default("{}")
+  version     Int      @default(1)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type, version])
+  @@index([tenantId])
+  @@map("event_definitions")
+}
+
+model Event {
+  id             String    @id @default(cuid())
+  tenantId       String
+  type           String
+  userId         String
+  payload        Json      @default("{}")
+  metadata       Json      @default("{}")
+  sourceIp       String?
+  idempotencyKey String?
+  receivedAt     DateTime  @default(now())
+  processedAt    DateTime?
+  replayedFrom   String?
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  processingLogs      EventProcessingLog[]
+  engagementDecisions EngagementDecision[]
+  ruleExecutions      RuleExecution[]
+
+  @@index([tenantId, type, receivedAt])
+  @@index([tenantId, userId, receivedAt])
+  @@index([idempotencyKey])
+  @@map("events")
+}
+
+model EventProcessingLog {
+  id          String   @id @default(cuid())
+  eventId     String
+  step        String
+  status      String
+  details     Json     @default("{}")
+  processedAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("event_processing_logs")
+}
+
+// ─────────────────────────────────────────────
+// RULES ENGINE
+// ─────────────────────────────────────────────
+
+model Rule {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  description     String?
+  enabled         Boolean  @default(true)
+  priority        Int      @default(0)
+  conditions      Json
+  actions         Json
+  cooldownSeconds Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  executions RuleExecution[]
+
+  @@index([tenantId, enabled, priority])
+  @@map("rules")
+}
+
+model RuleExecution {
+  id          String   @id @default(cuid())
+  ruleId      String
+  eventId     String
+  userId      String
+  tenantId    String
+  matched     Boolean
+  reasoning   Json     @default("{}")
+  executedAt  DateTime @default(now())
+
+  rule  Rule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId, executedAt])
+  @@index([eventId])
+  @@map("rule_executions")
+}
+
+// ─────────────────────────────────────────────
+// CAMPAIGNS
+// ─────────────────────────────────────────────
+
+model Campaign {
+  id         String    @id @default(cuid())
+  tenantId   String
+  name       String
+  type       String    @default("triggered")
+  status     String    @default("draft")
+  trigger    Json      @default("{}")
+  rules      Json      @default("{}")
+  channels   String[]
+  templateId String?
+  aiConfig   Json      @default("{}")
+  startAt    DateTime?
+  endAt      DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template Template?     @relation(fields: [templateId], references: [id])
+  runs     CampaignRun[]
+
+  @@index([tenantId, status])
+  @@map("campaigns")
+}
+
+model CampaignRun {
+  id          String    @id @default(cuid())
+  campaignId  String
+  triggeredBy String?
+  status      String    @default("running")
+  stats       Json      @default("{}")
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("campaign_runs")
+}
+
+// ─────────────────────────────────────────────
+// ENGAGEMENT DECISIONS
+// ─────────────────────────────────────────────
+
+model EngagementDecision {
+  id              String   @id @default(cuid())
+  tenantId        String
+  eventId         String
+  userId          String
+  channel         String
+  decisionType    String
+  reasoning       Json     @default("{}")
+  aiGenerated     Boolean  @default(false)
+  confidence      Float    @default(1.0)
+  priority        Int      @default(0)
+  scheduledFor    DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries Delivery[]
+
+  @@index([tenantId, scheduledFor])
+  @@index([userId, createdAt])
+  @@map("engagement_decisions")
+}
+
+// ─────────────────────────────────────────────
+// TEMPLATES
+// ─────────────────────────────────────────────
+
+model Template {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  channel         String
+  subject         String?
+  body            String
+  bodyHtml        String?
+  variables       Json     @default("[]")
+  aiInstructions  String?
+  version         Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+  versions  TemplateVersion[]
+
+  @@index([tenantId, channel])
+  @@map("templates")
+}
+
+model TemplateVersion {
+  id         String   @id @default(cuid())
+  templateId String
+  version    Int
+  snapshot   Json
+  createdAt  DateTime @default(now())
+  createdBy  String?
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+  @@map("template_versions")
+}
+
+// ─────────────────────────────────────────────
+// DELIVERY
+// ─────────────────────────────────────────────
+
+model Delivery {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  engagementDecisionId String
+  userId               String
+  channel              String
+  provider             String
+  status               String    @default("queued")
+  providerMessageId    String?
+  payload              Json      @default("{}")
+  scheduledFor         DateTime  @default(now())
+  sentAt               DateTime?
+  deliveredAt          DateTime?
+  openedAt             DateTime?
+  clickedAt            DateTime?
+  convertedAt          DateTime?
+  failedAt             DateTime?
+  failureReason        String?
+  metadata             Json      @default("{}")
+  createdAt            DateTime  @default(now())
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  engagementDecision EngagementDecision @relation(fields: [engagementDecisionId], references: [id], onDelete: Cascade)
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events             DeliveryEvent[]
+
+  @@index([tenantId, channel, status])
+  @@index([tenantId, userId, createdAt])
+  @@index([providerMessageId])
+  @@map("deliveries")
+}
+
+model DeliveryEvent {
+  id          String   @id @default(cuid())
+  deliveryId  String
+  event       String
+  occurredAt  DateTime @default(now())
+  data        Json     @default("{}")
+  rawWebhook  Json?
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@map("delivery_events")
+}
+
+// ─────────────────────────────────────────────
+// CHANNEL PROVIDERS
+// ─────────────────────────────────────────────
+
+model ChannelProvider {
+  id               String   @id @default(cuid())
+  tenantId         String
+  channel          String
+  provider         String
+  configEncrypted  String
+  isDefault        Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, channel, provider])
+  @@index([tenantId, channel, isActive])
+  @@map("channel_providers")
+}
+
+// ─────────────────────────────────────────────
+// PREFERENCES & SUPPRESSION
+// ─────────────────────────────────────────────
+
+model GlobalUnsubscribe {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  channel   String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId, channel])
+  @@index([tenantId, channel])
+  @@map("global_unsubscribes")
+}
+
+model FrequencyCap {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  channel       String
+  windowSeconds Int
+  maxCount      Int
+  currentCount  Int      @default(0)
+  windowStart   DateTime @default(now())
+  resetAt       DateTime
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, channel, windowSeconds])
+  @@index([tenantId, userId, channel])
+  @@map("frequency_caps")
+}
+
+// ─────────────────────────────────────────────
+// PUBLIC FEEDS
+// ─────────────────────────────────────────────
+
+model PublicFeed {
+  id         String   @id @default(cuid())
+  tenantId   String
+  slug       String
+  name       String
+  type       String   @default("activity")
+  config     Json     @default("{}")
+  isPublic   Boolean  @default(true)
+  embedToken String   @unique @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entries FeedEntry[]
+  polls   Poll[]
+
+  @@unique([tenantId, slug])
+  @@map("public_feeds")
+}
+
+model FeedEntry {
+  id        String    @id @default(cuid())
+  feedId    String
+  type      String
+  content   Json
+  reactions Json      @default("{}")
+  priority  Int       @default(0)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  feed PublicFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+
+  @@index([feedId, createdAt])
+  @@map("feed_entries")
+}
+
+model Poll {
+  id        String   @id @default(cuid())
+  tenantId  String
+  feedId    String?
+  question  String
+  options   Json
+  status    String   @default("active")
+  endAt     DateTime?
+  createdAt DateTime @default(now())
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feed   PublicFeed? @relation(fields: [feedId], references: [id])
+  votes  PollVote[]
+
+  @@index([tenantId])
+  @@map("polls")
+}
+
+model PollVote {
+  id          String   @id @default(cuid())
+  pollId      String
+  userId      String
+  optionIndex Int
+  votedAt     DateTime @default(now())
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@map("poll_votes")
+}
+
+// ─────────────────────────────────────────────
+// ANALYTICS
+// ─────────────────────────────────────────────
+
+model EngagementMetric {
+  id            String   @id @default(cuid())
+  tenantId      String
+  date          DateTime @db.Date
+  channel       String
+  eventType     String?
+  campaignId    String?
+  sent          Int      @default(0)
+  delivered     Int      @default(0)
+  opened        Int      @default(0)
+  clicked       Int      @default(0)
+  converted     Int      @default(0)
+  failed        Int      @default(0)
+  unsubscribed  Int      @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, date, channel, eventType, campaignId])
+  @@index([tenantId, date])
+  @@map("engagement_metrics")
+}
+
+model AIDecisionMetric {
+  id            String   @id @default(cuid())
+  tenantId      String
+  date          DateTime @db.Date
+  provider      String
+  model         String
+  decisions     Int      @default(0)
+  accepted      Int      @default(0)
+  overridden    Int      @default(0)
+  avgConfidence Float    @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, date, provider, model])
+  @@index([tenantId, date])
+  @@map("ai_decision_metrics")
+}
+
+// ─────────────────────────────────────────────
+// VOICE CAMPAIGNS
+// ─────────────────────────────────────────────
+
+model VoiceCampaign {
+  id             String    @id @default(cuid())
+  tenantId       String
+  name           String
+  status         String    @default("draft")
+  voiceConfig    Json      @default("{}")
+  script         String
+  audienceFilter Json      @default("{}")
+  scheduledFor   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  calls  VoiceCall[]
+
+  @@index([tenantId, status])
+  @@map("voice_campaigns")
+}
+
+model VoiceCall {
+  id              String    @id @default(cuid())
+  voiceCampaignId String
+  userId          String
+  phone           String
+  status          String    @default("queued")
+  duration        Int?
+  outcome         String?
+  dtmfResponse    String?
+  recordingUrl    String?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime  @default(now())
+
+  campaign VoiceCampaign @relation(fields: [voiceCampaignId], references: [id], onDelete: Cascade)
+
+  @@index([voiceCampaignId])
+  @@map("voice_calls")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  actorId    String?
+  actorType  String   @default("user")
+  action     String
+  resource   String
+  resourceId String?
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, resource, resourceId])
+  @@map("audit_logs")
+}
