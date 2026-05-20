@@ -22,6 +22,8 @@ import campaignsRoutes from './routes/campaigns.js';
 import voiceRoutes from './routes/voice.js';
 import whatsappRoutes from './routes/whatsapp.js';
 import pushRoutes from './routes/push.js';
+import emailCampaignsRoutes from './routes/email-campaigns.js';
+import smsCampaignsRoutes from './routes/sms-campaigns.js';
 import providersRoutes from './routes/providers.js';
 import templatesRoutes from './routes/templates.js';
 
@@ -85,6 +87,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(voiceRoutes, { prefix: '/v1/voice-campaigns' });
   await app.register(whatsappRoutes, { prefix: '/v1/whatsapp-campaigns' });
   await app.register(pushRoutes, { prefix: '/v1/push-campaigns' });
+  await app.register(emailCampaignsRoutes, { prefix: '/v1/email-campaigns' });
+  await app.register(smsCampaignsRoutes, { prefix: '/v1/sms-campaigns' });
   await app.register(providersRoutes, { prefix: '/v1/providers' });
   await app.register(templatesRoutes, { prefix: '/v1/templates' });
   await app.register(webhooksRoutes, { prefix: '/webhooks' });

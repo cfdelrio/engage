@@ -1,5 +1,4 @@
 import { PrismaClient } from '@engage/database';
-import { Redis } from 'ioredis';
 import { RulesEngine } from '@engage/rules-engine';
 import {
   AIProviderRegistry,
@@ -19,6 +18,8 @@ import { createWorker, QUEUES, getRedis } from '@engage/event-bus';
 import { createEventProcessor } from './processors/event-processor.js';
 import { createDeliveryScheduler } from './processors/delivery-scheduler.js';
 import { createChannelDeliveryWorker } from './processors/channel-delivery.js';
+import { processEmailMessage } from './processors/email-messages.js';
+import { processSmsMessage } from './processors/sms-messages.js';
 import type { AIProviderName } from '@engage/core';
 
 async function main() {
@@ -94,8 +95,6 @@ async function main() {
   );
 
   const channelWorkerNames = [
-    QUEUES.DELIVERIES_EMAIL,
-    QUEUES.DELIVERIES_SMS,
     QUEUES.DELIVERIES_PUSH,
     QUEUES.DELIVERIES_WHATSAPP,
     QUEUES.DELIVERIES_VOICE,
@@ -105,7 +104,11 @@ async function main() {
     createWorker(queueName, createChannelDeliveryWorker(db, channelRegistry), 5),
   );
 
-  const allWorkers = [eventWorker, deliverySchedulerWorker, ...channelWorkers];
+  // Dedicated workers for email and SMS campaigns
+  const emailCampaignWorker = createWorker(QUEUES.DELIVERIES_EMAIL, processEmailMessage, 5);
+  const smsCampaignWorker = createWorker(QUEUES.DELIVERIES_SMS, processSmsMessage, 5);
+
+  const allWorkers = [eventWorker, deliverySchedulerWorker, ...channelWorkers, emailCampaignWorker, smsCampaignWorker];
 
   for (const worker of allWorkers) {
     worker.on('failed', (job, err) => {
