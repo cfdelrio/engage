@@ -234,6 +234,94 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
 
     return reply.status(200).send({ ok: true });
   });
+
+  // Twilio WhatsApp Message Status Updates
+  fastify.post('/twilio/whatsapp/status', async (request: FastifyRequest, reply: FastifyReply) => {
+    const form = request.body as Record<string, string>;
+    const messageSid = form['MessageSid'];
+    const messageStatus = form['MessageStatus'];
+
+    if (!messageSid || !messageStatus) return reply.status(200).send({ ok: true });
+
+    const whatsappMessage = await fastify.prisma.whatsAppMessage.findFirst({
+      where: { twilioMessageSid: messageSid },
+    });
+
+    if (!whatsappMessage) return reply.status(200).send({ ok: true });
+
+    const statusMap: Record<string, string> = {
+      sent: 'sent',
+      delivered: 'delivered',
+      read: 'read',
+      failed: 'failed',
+      undelivered: 'failed',
+    };
+
+    const mappedStatus = statusMap[messageStatus];
+    if (mappedStatus && mappedStatus !== whatsappMessage.status) {
+      const update: Record<string, any> = { status: mappedStatus };
+
+      if (mappedStatus === 'delivered') update['deliveredAt'] = new Date();
+      if (mappedStatus === 'read') update['readAt'] = new Date();
+      if (mappedStatus === 'failed') update['failedAt'] = new Date();
+
+      await fastify.prisma.whatsAppMessage.update({
+        where: { id: whatsappMessage.id },
+        data: update,
+      });
+
+      await fastify.prisma.whatsAppInteraction.create({
+        data: {
+          whatsappMessageId: whatsappMessage.id,
+          tenantId: whatsappMessage.tenantId,
+          type: 'status',
+          data: asJson({
+            status: mappedStatus,
+            messageSid,
+            timestamp: new Date(),
+          }),
+        },
+      });
+    }
+
+    return reply.status(200).send({ ok: true });
+  });
+
+  // Twilio WhatsApp Incoming Messages
+  fastify.post('/twilio/whatsapp/incoming', async (request: FastifyRequest, reply: FastifyReply) => {
+    const form = request.body as Record<string, string>;
+    const from = form['From'];
+    const body = form['Body'];
+    const messageSid = form['MessageSid'];
+
+    if (!from || !messageSid) return reply.status(200).send({ ok: true });
+
+    // Find user by phone (from format: "whatsapp:+5491123456789")
+    const phoneNumber = from.replace('whatsapp:', '');
+    const user = await fastify.prisma.user.findFirst({
+      where: { phone: phoneNumber },
+    });
+
+    if (!user) return reply.status(200).send({ ok: true });
+
+    // Record incoming message as interaction (no delivery record, it's incoming)
+    await fastify.prisma.whatsAppInteraction.create({
+      data: {
+        whatsappMessageId: messageSid,
+        tenantId: user.tenantId,
+        type: 'incoming_message',
+        data: asJson({
+          from: phoneNumber,
+          body,
+          messageSid,
+          mediaUrl: form['MediaUrl0'],
+          timestamp: new Date(),
+        }),
+      },
+    });
+
+    return reply.status(200).send({ ok: true });
+  });
 };
 
 export default webhooksRoutes;
