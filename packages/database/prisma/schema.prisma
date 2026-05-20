@@ -39,6 +39,8 @@ model Tenant {
   engagementMetrics   EngagementMetric[]
   aiDecisionMetrics   AIDecisionMetric[]
   voiceCampaigns      VoiceCampaign[]
+  voiceCalls          VoiceCall[]         @relation("VoiceCallTenant")
+  voiceMetrics        VoiceMetric[]
   auditLogs           AuditLog[]
 
   @@map("tenants")
@@ -89,6 +91,7 @@ model User {
   globalUnsubscribes  GlobalUnsubscribe[]
   frequencyCaps       FrequencyCap[]
   ruleExecutions      RuleExecution[]
+  voiceCalls          VoiceCall[]          @relation("VoiceCallUser")
 
   @@unique([tenantId, externalId])
   @@index([tenantId])
@@ -590,42 +593,110 @@ model AIDecisionMetric {
 // ─────────────────────────────────────────────
 
 model VoiceCampaign {
-  id             String    @id @default(cuid())
-  tenantId       String
-  name           String
-  status         String    @default("draft")
-  voiceConfig    Json      @default("{}")
-  script         String
-  audienceFilter Json      @default("{}")
-  scheduledFor   DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  tenantId            String
+  name                String
+  description         String?
+  status              String    @default("draft")
+  triggerType         String    @default("manual")
+  voiceConfig         Json      @default("{}")
+  script              String
+  aiGenerated         Boolean   @default(false)
+  aiInstructions      String?
+  recordingUrl        String?
+  audienceFilter      Json      @default("{}")
+  dtmfConfig          Json?
+  callbackWorkflow    Json?
+  maxRetries          Int       @default(2)
+  scheduledFor        DateTime?
+  startAt             DateTime?
+  endAt               DateTime?
+  stats               Json      @default("{\"sent\": 0, \"answered\": 0, \"completed\": 0, \"failed\": 0, \"avgDuration\": 0}")
+  createdBy           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  calls  VoiceCall[]
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  calls   VoiceCall[]
+  metrics VoiceMetric[]
 
   @@index([tenantId, status])
   @@map("voice_campaigns")
 }
 
 model VoiceCall {
-  id              String    @id @default(cuid())
-  voiceCampaignId String
-  userId          String
-  phone           String
-  status          String    @default("queued")
-  duration        Int?
-  outcome         String?
-  dtmfResponse    String?
-  recordingUrl    String?
-  startedAt       DateTime?
-  endedAt         DateTime?
-  createdAt       DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  voiceCampaignId     String
+  tenantId            String
+  userId              String
+  phone               String
+  status              String    @default("queued")
+  twilioCallSid       String?   @unique
+  externalId          String?
+  startedAt           DateTime?
+  answeredAt          DateTime?
+  completedAt         DateTime?
+  duration            Int?
+  recordingUrl        String?
+  recordingDuration   Int?
+  sentiment           String?
+  transcription       String?
+  dtmfResponse        String?
+  dtmfAction          String?
+  terminationReason   String?
+  errorCode           String?
+  errorMessage        String?
+  callbackScheduled   DateTime?
+  callbackReason      String?
+  metadata            Json      @default("{}")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  campaign VoiceCampaign @relation(fields: [voiceCampaignId], references: [id], onDelete: Cascade)
+  campaign     VoiceCampaign       @relation(fields: [voiceCampaignId], references: [id], onDelete: Cascade)
+  user         User                @relation("VoiceCallUser", fields: [userId], references: [id], onDelete: Cascade)
+  tenant       Tenant              @relation("VoiceCallTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  interactions VoiceInteraction[]
 
   @@index([voiceCampaignId])
+  @@index([tenantId, userId])
   @@map("voice_calls")
+}
+
+model VoiceInteraction {
+  id          String   @id @default(cuid())
+  voiceCallId String
+  tenantId    String
+  type        String
+  data        Json     @default("{}")
+  timestamp   DateTime @default(now())
+
+  call VoiceCall @relation(fields: [voiceCallId], references: [id], onDelete: Cascade)
+
+  @@index([voiceCallId])
+  @@index([tenantId, timestamp])
+  @@map("voice_interactions")
+}
+
+model VoiceMetric {
+  id                 String   @id @default(cuid())
+  voiceCampaignId    String
+  tenantId           String
+  date               DateTime @db.Date
+  calls_sent         Int      @default(0)
+  calls_answered     Int      @default(0)
+  calls_completed    Int      @default(0)
+  calls_failed       Int      @default(0)
+  avg_duration       Float    @default(0)
+  dtmf_interactions  Int      @default(0)
+  positive_sentiment Int      @default(0)
+  negative_sentiment Int      @default(0)
+
+  campaign VoiceCampaign @relation(fields: [voiceCampaignId], references: [id], onDelete: Cascade)
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([voiceCampaignId, date])
+  @@index([tenantId, date])
+  @@map("voice_metrics")
 }
 
 // ─────────────────────────────────────────────
