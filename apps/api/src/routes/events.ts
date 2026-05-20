@@ -18,13 +18,23 @@ const incomingEventSchema = z.object({
 const eventsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticateApiKey);
 
-  fastify.post(
+  fastify.post<{ Body: typeof incomingEventSchema }>(
     '/',
     {
       schema: {
         description: 'Ingest a single event',
         tags: ['events'],
         body: incomingEventSchema,
+        response: {
+          202: z.object({
+            eventId: z.string(),
+            status: z.string(),
+          }),
+          409: z.object({
+            error: z.string(),
+            idempotencyKey: z.string(),
+          }),
+        },
       },
     },
     async (request, reply) => {
@@ -90,7 +100,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  fastify.get(
+  fastify.get<{ Params: { eventId: string } }>(
     '/:eventId',
     {
       schema: {
@@ -100,7 +110,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const { eventId } = request.params as { eventId: string };
+      const { eventId } = request.params;
       const event = await fastify.prisma.event.findFirst({
         where: { id: eventId, tenantId: request.tenantId },
         include: { processingLogs: true },

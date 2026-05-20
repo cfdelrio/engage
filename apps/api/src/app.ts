@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import { validatorCompiler, serializerCompiler, jsonSchemaTransform } from 'fastify-type-provider-zod';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
@@ -32,6 +33,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     trustProxy: true,
   });
 
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+
   // ─── Security ─────────────────────────────────────────────────────────────
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, {
@@ -42,11 +46,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     global: true,
     max: 1000,
     timeWindow: '1 minute',
-    keyGenerator: (req) => (req as { tenantId?: string }).tenantId ?? req.ip,
+    keyGenerator: (req: any) => (req as { tenantId?: string }).tenantId ?? req.ip,
   });
 
   // ─── OpenAPI docs ─────────────────────────────────────────────────────────
   await app.register(swagger, {
+    transform: jsonSchemaTransform,
     openapi: {
       info: { title: 'ORKESTAI ENGAGE API', version: '1.0.0' },
       tags: [
