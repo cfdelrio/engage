@@ -33,8 +33,6 @@ describe('isQuietHours', () => {
     });
 
     it('returns true at exactly 22:00 local (boundary start)', () => {
-      const now = makeDateAtHour(1); // 01:00 UTC next day = 22:00 BUE previous day... let's use day offset
-      // 22:00 BUE = 01:00 UTC next day, but we can compute 22:00 BUE directly
       const d = new Date('2024-06-15T22:00:00-03:00');
       expect(isQuietHours(BUE, 22, 8, d)).toBe(true);
     });
