@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { RulesList } from './RulesList';
 
 export default function RulesPage() {
@@ -11,7 +12,12 @@ export default function RulesPage() {
           <h1 className="text-2xl font-semibold">Motor de Reglas</h1>
           <p className="text-muted-foreground text-sm mt-1">Configurá IF/THEN de engagement</p>
         </div>
-        <Badge variant="outline">JSON DSL</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline">JSON DSL</Badge>
+          <Link href="/dashboard/rules/new">
+            <Button>Nueva Regla</Button>
+          </Link>
+        </div>
       </div>
       <RulesList />
     </div>
