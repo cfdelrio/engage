@@ -13,6 +13,7 @@ import apiKeyAuthPlugin from './plugins/api-key-auth.js';
 import eventsRoutes from './routes/events.js';
 import eventStreamRoutes from './routes/event-stream.js';
 import usersRoutes from './routes/users.js';
+import userPreferencesRoutes from './routes/user-preferences.js';
 import rulesRoutes from './routes/rules.js';
 import analyticsRoutes from './routes/analytics.js';
 import feedsRoutes from './routes/feeds.js';
@@ -80,6 +81,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(eventsRoutes, { prefix: '/v1/events' });
   await app.register(eventStreamRoutes, { prefix: '/v1/events' });
   await app.register(usersRoutes, { prefix: '/v1/users' });
+  await app.register(userPreferencesRoutes, { prefix: '/v1' });
   await app.register(rulesRoutes, { prefix: '/v1/rules' });
   await app.register(analyticsRoutes, { prefix: '/v1/analytics' });
   await app.register(feedsRoutes, { prefix: '/v1/feeds' });
