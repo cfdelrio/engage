@@ -47,6 +47,12 @@ model Tenant {
   pushCampaigns       PushCampaign[]
   pushNotifications   PushNotification[]
   pushMetrics         PushMetric[]
+  emailCampaigns      EmailCampaign[]
+  emailDeliveries     EmailDelivery[]
+  emailMetrics        EmailMetric[]
+  smsCampaigns        SmsCampaign[]
+  smsDeliveries       SmsDelivery[]
+  smsMetrics          SmsMetric[]
   auditLogs           AuditLog[]
 
   @@map("tenants")
@@ -881,6 +887,163 @@ model PushMetric {
   @@unique([campaignId, date])
   @@index([tenantId, date])
   @@map("push_metrics")
+}
+
+// ─────────────────────────────────────────────
+// EMAIL CAMPAIGNS
+// ─────────────────────────────────────────────
+
+model EmailCampaign {
+  id             String    @id @default(cuid())
+  tenantId       String
+  name           String
+  description    String?
+  status         String    @default("draft")
+  triggerType    String    @default("manual")
+  subject        String
+  bodyHtml       String
+  bodyText       String?
+  fromName       String?
+  fromEmail      String?
+  replyTo        String?
+  unsubscribeUrl String?
+  aiGenerated    Boolean   @default(false)
+  aiInstructions String?
+  audienceFilter Json      @default("{}")
+  maxRetries     Int       @default(2)
+  scheduledFor   DateTime?
+  startAt        DateTime?
+  endAt          DateTime?
+  stats          Json      @default("{\"sent\": 0, \"delivered\": 0, \"opened\": 0, \"clicked\": 0, \"bounced\": 0, \"failed\": 0}")
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries EmailDelivery[]
+  metrics    EmailMetric[]
+
+  @@index([tenantId, status])
+  @@map("email_campaigns")
+}
+
+model EmailDelivery {
+  id               String    @id @default(cuid())
+  emailCampaignId  String
+  tenantId         String
+  userId           String
+  email            String
+  status           String    @default("queued")
+  resendMessageId  String?   @unique
+  openedAt         DateTime?
+  clickedAt        DateTime?
+  bouncedAt        DateTime?
+  failedAt         DateTime?
+  sentAt           DateTime?
+  deliveredAt      DateTime?
+  errorMessage     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  campaign EmailCampaign @relation(fields: [emailCampaignId], references: [id], onDelete: Cascade)
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([emailCampaignId])
+  @@index([tenantId, userId])
+  @@map("email_deliveries")
+}
+
+model EmailMetric {
+  id          String   @id @default(cuid())
+  campaignId  String
+  tenantId    String
+  date        DateTime @db.Date
+  sent        Int      @default(0)
+  delivered   Int      @default(0)
+  opened      Int      @default(0)
+  clicked     Int      @default(0)
+  bounced     Int      @default(0)
+  failed      Int      @default(0)
+
+  campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([tenantId, date])
+  @@map("email_metrics")
+}
+
+// ─────────────────────────────────────────────
+// SMS CAMPAIGNS
+// ─────────────────────────────────────────────
+
+model SmsCampaign {
+  id             String    @id @default(cuid())
+  tenantId       String
+  name           String
+  description    String?
+  status         String    @default("draft")
+  triggerType    String    @default("manual")
+  body           String
+  fromNumber     String?
+  aiGenerated    Boolean   @default(false)
+  aiInstructions String?
+  audienceFilter Json      @default("{}")
+  maxRetries     Int       @default(2)
+  scheduledFor   DateTime?
+  startAt        DateTime?
+  endAt          DateTime?
+  stats          Json      @default("{\"sent\": 0, \"delivered\": 0, \"failed\": 0}")
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries SmsDelivery[]
+  metrics    SmsMetric[]
+
+  @@index([tenantId, status])
+  @@map("sms_campaigns")
+}
+
+model SmsDelivery {
+  id              String    @id @default(cuid())
+  smsCampaignId   String
+  tenantId        String
+  userId          String
+  phone           String
+  status          String    @default("queued")
+  twilioMessageSid String?  @unique
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  failedAt        DateTime?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  campaign SmsCampaign @relation(fields: [smsCampaignId], references: [id], onDelete: Cascade)
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([smsCampaignId])
+  @@index([tenantId, userId])
+  @@map("sms_deliveries")
+}
+
+model SmsMetric {
+  id         String   @id @default(cuid())
+  campaignId String
+  tenantId   String
+  date       DateTime @db.Date
+  sent       Int      @default(0)
+  delivered  Int      @default(0)
+  failed     Int      @default(0)
+
+  campaign SmsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([tenantId, date])
+  @@map("sms_metrics")
 }
 
 // ─────────────────────────────────────────────
