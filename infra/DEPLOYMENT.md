@@ -142,6 +142,23 @@ sudo journalctl -u orkestai-worker -f
 sudo journalctl -u orkestai-web -f
 ```
 
+## Quick Troubleshooting
+
+**⚠️ CSS not loading?**
+```bash
+# Check NEXT_PUBLIC_API_URL in orkestai-web.service
+grep NEXT_PUBLIC_API_URL /etc/systemd/system/orkestai-web.service
+# Must be: https://engage.orkestai.ar:3001 (not http://, not localhost)
+
+# Fix and restart
+sudo sed -i 's|NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=https://engage.orkestai.ar:3001|g' /etc/systemd/system/orkestai-web.service
+sudo systemctl daemon-reload && sudo systemctl restart orkestai-web
+sleep 3
+curl -s https://engage.orkestai.ar | grep -c stylesheet  # Should return > 0
+```
+
+**See `infra/LESSONS_LEARNED.md` for detailed error analysis and prevention strategies.**
+
 ## Troubleshooting
 
 ### Port already in use (EADDRINUSE)
