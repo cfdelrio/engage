@@ -1,0 +1,29 @@
+{
+  "name": "@engage/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@engage/ai": "workspace:*",
+    "@engage/analytics": "workspace:*",
+    "@engage/channels": "workspace:*",
+    "@engage/core": "workspace:*",
+    "@engage/database": "workspace:*",
+    "@engage/event-bus": "workspace:*",
+    "@engage/rules-engine": "workspace:*",
+    "bullmq": "^5.34.0",
+    "handlebars": "^4.7.9",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/handlebars": "^4.1.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
