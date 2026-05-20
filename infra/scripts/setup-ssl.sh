@@ -26,7 +26,7 @@ sudo certbot certonly --standalone -d "$DOMAIN"
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 KEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
 
-if [ ! -f "$CERT_PATH" ]; then
+if ! sudo test -f "$CERT_PATH"; then
   echo "❌ Certificate not found at $CERT_PATH"
   exit 1
 fi
