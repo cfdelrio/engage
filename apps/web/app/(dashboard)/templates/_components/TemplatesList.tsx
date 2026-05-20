@@ -40,7 +40,7 @@ export function TemplatesList() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function fetchTemplates() {
+  const refetchTemplates = async () => {
     try {
       const apiKey = localStorage.getItem('engage_api_key') ?? '';
       const res = await fetch(`${API_URL}/v1/templates`, {
@@ -50,13 +50,24 @@ export function TemplatesList() {
       setTemplates(data);
     } catch (err) {
       console.error('Failed to fetch templates:', err);
-    } finally {
-      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchTemplates();
+    (async () => {
+      try {
+        const apiKey = localStorage.getItem('engage_api_key') ?? '';
+        const res = await fetch(`${API_URL}/v1/templates`, {
+          headers: { 'x-api-key': apiKey },
+        });
+        const data = await res.json();
+        setTemplates(data);
+      } catch (err) {
+        console.error('Failed to fetch templates:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   async function deleteTemplate(id: string) {
@@ -68,7 +79,7 @@ export function TemplatesList() {
         method: 'DELETE',
         headers: { 'x-api-key': apiKey },
       });
-      await fetchTemplates();
+      refetchTemplates();
     } catch (err) {
       console.error('Failed to delete template:', err);
     }

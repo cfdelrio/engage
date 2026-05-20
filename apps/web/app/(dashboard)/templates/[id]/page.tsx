@@ -36,38 +36,38 @@ export default function TemplateDetailPage({ params }: { params: { id: string } 
   const [previewData, setPreviewData] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState('');
 
-  async function fetchTemplate() {
-    try {
-      const apiKey = localStorage.getItem('engage_api_key') ?? '';
-      const res = await fetch(`${API_URL}/v1/templates/${params.id}`, {
-        headers: { 'x-api-key': apiKey },
-      });
-      const data = await res.json();
-      setTemplate(data);
-      setName(data.name);
-      setChannel(data.channel);
-      setSubject(data.subject || '');
-      setBody(data.body);
-      setVariables(data.variables || []);
-    } catch (err) {
-      console.error('Failed to fetch template:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    fetchTemplate();
+    (async () => {
+      try {
+        const apiKey = localStorage.getItem('engage_api_key') ?? '';
+        const res = await fetch(`${API_URL}/v1/templates/${params.id}`, {
+          headers: { 'x-api-key': apiKey },
+        });
+        const data = await res.json();
+        setTemplate(data);
+        setName(data.name);
+        setChannel(data.channel);
+        setSubject(data.subject || '');
+        setBody(data.body);
+        setVariables(data.variables || []);
+      } catch (err) {
+        console.error('Failed to fetch template:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [params.id]);
 
   useEffect(() => {
-    try {
-      const template = Handlebars.compile(body);
-      const rendered = template(previewData);
-      setPreview(rendered);
-    } catch {
-      setPreview('Error en template de Handlebars');
-    }
+    (async () => {
+      try {
+        const template = Handlebars.compile(body);
+        const rendered = template(previewData);
+        setPreview(rendered);
+      } catch {
+        setPreview('Error en template de Handlebars');
+      }
+    })();
   }, [body, previewData]);
 
   async function handleSave() {

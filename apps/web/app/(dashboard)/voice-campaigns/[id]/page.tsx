@@ -67,9 +67,53 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function fetchData() {
+  useEffect(() => {
+    (async () => {
+      try {
+        const apiKey = localStorage.getItem('engage_api_key') ?? '';
+        const [campaignRes, metricsRes, callsRes] = await Promise.all([
+          fetch(`${API_URL}/v1/voice-campaigns/campaigns/${params.id}`, {
+            headers: { 'x-api-key': apiKey },
+          }),
+          fetch(`${API_URL}/v1/voice-campaigns/campaigns/${params.id}/metrics`, {
+            headers: { 'x-api-key': apiKey },
+          }),
+          fetch(`${API_URL}/v1/voice-campaigns/campaigns/${params.id}/calls`, {
+            headers: { 'x-api-key': apiKey },
+          }),
+        ]);
+
+        const campaignData = await campaignRes.json();
+        await metricsRes.json();
+        const callsData = await callsRes.json();
+
+        setCampaign(campaignData);
+        setMetrics({
+          sent: campaignData.stats.sent,
+          answered: campaignData.stats.answered,
+          completed: campaignData.stats.completed,
+          failed: campaignData.stats.failed,
+          avgDuration: campaignData.stats.avgDuration,
+          answerRate: campaignData.stats.sent > 0 ? (campaignData.stats.answered / campaignData.stats.sent) * 100 : 0,
+        });
+        setCalls(callsData || []);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [params.id]);
+
+  async function handlePauseCampaign() {
     try {
       const apiKey = localStorage.getItem('engage_api_key') ?? '';
+      await fetch(`${API_URL}/v1/voice-campaigns/campaigns/${params.id}/pause`, {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey },
+      });
+      // Refetch data after pause
+      setLoading(true);
       const [campaignRes, metricsRes, callsRes] = await Promise.all([
         fetch(`${API_URL}/v1/voice-campaigns/campaigns/${params.id}`, {
           headers: { 'x-api-key': apiKey },
@@ -81,11 +125,9 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
           headers: { 'x-api-key': apiKey },
         }),
       ]);
-
       const campaignData = await campaignRes.json();
       await metricsRes.json();
       const callsData = await callsRes.json();
-
       setCampaign(campaignData);
       setMetrics({
         sent: campaignData.stats.sent,
@@ -97,26 +139,9 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
       });
       setCalls(callsData || []);
     } catch (err) {
-      console.error('Failed to fetch data:', err);
+      console.error('Failed to pause campaign:', err);
     } finally {
       setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchData();
-  }, [params.id]);
-
-  async function handlePauseCampaign() {
-    try {
-      const apiKey = localStorage.getItem('engage_api_key') ?? '';
-      await fetch(`${API_URL}/v1/voice-campaigns/campaigns/${params.id}/pause`, {
-        method: 'POST',
-        headers: { 'x-api-key': apiKey },
-      });
-      fetchData();
-    } catch (err) {
-      console.error('Failed to pause campaign:', err);
     }
   }
 

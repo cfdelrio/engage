@@ -51,38 +51,50 @@ export default function WhatsAppCampaignDetailPage({ params }: { params: { id: s
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function fetchData() {
-    try {
-      const [campaignRes, metricsRes, messagesRes] = await Promise.all([
-        fetch(`/api/v1/whatsapp-campaigns/${params.id}`),
-        fetch(`/api/v1/whatsapp-campaigns/${params.id}/metrics`),
-        fetch(`/api/v1/whatsapp-campaigns/${params.id}/messages`),
-      ]);
-
-      const campaignData = await campaignRes.json();
-      const metricsData = await metricsRes.json();
-      const messagesData = await messagesRes.json();
-
-      setCampaign(campaignData);
-      setMetrics(metricsData.stats);
-      setMessages(messagesData.messages || []);
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    fetchData();
+    (async () => {
+      try {
+        const [campaignRes, metricsRes, messagesRes] = await Promise.all([
+          fetch(`/api/v1/whatsapp-campaigns/${params.id}`),
+          fetch(`/api/v1/whatsapp-campaigns/${params.id}/metrics`),
+          fetch(`/api/v1/whatsapp-campaigns/${params.id}/messages`),
+        ]);
+
+        const campaignData = await campaignRes.json();
+        const metricsData = await metricsRes.json();
+        const messagesData = await messagesRes.json();
+
+        setCampaign(campaignData);
+        setMetrics(metricsData.stats);
+        setMessages(messagesData.messages || []);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [params.id]);
 
   async function handlePauseCampaign() {
     try {
       await fetch(`/api/v1/whatsapp-campaigns/${params.id}/pause`, { method: 'POST' });
-      fetchData();
+      // Refetch data after pause
+      setLoading(true);
+      const [campaignRes, metricsRes, messagesRes] = await Promise.all([
+        fetch(`/api/v1/whatsapp-campaigns/${params.id}`),
+        fetch(`/api/v1/whatsapp-campaigns/${params.id}/metrics`),
+        fetch(`/api/v1/whatsapp-campaigns/${params.id}/messages`),
+      ]);
+      const campaignData = await campaignRes.json();
+      const metricsData = await metricsRes.json();
+      const messagesData = await messagesRes.json();
+      setCampaign(campaignData);
+      setMetrics(metricsData.stats);
+      setMessages(messagesData.messages || []);
     } catch (err) {
       console.error('Failed to pause campaign:', err);
+    } finally {
+      setLoading(false);
     }
   }
 
