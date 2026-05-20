@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { createHash } from 'crypto';
 import { z } from 'zod';
 import { prisma } from '@engage/database';
 import type {
@@ -7,6 +8,7 @@ import type {
   BulkUpdateUserPreferenceRequest,
   ApiErrorResponse,
 } from '@engage/core';
+import { generatePreferenceToken, getTokenPrefix } from '../plugins/preference-token-auth.js';
 
 const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticateApiKey);
@@ -255,6 +257,65 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
       } catch (err) {
         request.log.error(err);
         return reply.status(500).send({ error: 'Failed to reset preferences', code: 'INTERNAL_ERROR' } as ApiErrorResponse);
+      }
+    },
+  );
+
+  /**
+   * POST /v1/users/:userId/preferences/token
+   * Generate a preference token for a user (public preferences access)
+   */
+  fastify.post<{
+    Params: { userId: string };
+    Reply: { token: string; tokenPrefix: string; expiresAt: string | null; url: string } | ApiErrorResponse;
+  }>(
+    '/users/:userId/preferences/token',
+    async (request, reply) => {
+      try {
+        const { userId } = request.params;
+
+        // Verify user exists in tenant
+        const user = await prisma.user.findFirst({
+          where: { id: userId, tenantId: request.tenantId },
+        });
+
+        if (!user) {
+          return reply.status(404).send({ error: 'User not found', code: 'NOT_FOUND' } as ApiErrorResponse);
+        }
+
+        // Generate new token
+        const token = generatePreferenceToken();
+        const tokenHash = createHash('sha256').update(token).digest('hex');
+        const tokenPrefix = getTokenPrefix(token);
+
+        // Calculate expiry (30 days from now)
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
+
+        // Store in database
+        const preferenceToken = await prisma.preferenceToken.create({
+          data: {
+            userId,
+            tenantId: request.tenantId,
+            tokenHash,
+            tokenPrefix,
+            expiresAt,
+          },
+        });
+
+        // Build public preferences URL
+        const baseUrl = process.env['PUBLIC_URL'] || 'https://app.example.com';
+        const preferencesUrl = `${baseUrl}/public/preferences/${token}`;
+
+        return reply.status(201).send({
+          token,
+          tokenPrefix: preferenceToken.tokenPrefix,
+          expiresAt: preferenceToken.expiresAt?.toISOString() || null,
+          url: preferencesUrl,
+        });
+      } catch (err) {
+        request.log.error(err);
+        return reply.status(500).send({ error: 'Failed to generate preference token', code: 'INTERNAL_ERROR' } as ApiErrorResponse);
       }
     },
   );

@@ -98,6 +98,7 @@ model User {
 
   tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   preferences         UserPreference[]
+  preferenceTokens    PreferenceToken[]
   engagementScore     UserEngagementScore?
   sessions            UserSession[]
   deliveries          Delivery[]
@@ -112,6 +113,23 @@ model User {
   @@index([tenantId])
   @@index([tenantId, email])
   @@map("users")
+}
+
+model PreferenceToken {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String
+  tokenHash   String    @unique
+  tokenPrefix String
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId, tokenHash])
+  @@index([tenantId, userId])
+  @@map("preference_tokens")
 }
 
 model UserPreference {
