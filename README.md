@@ -135,6 +135,7 @@ Workers de canal (con retry + DLQ):
   deliveries.push      → Firebase FCM
   deliveries.voice     → Twilio Voice + TTS
   voice.calls          → Twilio Voice API + TwiML (IVR, DTMF, Recording)
+  push.notifications   → Firebase Cloud Messaging (FCM)
 ```
 
 ---
@@ -169,18 +170,21 @@ Documentación completa en Swagger: `http://localhost:3001/docs`
 | `GET` | `/v1/users/:id/engagement` | Score y métricas de un usuario |
 | `GET/POST` | `/v1/campaigns` | Gestión de campañas |
 | `GET/POST` | `/v1/rules` | Gestión de reglas |
-| `GET/POST` | `/v1/voice-campaigns` | **[NUEVO]** Gestión de voice campaigns |
-| `GET` | `/v1/voice-campaigns/:id/calls` | **[NUEVO]** Listar llamadas de campaña |
-| `GET` | `/v1/voice-calls/:id` | **[NUEVO]** Detalles de una llamada |
-| `GET` | `/v1/voice-campaigns/:id/metrics` | **[NUEVO]** Métricas de voice campaign |
+| `GET/POST` | `/v1/voice-campaigns` | Gestión de voice campaigns |
+| `GET` | `/v1/voice-campaigns/:id/calls` | Listar llamadas de campaña |
+| `GET` | `/v1/voice-calls/:id` | Detalles de una llamada |
+| `GET` | `/v1/voice-campaigns/:id/metrics` | Métricas de voice campaign |
+| `GET/POST` | `/v1/push-campaigns` | **[NUEVO]** Gestión de push campaigns |
+| `GET` | `/v1/push-campaigns/:id/notifications` | **[NUEVO]** Listar notificaciones |
+| `GET` | `/v1/push-campaigns/:id/metrics` | **[NUEVO]** Métricas de push campaign |
 | `GET` | `/v1/analytics/overview` | Métricas generales |
 | `GET` | `/v1/deliveries` | Historial de entregas |
 | `WS` | `/v1/events/stream` | Stream en tiempo real |
 | `POST` | `/webhooks/resend` | Webhook Resend (status email) |
 | `POST` | `/webhooks/twilio` | Webhook Twilio (status SMS/voice) |
-| `POST` | `/webhooks/twilio/voice` | **[NUEVO]** Webhook Twilio call status |
-| `POST` | `/webhooks/twilio/gather` | **[NUEVO]** Webhook DTMF responses |
-| `POST` | `/webhooks/twilio/recording` | **[NUEVO]** Webhook recording completed |
+| `POST` | `/webhooks/twilio/voice` | Webhook Twilio call status |
+| `POST` | `/webhooks/twilio/gather` | Webhook DTMF responses |
+| `POST` | `/webhooks/twilio/recording` | Webhook recording completed |
 
 ---
 
@@ -241,6 +245,37 @@ curl -X POST http://localhost:3001/v1/voice-campaigns \
 ```
 
 **Documentación completa:** Ver [VOICE_CAMPAIGNS.md](/VOICE_CAMPAIGNS.md)
+
+---
+
+## Push Notifications
+
+Contacta usuarios vía **notificaciones push** en sus dispositivos (web y mobile) con Firebase Cloud Messaging (FCM). Soporta:
+
+- ✅ Notificaciones personalizadas con variables Handlebars
+- ✅ Imágenes y URLs de acción
+- ✅ Prioridades ajustables (high, default, low)
+- ✅ Sonido y badge customizable
+- ✅ Retry automático con exponential backoff
+- ✅ Quiet hours (no contactar en horarios específicos)
+- ✅ Metrics: enviadas, entregadas, abiertas, clickeadas
+
+**Ejemplo:**
+```bash
+curl -X POST http://localhost:3001/v1/push-campaigns \
+  -H "x-api-key: <tu-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Promoción especial",
+    "title": "¡Oferta exclusiva!",
+    "body": "Hola {{user.firstName}}, tienes 30% de descuento",
+    "imageUrl": "https://example.com/promo.jpg",
+    "actionUrl": "https://example.com/promo",
+    "priority": "high"
+  }'
+```
+
+**Documentación completa:** Ver [PUSH_CAMPAIGNS.md](/PUSH_CAMPAIGNS.md) (próximamente)
 
 ---
 
@@ -342,7 +377,7 @@ Deploy automático a AWS ECS Fargate al hacer push a `main` (requiere secrets `A
 **Integraciones:**
 - Twilio — SMS, Voice, WhatsApp
 - Resend — Email transaccional
-- Firebase FCM — Push notifications
+- Firebase Cloud Messaging — Push notifications ⭐
 - Anthropic — AI completions
 
 ---
