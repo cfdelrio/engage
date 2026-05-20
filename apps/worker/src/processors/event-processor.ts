@@ -369,6 +369,17 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
           },
         },
       });
+
+      // Publish event to WebSocket stream for real-time dashboard updates
+      await redis.publish(
+        REDIS_KEYS.eventStream(tenantId),
+        JSON.stringify({
+          id: event.id,
+          type: event.type,
+          userId: event.userId,
+          receivedAt: event.receivedAt.toISOString(),
+        }),
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[event-processor] eventId=${eventId} failed:`, message);

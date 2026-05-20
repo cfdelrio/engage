@@ -51,38 +51,50 @@ export default function PushCampaignDetailPage({ params }: { params: { id: strin
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function fetchData() {
-    try {
-      const [campaignRes, metricsRes, notificationsRes] = await Promise.all([
-        fetch(`/api/v1/push-campaigns/${params.id}`),
-        fetch(`/api/v1/push-campaigns/${params.id}/metrics`),
-        fetch(`/api/v1/push-campaigns/${params.id}/notifications`),
-      ]);
-
-      const campaignData = await campaignRes.json();
-      const metricsData = await metricsRes.json();
-      const notificationsData = await notificationsRes.json();
-
-      setCampaign(campaignData);
-      setMetrics(metricsData.stats);
-      setNotifications(notificationsData.notifications || []);
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    fetchData();
+    (async () => {
+      try {
+        const [campaignRes, metricsRes, notificationsRes] = await Promise.all([
+          fetch(`/api/v1/push-campaigns/${params.id}`),
+          fetch(`/api/v1/push-campaigns/${params.id}/metrics`),
+          fetch(`/api/v1/push-campaigns/${params.id}/notifications`),
+        ]);
+
+        const campaignData = await campaignRes.json();
+        const metricsData = await metricsRes.json();
+        const notificationsData = await notificationsRes.json();
+
+        setCampaign(campaignData);
+        setMetrics(metricsData.stats);
+        setNotifications(notificationsData.notifications || []);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [params.id]);
 
   async function handlePauseCampaign() {
     try {
       await fetch(`/api/v1/push-campaigns/${params.id}/pause`, { method: 'POST' });
-      fetchData();
+      // Refetch data after pause
+      setLoading(true);
+      const [campaignRes, metricsRes, notificationsRes] = await Promise.all([
+        fetch(`/api/v1/push-campaigns/${params.id}`),
+        fetch(`/api/v1/push-campaigns/${params.id}/metrics`),
+        fetch(`/api/v1/push-campaigns/${params.id}/notifications`),
+      ]);
+      const campaignData = await campaignRes.json();
+      const metricsData = await metricsRes.json();
+      const notificationsData = await notificationsRes.json();
+      setCampaign(campaignData);
+      setMetrics(metricsData.stats);
+      setNotifications(notificationsData.notifications || []);
     } catch (err) {
       console.error('Failed to pause campaign:', err);
+    } finally {
+      setLoading(false);
     }
   }
 

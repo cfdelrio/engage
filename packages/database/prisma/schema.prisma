@@ -64,14 +64,17 @@ model TenantApiKey {
   keyHash     String    @unique
   keyPrefix   String
   name        String
+  status      String    @default("active") // active, disabled, revoked
   permissions Json      @default("[]")
   lastUsedAt  DateTime?
   createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   revokedAt   DateTime?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([tenantId, status])
   @@map("tenant_api_keys")
 }
 

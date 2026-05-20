@@ -53,7 +53,7 @@ export default function VoiceCampaignsPage() {
     },
   });
 
-  async function fetchCampaigns() {
+  const refetchCampaigns = async () => {
     try {
       const apiKey = localStorage.getItem('engage_api_key') ?? '';
       const res = await fetch(`${API_URL}/v1/voice-campaigns/campaigns`, {
@@ -63,13 +63,24 @@ export default function VoiceCampaignsPage() {
       setCampaigns(data || []);
     } catch (err) {
       console.error('Failed to fetch campaigns:', err);
-    } finally {
-      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchCampaigns();
+    (async () => {
+      try {
+        const apiKey = localStorage.getItem('engage_api_key') ?? '';
+        const res = await fetch(`${API_URL}/v1/voice-campaigns/campaigns`, {
+          headers: { 'x-api-key': apiKey },
+        });
+        const data = await res.json();
+        setCampaigns(data || []);
+      } catch (err) {
+        console.error('Failed to fetch campaigns:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   async function handleCreateCampaign(e: React.FormEvent) {
@@ -97,7 +108,7 @@ export default function VoiceCampaignsPage() {
           },
         });
         setShowForm(false);
-        fetchCampaigns();
+        refetchCampaigns();
       }
     } catch (err) {
       console.error('Failed to create campaign:', err);

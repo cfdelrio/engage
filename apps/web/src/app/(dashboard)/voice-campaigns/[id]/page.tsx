@@ -42,25 +42,23 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
   const [calls, setCalls] = useState<VoiceCall[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function fetchData() {
-    try {
-      const [campaignRes, callsRes] = await Promise.all([
-        fetch(`/api/v1/voice-campaigns/${params.id}`),
-        fetch(`/api/v1/voice-campaigns/${params.id}/calls`),
-      ]);
-      const campaignData = await campaignRes.json();
-      const callsData = await callsRes.json();
-      setCampaign(campaignData);
-      setCalls(callsData);
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    fetchData();
+    (async () => {
+      try {
+        const [campaignRes, callsRes] = await Promise.all([
+          fetch(`/api/v1/voice-campaigns/${params.id}`),
+          fetch(`/api/v1/voice-campaigns/${params.id}/calls`),
+        ]);
+        const campaignData = await campaignRes.json();
+        const callsData = await callsRes.json();
+        setCampaign(campaignData);
+        setCalls(callsData);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [params.id]);
 
   if (loading) {
