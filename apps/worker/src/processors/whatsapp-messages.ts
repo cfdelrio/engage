@@ -1,7 +1,7 @@
 import type { Job } from 'bullmq';
 import { PrismaClient } from '@engage/database';
 import Handlebars from 'handlebars';
-import { TwilioWhatsAppProvider } from '@engage/channels/providers/twilio-whatsapp';
+import { TwilioWhatsAppProvider } from '@engage/channels';
 
 interface WhatsAppMessageJob {
   whatsappCampaignId: string;
@@ -97,8 +97,14 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
           userId,
           tenantId: campaign.tenantId,
           phone,
+          body: renderedBody,
+          headerType,
+          headerValue,
+          footerText,
+          buttons,
           status: 'sent',
           twilioMessageSid: result.messageSid,
+          sentAt: new Date(),
         },
       });
 

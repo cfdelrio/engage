@@ -241,7 +241,6 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
           imageUrl: campaign.imageUrl,
           actionUrl: campaign.actionUrl,
           priority: campaign.priority,
-          soundEnabled: campaign.soundEnabled,
           attempt: 0,
         }, { attempts: campaign.maxRetries + 1, backoff: { type: 'exponential', delay: 2000 } });
       }

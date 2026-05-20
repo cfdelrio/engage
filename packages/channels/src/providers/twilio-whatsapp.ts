@@ -1,6 +1,5 @@
 import twilio from 'twilio';
 import Handlebars from 'handlebars';
-import { logger } from '@engage/core/utils';
 
 export interface WhatsAppMessagePayload {
   phone: string; // E.164: +5491123456789
@@ -62,9 +61,9 @@ export class TwilioWhatsAppProvider {
       }
 
       // Send message
-      const message = await this.client.messages.create(messageOptions);
+      const message = await this.client.messages.create(messageOptions as any);
 
-      logger.info(
+      console.log(
         `[twilio-whatsapp] Message sent ${message.sid} to ${payload.phone}`
       );
 
@@ -73,7 +72,7 @@ export class TwilioWhatsAppProvider {
         status: 'queued',
       };
     } catch (err) {
-      logger.error(`[twilio-whatsapp] Failed to send: ${err}`);
+      console.error(`[twilio-whatsapp] Failed to send: ${err}`);
 
       return {
         messageSid: '',
@@ -105,7 +104,7 @@ export class TwilioWhatsAppProvider {
         contentVariables: JSON.stringify({ 1: templateParams[0] || '' }),
       });
 
-      logger.info(
+      console.log(
         `[twilio-whatsapp] Template message sent ${message.sid} to ${phone}`
       );
 
@@ -114,7 +113,7 @@ export class TwilioWhatsAppProvider {
         status: 'queued',
       };
     } catch (err) {
-      logger.error(`[twilio-whatsapp] Template send failed: ${err}`);
+      console.error(`[twilio-whatsapp] Template send failed: ${err}`);
 
       return {
         messageSid: '',
@@ -129,7 +128,7 @@ export class TwilioWhatsAppProvider {
       const template = Handlebars.compile(body);
       return template(variables);
     } catch (err) {
-      logger.error(`[twilio-whatsapp] Failed to render template: ${err}`);
+      console.error(`[twilio-whatsapp] Failed to render template: ${err}`);
       return body;
     }
   }
@@ -176,17 +175,17 @@ export class TwilioWhatsAppProvider {
   async validateConfig(config: Record<string, any>): Promise<boolean> {
     try {
       if (!config.accountSid || !config.authToken || !config.from) {
-        logger.error('[twilio-whatsapp] Missing required config fields');
+        console.error('[twilio-whatsapp] Missing required config fields');
         return false;
       }
 
       // Test credentials by creating a temporary client
       const testClient = twilio(config.accountSid, config.authToken);
-      await testClient.api.accounts.fetch();
+      await testClient.api.accounts.list({ limit: 1 });
 
       return true;
     } catch (err) {
-      logger.error(`[twilio-whatsapp] Invalid config: ${err}`);
+      console.error(`[twilio-whatsapp] Invalid config: ${err}`);
       return false;
     }
   }

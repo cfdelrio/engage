@@ -1,6 +1,8 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { asJson } from '../utils/prisma.js';
+import { getQueue } from '@engage/event-bus';
+import { QUEUES } from '@engage/core';
 
 const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticateApiKey);
@@ -13,7 +15,6 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     headerType: z.enum(['text', 'image', 'document', 'video']).default('text'),
     headerValue: z.string().optional(),
     footerText: z.string().optional(),
-    templateName: z.string().optional(),
     buttons: z
       .array(
         z.object({
@@ -67,7 +68,6 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         headerType: body.headerType,
         headerValue: body.headerValue,
         footerText: body.footerText,
-        templateName: body.templateName,
         buttons: asJson(body.buttons ?? []),
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
@@ -117,7 +117,6 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         headerType: body.headerType,
         headerValue: body.headerValue,
         footerText: body.footerText,
-        templateName: body.templateName,
         buttons: body.buttons ? asJson(body.buttons) : undefined,
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
@@ -170,30 +169,28 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     // Enqueue WhatsApp messages
-    const bullQueue = fastify.bullQueues.get('whatsapp.messages');
-    if (bullQueue) {
-      const users = await fastify.prisma.user.findMany({
-        where: { tenantId: request.tenantId },
-      });
+    const whatsappQueue = getQueue(QUEUES.WHATSAPP_MESSAGES);
+    const users = await fastify.prisma.user.findMany({
+      where: { tenantId: request.tenantId },
+    });
 
-      for (const user of users) {
-        if (user.phone) {
-          await bullQueue.add(
-            `whatsapp-${campaign.id}-${user.id}`,
-            {
-              whatsappCampaignId: id,
-              userId: user.id,
-              phone: user.phone,
-              body: campaign.body,
-              headerType: campaign.headerType,
-              headerValue: campaign.headerValue,
-              footerText: campaign.footerText,
-              buttons: campaign.buttons,
-              attempt: 0,
-            },
-            { attempts: campaign.maxRetries + 1, backoff: { type: 'exponential', delay: 2000 } }
-          );
-        }
+    for (const user of users) {
+      if (user.phone) {
+        await whatsappQueue.add(
+          `whatsapp-${campaign.id}-${user.id}`,
+          {
+            whatsappCampaignId: id,
+            userId: user.id,
+            phone: user.phone,
+            body: campaign.body,
+            headerType: campaign.headerType,
+            headerValue: campaign.headerValue,
+            footerText: campaign.footerText,
+            buttons: campaign.buttons,
+            attempt: 0,
+          },
+          { attempts: campaign.maxRetries + 1, backoff: { type: 'exponential', delay: 2000 } }
+        );
       }
     }
 
@@ -285,7 +282,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         readRate,
       },
       timeline: await fastify.prisma.whatsAppMetric.findMany({
-        where: { whatsappCampaignId: id },
+        where: { campaignId: id },
         orderBy: { date: 'asc' },
       }),
     };

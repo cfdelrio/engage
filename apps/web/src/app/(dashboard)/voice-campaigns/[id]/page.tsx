@@ -42,10 +42,6 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
   const [calls, setCalls] = useState<VoiceCall[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, [params.id]);
-
   async function fetchData() {
     try {
       const [campaignRes, callsRes] = await Promise.all([
@@ -62,6 +58,11 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, [params.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return <div className="flex justify-center py-12">Cargando...</div>;
