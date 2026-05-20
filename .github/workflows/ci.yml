@@ -45,7 +45,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @engage/database db:generate
-      - run: pnpm lint
+      - run: pnpm exec eslint packages apps
 
   test:
     name: Test
