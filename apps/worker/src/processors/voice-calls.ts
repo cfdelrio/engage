@@ -23,10 +23,9 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
   console.log(`[voice-calls] Processing call ${voiceCallId}, attempt ${attempt + 1}`);
 
   try {
-    // Fetch call, campaign, and user
-    const [voiceCall, campaign, user] = await Promise.all([
+    // Fetch call and user
+    const [voiceCall, user] = await Promise.all([
       prisma.voiceCall.findUniqueOrThrow({ where: { id: voiceCallId } }),
-      prisma.voiceCampaign.findUniqueOrThrow({ where: { id: voiceCampaignId } }),
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     ]);
 

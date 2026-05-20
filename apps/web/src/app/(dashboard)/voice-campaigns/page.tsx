@@ -268,7 +268,7 @@ function VoiceCampaignForm({ onSuccess }: { onSuccess: () => void }) {
           placeholder="Hola {{user.firstName}}, este es un mensaje de prueba."
           rows={4}
         />
-        <p className="text-xs text-gray-500 mt-1">Variables disponibles: {{'{{'}}user.firstName{{'}}'}}, {{'{{'}}user.email{{'}}'}}, {{'{{'}}user.phone{{'}}'}}</p>
+        <p className="text-xs text-gray-500 mt-1">Variables disponibles: {'{user.firstName}'}, {'{user.email}'}, {'{user.phone}'}</p>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>

@@ -54,7 +54,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     return user;
   });
 
-  fastify.get('/:id/preferences', async (request, reply) => {
+  fastify.get('/:id/preferences', async (request) => {
     const { id } = request.params as { id: string };
     const prefs = await fastify.prisma.userPreference.findMany({
       where: { userId: id, tenantId: request.tenantId },
@@ -62,7 +62,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     return prefs;
   });
 
-  fastify.put('/:id/preferences', async (request, reply) => {
+  fastify.put('/:id/preferences', async (request) => {
     const { id } = request.params as { id: string };
     const prefsSchema = z.array(
       z.object({
@@ -106,7 +106,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     return results;
   });
 
-  fastify.get('/:id/engagement', async (request, reply) => {
+  fastify.get('/:id/engagement', async (request) => {
     const { id } = request.params as { id: string };
     const [score, recentDeliveries] = await Promise.all([
       fastify.prisma.userEngagementScore.findUnique({ where: { userId: id } }),
