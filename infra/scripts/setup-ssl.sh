@@ -21,7 +21,7 @@ sudo yum install -y certbot python3-certbot-nginx
 echo ""
 echo "📧 You'll be prompted for an email address for renewal notifications"
 echo ""
-sudo certbot certonly --standalone -d "$DOMAIN" -d "www.$DOMAIN"
+sudo certbot certonly --standalone -d "$DOMAIN"
 
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 KEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
