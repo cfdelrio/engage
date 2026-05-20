@@ -2,21 +2,75 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { asJson, asJsonNullable } from '../utils/prisma.js';
 
 const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
-  // Resend webhooks
+  // Resend webhooks - Email campaigns
   fastify.post('/resend', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = request.body as Record<string, unknown>;
     const data = body['data'] as Record<string, unknown> | undefined;
     const messageId = (data?.['email_id'] ?? data?.['message_id']) as string | undefined;
+    const eventType = body['type'] as string;
 
     if (!messageId) return reply.status(200).send({ ok: true });
 
+    // Try EmailDelivery first (new campaigns model)
+    const emailDelivery = await fastify.prisma.emailDelivery.findFirst({
+      where: { resendMessageId: messageId },
+      include: { campaign: true },
+    });
+
+    if (emailDelivery) {
+      const eventMap: Record<string, string> = {
+        'email.delivered': 'delivered',
+        'email.opened': 'opened',
+        'email.clicked': 'clicked',
+        'email.bounced': 'bounced',
+        'email.complained': 'bounced',
+      };
+
+      const event = eventMap[eventType];
+      if (event) {
+        const updateData: Record<string, Date> = {};
+        if (event === 'delivered') updateData.deliveredAt = new Date();
+        if (event === 'opened') updateData.openedAt = new Date();
+        if (event === 'clicked') updateData.clickedAt = new Date();
+        if (event === 'bounced') updateData.bouncedAt = new Date();
+
+        await fastify.prisma.emailDelivery.update({
+          where: { id: emailDelivery.id },
+          data: updateData,
+        });
+
+        // Update daily metrics
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+
+        const metricUpdate: Record<string, number> = {};
+        if (event === 'delivered') metricUpdate.delivered = 1;
+        if (event === 'opened') metricUpdate.opened = 1;
+        if (event === 'clicked') metricUpdate.clicked = 1;
+        if (event === 'bounced') metricUpdate.bounced = 1;
+
+        await fastify.prisma.emailMetric.upsert({
+          where: { campaignId_date: { campaignId: emailDelivery.emailCampaignId, date: today } },
+          update: metricUpdate,
+          create: {
+            campaignId: emailDelivery.emailCampaignId,
+            tenantId: emailDelivery.tenantId,
+            date: today,
+            ...metricUpdate,
+          },
+        });
+      }
+
+      return reply.status(200).send({ ok: true });
+    }
+
+    // Fallback to generic Delivery model for backward compatibility
     const delivery = await fastify.prisma.delivery.findFirst({
       where: { providerMessageId: messageId },
     });
 
     if (!delivery) return reply.status(200).send({ ok: true });
 
-    const eventType = body['type'] as string;
     const statusMap: Record<string, string> = {
       'email.delivered': 'delivered',
       'email.opened': 'opened',
@@ -50,16 +104,67 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(200).send({ ok: true });
   });
 
-  // Twilio SMS/Voice webhooks (legacy delivery endpoint)
+  // Twilio SMS/Voice webhooks (legacy delivery endpoint + SMS campaigns)
   fastify.post('/twilio', async (request: FastifyRequest, reply: FastifyReply) => {
     const form = request.body as Record<string, string>;
-    const sid = form['MessageSid'] ?? form['CallSid'];
-    const status = form['MessageStatus'] ?? form['CallStatus'];
+    const messageSid = form['MessageSid'];
+    const messageStatus = form['MessageStatus'];
 
-    if (!sid) return reply.status(200).send({ ok: true });
+    if (!messageSid || !messageStatus) return reply.status(200).send({ ok: true });
 
+    // Try SmsDelivery first (new campaigns model)
+    const smsDelivery = await fastify.prisma.smsDelivery.findFirst({
+      where: { twilioMessageSid: messageSid },
+      include: { campaign: true },
+    });
+
+    if (smsDelivery) {
+      const statusMap: Record<string, string> = {
+        sent: 'sent',
+        delivered: 'delivered',
+        failed: 'failed',
+        undelivered: 'failed',
+      };
+
+      const mappedStatus = statusMap[messageStatus];
+      if (mappedStatus) {
+        const updateData: Record<string, string | Date> = { status: mappedStatus };
+        if (mappedStatus === 'delivered') updateData.deliveredAt = new Date();
+        if (mappedStatus === 'failed') updateData.failedAt = new Date();
+
+        await fastify.prisma.smsDelivery.update({
+          where: { id: smsDelivery.id },
+          data: updateData,
+        });
+
+        // Update daily metrics
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+
+        const metricIncrement: Record<string, number> = {};
+        if (mappedStatus === 'delivered') metricIncrement.delivered = 1;
+        if (mappedStatus === 'failed') metricIncrement.failed = 1;
+
+        if (Object.keys(metricIncrement).length > 0) {
+          await fastify.prisma.smsMetric.upsert({
+            where: { campaignId_date: { campaignId: smsDelivery.smsCampaignId, date: today } },
+            update: metricIncrement,
+            create: {
+              campaignId: smsDelivery.smsCampaignId,
+              tenantId: smsDelivery.tenantId,
+              date: today,
+              ...metricIncrement,
+            },
+          });
+        }
+      }
+
+      return reply.status(200).send({ ok: true });
+    }
+
+    // Fallback to generic Delivery model for backward compatibility
     const delivery = await fastify.prisma.delivery.findFirst({
-      where: { providerMessageId: sid },
+      where: { providerMessageId: messageSid },
     });
 
     if (!delivery) return reply.status(200).send({ ok: true });
@@ -74,7 +179,7 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
       busy: 'failed',
     };
 
-    const mapped = statusMap[status ?? ''];
+    const mapped = statusMap[messageStatus ?? ''];
     if (mapped) {
       await fastify.prisma.delivery.update({
         where: { id: delivery.id },
@@ -82,7 +187,7 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       await fastify.prisma.deliveryEvent.create({
-        data: { deliveryId: delivery.id, event: mapped, data: asJson({ status }), rawWebhook: asJsonNullable(form) },
+        data: { deliveryId: delivery.id, event: mapped, data: asJson({ status: messageStatus }), rawWebhook: asJsonNullable(form) },
       });
     }
 
@@ -122,7 +227,7 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
 
     const mappedStatus = statusMap[callStatus];
     if (mappedStatus && mappedStatus !== voiceCall.status) {
-      const update: Record<string, any> = { status: mappedStatus };
+      const update: Record<string, string | Date | number> = { status: mappedStatus };
 
       if (mappedStatus === 'in_progress' && !voiceCall.answeredAt) {
         update['answeredAt'] = new Date();
@@ -131,7 +236,7 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
       if (['completed', 'no_answer', 'failed'].includes(mappedStatus)) {
         update['completedAt'] = new Date();
         update['duration'] = parseInt(form['CallDuration'] || '0', 10);
-        update['terminationReason'] = form['CallStatus'] === 'completed' ? 'completed' : form['CallStatus'];
+        update['terminationReason'] = form['CallStatus'] === 'completed' ? 'completed' : (form['CallStatus'] ?? 'failed');
       }
 
       await fastify.prisma.voiceCall.update({
@@ -259,7 +364,7 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
 
     const mappedStatus = statusMap[messageStatus];
     if (mappedStatus && mappedStatus !== whatsappMessage.status) {
-      const update: Record<string, any> = { status: mappedStatus };
+      const update: Record<string, string | Date> = { status: mappedStatus };
 
       if (mappedStatus === 'delivered') update['deliveredAt'] = new Date();
       if (mappedStatus === 'read') update['readAt'] = new Date();
