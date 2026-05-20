@@ -28,7 +28,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec prisma generate --schema=packages/database/prisma/schema.prisma
+      - run: pnpm --filter @engage/database db:generate
       - run: pnpm typecheck
 
   lint:
@@ -44,7 +44,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec prisma generate --schema=packages/database/prisma/schema.prisma
+      - run: pnpm --filter @engage/database db:generate
       - run: pnpm lint
 
   test:
@@ -86,8 +86,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec prisma generate --schema=packages/database/prisma/schema.prisma
-      - run: pnpm exec prisma migrate deploy --schema=packages/database/prisma/schema.prisma
+      - run: pnpm --filter @engage/database db:generate
+      - run: pnpm --filter @engage/database db:migrate:deploy
       - run: pnpm test
 
   build:
@@ -104,7 +104,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec prisma generate --schema=packages/database/prisma/schema.prisma
+      - run: pnpm --filter @engage/database db:generate
       - run: pnpm build
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
