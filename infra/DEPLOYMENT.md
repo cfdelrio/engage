@@ -7,6 +7,37 @@
 - **Node.js**: v22 (via NVM)
 - **Docker**: Latest (for postgres, redis, bullboard)
 - **Git**: For cloning the repository
+- **Domain**: orkestai.ar (or your chosen domain)
+- **Static IP**: Elastic IP assigned to your instance
+
+## Domain & SSL Setup (orkestai.ar)
+
+**Before running services**, configure your domain:
+
+1. **Point DNS** to your EC2 instance IP in your domain registrar:
+   ```
+   A record: @ → your-elastic-ip (e.g., 44.223.7.160)
+   ```
+
+2. **Run SSL setup** (after DNS propagates, ~5-30 mins):
+   ```bash
+   cd /home/ec2-user/engage
+   bash infra/scripts/setup-ssl.sh orkestai.ar
+   ```
+
+   This script automatically:
+   - Obtains Let's Encrypt certificate
+   - Installs and configures NGINX reverse proxy
+   - Sets up auto-renewal
+   - Updates systemd services with HTTPS URLs
+
+3. **Verify everything**:
+   ```bash
+   curl -I https://orkestai.ar  # Should return 200
+   sudo systemctl status nginx   # Check reverse proxy
+   ```
+
+**See `infra/DNS.md` for complete DNS & SSL troubleshooting.**
 
 ## Quick Setup (from scratch)
 
@@ -149,12 +180,21 @@ redis-cli ping  # Should return PONG
 
 ## Accessing the Platform
 
+### After SSL Setup (Recommended)
+
 | Service | URL |
 |---------|-----|
-| Dashboard | http://YOUR_PUBLIC_IP:3000 |
-| API | http://YOUR_PUBLIC_IP:3001 |
-| Swagger | http://YOUR_PUBLIC_IP:3001/docs |
-| Bull Board | http://YOUR_PUBLIC_IP:3002 |
+| Dashboard | https://orkestai.ar |
+| API | https://api.orkestai.ar |
+| Swagger | https://api.orkestai.ar/docs |
+| Bull Board | http://orkestai.ar:3002 |
+
+**Direct IP access** (still works):
+```
+http://YOUR_ELASTIC_IP:3000  (Web, HTTP only)
+http://YOUR_ELASTIC_IP:3001  (API, HTTP only)
+http://YOUR_ELASTIC_IP:3002  (Bull Board)
+```
 
 ## Backup and Maintenance
 
