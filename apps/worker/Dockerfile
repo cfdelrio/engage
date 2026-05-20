@@ -19,7 +19,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages ./packages
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY . .
-RUN pnpm --filter @engage/database exec prisma generate
+RUN pnpm --filter @engage/database run db:generate
 RUN pnpm --filter @engage/core build
 RUN pnpm --filter @engage/database build
 RUN pnpm --filter @engage/event-bus build
