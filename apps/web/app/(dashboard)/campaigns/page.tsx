@@ -1,10 +1,35 @@
 export const dynamic = 'force-dynamic';
-import { Card, CardContent } from '@/components/ui/card';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Megaphone, Plus } from 'lucide-react';
+import { Megaphone, Bell, MessageCircle, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function CampaignsPage() {
+  const campaignTypes = [
+    {
+      href: '/push-campaigns',
+      label: 'Push Notifications',
+      icon: Bell,
+      description: 'Notificaciones push para apps móviles',
+      color: 'bg-blue-500',
+    },
+    {
+      href: '/whatsapp-campaigns',
+      label: 'WhatsApp Campaigns',
+      icon: MessageCircle,
+      description: 'Mensajes de WhatsApp personalizados',
+      color: 'bg-green-500',
+    },
+    {
+      href: '/voice-campaigns',
+      label: 'Voice Campaigns',
+      icon: Phone,
+      description: 'Llamadas telefónicas automatizadas',
+      color: 'bg-orange-500',
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -12,36 +37,26 @@ export default function CampaignsPage() {
           <h1 className="text-2xl font-semibold">Campañas</h1>
           <p className="text-muted-foreground text-sm mt-1">Engagement orquestado multi-canal</p>
         </div>
-        <Button size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva campaña
-        </Button>
       </div>
 
-      <div className="grid gap-4">
-        {[
-          { name: 'Reactivación de usuarios', type: 'voice', status: 'active', users: 1240, sent: 980 },
-          { name: 'Top 3 semanal', type: 'push + email', status: 'active', users: 450, sent: 450 },
-          { name: 'Recordatorio de pago', type: 'email + sms', status: 'draft', users: 320, sent: 0 },
-        ].map((campaign) => (
-          <Card key={campaign.name}>
-            <CardContent className="flex items-center gap-4 py-4">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Megaphone className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-sm">{campaign.name}</p>
-                <p className="text-xs text-muted-foreground">{campaign.type}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm">{campaign.sent.toLocaleString()} / {campaign.users.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">enviados / alcance</p>
-              </div>
-              <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'}>
-                {campaign.status}
-              </Badge>
-            </CardContent>
-          </Card>
+      {/* Campaign Types */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {campaignTypes.map(({ href, label, icon: Icon, description, color }) => (
+          <Link key={href} href={href}>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className={`${color} p-2 rounded-lg text-white`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-sm">{label}</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-1">{description}</p>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>
