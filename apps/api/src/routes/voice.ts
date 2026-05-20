@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { asJson } from '../utils/prisma.js';
 
@@ -27,14 +27,14 @@ function escapeXml(text: string): string {
 const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticateApiKey);
 
-  fastify.get('/campaigns', async (request) => {
+  fastify.get('/campaigns', async (request: FastifyRequest) => {
     return fastify.prisma.voiceCampaign.findMany({
       where: { tenantId: request.tenantId },
       orderBy: { createdAt: 'desc' },
     });
   });
 
-  fastify.post('/campaigns', async (request, reply) => {
+  fastify.post('/campaigns', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = voiceCampaignSchema.parse(request.body);
     const campaign = await fastify.prisma.voiceCampaign.create({
       data: {
@@ -50,7 +50,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(campaign);
   });
 
-  fastify.get('/campaigns/:id', async (request, reply) => {
+  fastify.get('/campaigns/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const campaign = await fastify.prisma.voiceCampaign.findFirst({
       where: { id, tenantId: request.tenantId },
@@ -64,7 +64,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
 // Public TwiML endpoint — called by Twilio during active calls (no API key auth)
 // Twilio's request signature should be verified in production
 const voiceTwimlRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/twiml/:deliveryId', async (request, reply) => {
+  fastify.get('/twiml/:deliveryId', async (request: FastifyRequest, reply: FastifyReply) => {
     const { deliveryId } = request.params as { deliveryId: string };
 
     const delivery = await fastify.prisma.delivery.findUnique({
