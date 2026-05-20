@@ -198,19 +198,8 @@ server {
     }
 }
 
-# Bull Board (port 3002, HTTP only for security)
-server {
-    listen 3002;
-    listen [::]:3002;
-    server_name $DOMAIN www.$DOMAIN;
-
-    location / {
-        proxy_pass http://localhost:3002;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-}
+# Note: Bull Board runs directly on port 3002 (not proxied through NGINX)
+# Access at http://$DOMAIN:3002
 EOF
 
 # Test nginx config
