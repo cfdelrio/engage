@@ -57,16 +57,13 @@ export default function TemplateDetailPage({ params }: { params: { id: string } 
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTemplate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   useEffect(() => {
     try {
       const template = Handlebars.compile(body);
       const rendered = template(previewData);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPreview(rendered);
     } catch {
       setPreview('Error en template de Handlebars');
