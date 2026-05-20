@@ -9,6 +9,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import redisPlugin from './plugins/redis.js';
 import prismaPlugin from './plugins/prisma.js';
 import apiKeyAuthPlugin from './plugins/api-key-auth.js';
+import { rateLimitApiKeyPlugin } from './plugins/rate-limit-api-key.js';
 
 import eventsRoutes from './routes/events.js';
 import eventStreamRoutes from './routes/event-stream.js';
@@ -74,6 +75,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(redisPlugin);
   await app.register(prismaPlugin);
   await app.register(apiKeyAuthPlugin);
+  await app.register(rateLimitApiKeyPlugin);
 
   // ─── Health ───────────────────────────────────────────────────────────────
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
