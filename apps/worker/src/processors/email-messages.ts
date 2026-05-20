@@ -4,6 +4,7 @@ import Handlebars from 'handlebars';
 import { ResendEmailProvider } from '@engage/channels';
 
 interface EmailMessageJob {
+  deliveryId: string;
   emailCampaignId: string;
   userId: string;
   email: string;
@@ -13,41 +14,31 @@ interface EmailMessageJob {
   fromName?: string;
   fromEmail?: string;
   replyTo?: string;
-  attempt: number;
+  unsubscribeUrl?: string;
 }
 
 const prisma = new PrismaClient();
 
 export async function processEmailMessage(job: Job<EmailMessageJob>) {
-  const { emailCampaignId, userId, email, subject, bodyHtml, bodyText, fromName, fromEmail, replyTo, attempt } = job.data;
+  const { deliveryId, emailCampaignId, userId, email, subject, bodyHtml, bodyText, fromName, fromEmail, replyTo, unsubscribeUrl } = job.data;
 
-  console.log(`[email-messages] Processing ${emailCampaignId}:${userId}, attempt ${attempt + 1}`);
-
-  let deliveryId: string | null = null;
+  console.log(`[email-messages] Processing delivery ${deliveryId}, attempt ${job.attemptsMade + 1}`);
 
   try {
-    const [campaign, user] = await Promise.all([
+    const [campaign, delivery, user] = await Promise.all([
       prisma.emailCampaign.findUniqueOrThrow({ where: { id: emailCampaignId } }),
+      prisma.emailDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     ]);
-
-    // Create delivery record
-    const delivery = await prisma.emailDelivery.create({
-      data: {
-        emailCampaignId,
-        tenantId: campaign.tenantId,
-        userId,
-        email,
-        status: 'queued',
-      },
-    });
-    deliveryId = delivery.id;
 
     // Render templates with user context
     const userContext = {
       user: {
+        id: user.id,
+        externalId: user.externalId,
         email: user.email,
         phone: user.phone,
+        firstName: user.externalId?.split('-')[0] || 'usuario',
         ...((user.metadata as Record<string, unknown>) ?? {}),
       },
     };
@@ -73,9 +64,9 @@ export async function processEmailMessage(job: Job<EmailMessageJob>) {
     const config = JSON.parse(providerRecord.configEncrypted) as { apiKey: string };
     const emailProvider = new ResendEmailProvider(config.apiKey);
 
-    // Send
+    // Send rendered email
     const result = await emailProvider.send({
-      deliveryId: delivery.id,
+      deliveryId,
       tenantId: campaign.tenantId,
       userId,
       channel: 'email',
@@ -85,15 +76,16 @@ export async function processEmailMessage(job: Job<EmailMessageJob>) {
       body: renderedBodyHtml,
       metadata: {
         bodyText: renderedBodyText,
-        fromName: fromName ?? campaign.fromName ?? undefined,
-        fromEmail: fromEmail ?? campaign.fromEmail ?? undefined,
-        replyTo: replyTo ?? campaign.replyTo ?? undefined,
+        fromName: fromName ?? campaign.fromName ?? 'ORKESTAI ENGAGE',
+        fromEmail: fromEmail ?? campaign.fromEmail ?? 'noreply@orkestai.com',
+        replyTo: replyTo ?? campaign.replyTo,
+        unsubscribeUrl: unsubscribeUrl ?? campaign.unsubscribeUrl,
       },
     });
 
     if (result.success) {
       await prisma.emailDelivery.update({
-        where: { id: delivery.id },
+        where: { id: deliveryId },
         data: {
           status: 'sent',
           sentAt: new Date(),
@@ -114,19 +106,17 @@ export async function processEmailMessage(job: Job<EmailMessageJob>) {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[email-messages] Error: ${message}`);
+    console.error(`[email-messages] Error processing ${deliveryId}: ${message}`);
 
-    if (deliveryId) {
-      const isLast = attempt >= 2;
-      await prisma.emailDelivery.update({
-        where: { id: deliveryId },
-        data: {
-          status: isLast ? 'failed' : 'queued',
-          ...(isLast ? { failedAt: new Date(), errorMessage: message } : {}),
-        },
-      }).catch(() => {});
-    }
+    const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1) - 1;
+    await prisma.emailDelivery.update({
+      where: { id: deliveryId },
+      data: {
+        status: isLastAttempt ? 'failed' : 'queued',
+        ...(isLastAttempt ? { failedAt: new Date(), errorMessage: message } : {}),
+      },
+    }).catch(() => {});
 
-    if (attempt < 2) throw new Error(message);
+    throw err;
   }
 }
