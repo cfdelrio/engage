@@ -19,7 +19,7 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages ./packages
 COPY apps/api ./apps/api
 COPY --from=deps /app/node_modules ./node_modules
-RUN pnpm --filter @engage/database run db:generate
+RUN node_modules/.bin/prisma generate --schema=packages/database/prisma/schema.prisma
 RUN pnpm --filter @engage/core build
 RUN pnpm --filter @engage/database build
 RUN pnpm --filter @engage/event-bus build
