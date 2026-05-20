@@ -77,15 +77,19 @@ export function getRateLimitRule(method: string, path: string): RateLimitRule {
   }
 
   // Try method prefix match
-  const methodPrefix = method.split(' ')[0];
+  const methodPrefixParts = method.split(' ');
+  const methodPrefix = methodPrefixParts[0] || '';
   for (const [confKey, rule] of Object.entries(DEFAULT_RATE_LIMITS)) {
-    if (confKey.startsWith(methodPrefix) && path.startsWith(confKey.split(' ')[1])) {
+    const confKeyParts = confKey.split(' ');
+    const confMethod = confKeyParts[0] || '';
+    const confPath = confKeyParts[1] || '';
+    if (confMethod.startsWith(methodPrefix) && path.startsWith(confPath)) {
       return rule;
     }
   }
 
   // Return default
-  return DEFAULT_RATE_LIMITS['DEFAULT'];
+  return DEFAULT_RATE_LIMITS['DEFAULT']!;
 }
 
 export const RATE_LIMITS = DEFAULT_RATE_LIMITS;

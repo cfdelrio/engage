@@ -293,7 +293,7 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
         expiresAt.setDate(expiresAt.getDate() + 30);
 
         // Store in database
-        const preferenceToken = await prisma.preferenceToken.create({
+        const preferenceToken = await (prisma as any).preferenceToken.create({
           data: {
             userId,
             tenantId: request.tenantId,

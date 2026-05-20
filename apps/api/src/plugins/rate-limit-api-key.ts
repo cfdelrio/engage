@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest, FastifyInstance } from 'fastify';
-import { getRateLimitRule } from '@engage/core/constants/rate-limits.js';
+import { getRateLimitRule } from '@engage/core';
 import {
   getRateLimitCounterKey,
   getWindowStart,
@@ -7,19 +7,25 @@ import {
   normalizeEndpoint,
   calculateRateLimitResponse,
   RATE_LIMIT_LUA_SCRIPT,
-} from '@engage/core/utils/rate-limiter.js';
+} from '@engage/core';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    apiKeyHash?: string;
+  }
+}
 
 export async function rateLimitApiKeyPlugin(app: FastifyInstance) {
   const redis = app.redis;
   const logger = app.log;
 
   // Register Lua script
-  let luaScriptSha: string;
+  let luaScriptSha: string = '';
   try {
-    luaScriptSha = await redis.script('load', RATE_LIMIT_LUA_SCRIPT);
+    const result = await (redis as any).script('load', RATE_LIMIT_LUA_SCRIPT);
+    luaScriptSha = typeof result === 'string' ? result : '';
   } catch (error) {
     logger.warn({ error }, 'Failed to load Lua script for rate limiting');
-    luaScriptSha = '';
   }
 
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -35,8 +41,8 @@ export async function rateLimitApiKeyPlugin(app: FastifyInstance) {
 
     try {
       const now = Date.now();
-      const method = request.method;
-      const path = request.url.split('?')[0]; // Remove query string
+      const method = request.method || 'GET';
+      const path = request.url?.split('?')[0] || '/'; // Remove query string
 
       // Normalize endpoint
       const endpoint = normalizeEndpoint(method, path);

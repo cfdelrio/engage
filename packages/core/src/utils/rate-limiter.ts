@@ -1,9 +1,8 @@
 import { createHash } from 'crypto';
-import type { RateLimitRule } from '../constants/rate-limits';
+import type { RateLimitRule } from '../constants/rate-limits.js';
 
-export function hashApiKey(apiKey: string): string {
-  return createHash('sha256').update(apiKey).digest('hex');
-}
+// Note: hashApiKey is also exported from hash.js, using it from there instead
+// This function would be: createHash('sha256').update(apiKey).digest('hex')
 
 export function getRateLimitCounterKey(apiKeyHash: string, endpoint: string, windowStart: number): string {
   return `ratelimit:counter:${apiKeyHash}:${endpoint}:${windowStart}`;
@@ -38,7 +37,7 @@ export interface RateLimitCheckResult {
   limit: number;
   remaining: number;
   resetAt: number;
-  retryAfter?: number;
+  retryAfter: number | undefined;
 }
 
 export function calculateRateLimitResponse(
