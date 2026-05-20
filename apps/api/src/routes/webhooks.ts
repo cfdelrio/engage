@@ -1,9 +1,9 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { asJson, asJsonNullable } from '../utils/prisma.js';
 
 const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
   // Resend webhooks
-  fastify.post('/resend', async (request, reply) => {
+  fastify.post('/resend', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = request.body as Record<string, unknown>;
     const data = body['data'] as Record<string, unknown> | undefined;
     const messageId = (data?.['email_id'] ?? data?.['message_id']) as string | undefined;
@@ -51,7 +51,7 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Twilio SMS/Voice webhooks
-  fastify.post('/twilio', async (request, reply) => {
+  fastify.post('/twilio', async (request: FastifyRequest, reply: FastifyReply) => {
     const form = request.body as Record<string, string>;
     const sid = form['MessageSid'] ?? form['CallSid'];
     const status = form['MessageStatus'] ?? form['CallStatus'];
