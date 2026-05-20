@@ -7,6 +7,37 @@
 - **Node.js**: v22 (via NVM)
 - **Docker**: Latest (for postgres, redis, bullboard)
 - **Git**: For cloning the repository
+- **Domain**: orkestai.ar (with `engage` subdomain)
+- **Static IP**: Elastic IP assigned to your instance
+
+## Domain & SSL Setup (engage.orkestai.ar)
+
+**Before running services**, configure your domain:
+
+1. **Point DNS** to your EC2 instance IP in your domain registrar:
+   ```
+   A record: engage → your-elastic-ip (e.g., 44.223.7.160)
+   ```
+
+2. **Run SSL setup** (after DNS propagates, ~5-30 mins):
+   ```bash
+   cd /home/ec2-user/engage
+   bash infra/scripts/setup-ssl.sh engage.orkestai.ar
+   ```
+
+   This script automatically:
+   - Obtains Let's Encrypt certificate
+   - Installs and configures NGINX reverse proxy
+   - Sets up auto-renewal
+   - Updates systemd services with HTTPS URLs
+
+3. **Verify everything**:
+   ```bash
+   curl -I https://engage.orkestai.ar  # Should return 200
+   sudo systemctl status nginx          # Check reverse proxy
+   ```
+
+**See `infra/DNS.md` for complete DNS & SSL troubleshooting.**
 
 ## Quick Setup (from scratch)
 
@@ -111,6 +142,23 @@ sudo journalctl -u orkestai-worker -f
 sudo journalctl -u orkestai-web -f
 ```
 
+## Quick Troubleshooting
+
+**⚠️ CSS not loading?**
+```bash
+# Check NEXT_PUBLIC_API_URL in orkestai-web.service
+grep NEXT_PUBLIC_API_URL /etc/systemd/system/orkestai-web.service
+# Must be: https://engage.orkestai.ar:3001 (not http://, not localhost)
+
+# Fix and restart
+sudo sed -i 's|NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=https://engage.orkestai.ar:3001|g' /etc/systemd/system/orkestai-web.service
+sudo systemctl daemon-reload && sudo systemctl restart orkestai-web
+sleep 3
+curl -s https://engage.orkestai.ar | grep -c stylesheet  # Should return > 0
+```
+
+**See `infra/LESSONS_LEARNED.md` for detailed error analysis and prevention strategies.**
+
 ## Troubleshooting
 
 ### Port already in use (EADDRINUSE)
@@ -149,12 +197,21 @@ redis-cli ping  # Should return PONG
 
 ## Accessing the Platform
 
+### After SSL Setup (Recommended)
+
 | Service | URL |
 |---------|-----|
-| Dashboard | http://YOUR_PUBLIC_IP:3000 |
-| API | http://YOUR_PUBLIC_IP:3001 |
-| Swagger | http://YOUR_PUBLIC_IP:3001/docs |
-| Bull Board | http://YOUR_PUBLIC_IP:3002 |
+| Dashboard | https://engage.orkestai.ar |
+| API | https://api.engage.orkestai.ar |
+| Swagger | https://api.engage.orkestai.ar/docs |
+| Bull Board | http://engage.orkestai.ar:3002 |
+
+**Direct IP access** (still works):
+```
+http://YOUR_ELASTIC_IP:3000  (Web, HTTP only)
+http://YOUR_ELASTIC_IP:3001  (API, HTTP only)
+http://YOUR_ELASTIC_IP:3002  (Bull Board)
+```
 
 ## Backup and Maintenance
 
