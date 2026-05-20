@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Megaphone, Plus } from 'lucide-react';
