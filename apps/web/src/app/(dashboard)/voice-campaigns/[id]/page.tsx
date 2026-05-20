@@ -62,7 +62,8 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-  }, [params.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]);
 
   if (loading) {
     return <div className="flex justify-center py-12">Cargando...</div>;
