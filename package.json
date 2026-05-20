@@ -19,11 +19,12 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "prettier": "^3.3.3",
-    "turbo": "^2.3.3",
-    "typescript": "^5.6.3",
-    "vitest": "^2.1.4"
+    "@types/node": "^25.9.1",
+    "prettier": "^3.8.3",
+    "turbo": "^2.9.14",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.13",
+    "vitest": "^4.1.7"
   },
   "dependencies": {
     "fastify-plugin": "^5.1.0"
