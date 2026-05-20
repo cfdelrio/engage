@@ -9,20 +9,18 @@
 3. Add/Update the following records:
 
 ```
-Type   | Name        | Value              | TTL
--------|-------------|------------------|-------
-A      | @           | 44.223.7.160      | 3600
-A      | www         | 44.223.7.160      | 3600
-CNAME  | api         | orkestai.ar       | 3600
+Type   | Name            | Value              | TTL
+-------|-----------------|------------------|-------
+A      | engage          | 44.223.7.160      | 3600
+CNAME  | api.engage      | engage.orkestai.ar| 3600
 ```
 
-- **@ (root)**: Points to your EC2 instance IP
-- **www**: Also points to EC2 (optional, for www subdomain)
-- **api**: Alias to root (optional, for API subdomain)
+- **engage**: Points to your EC2 instance IP (main subdomain)
+- **api.engage**: Alias to engage (optional, for API subdomain routing)
 
 **Expected state after DNS propagation (5-30 mins):**
 ```bash
-nslookup orkestai.ar
+nslookup engage.orkestai.ar
 # Should return: 44.223.7.160
 ```
 
@@ -33,10 +31,10 @@ nslookup orkestai.ar
 Once DNS is configured, SSH into EC2 and verify:
 
 ```bash
-nslookup orkestai.ar
+nslookup engage.orkestai.ar
 # Should return: 44.223.7.160
 
-curl -I http://orkestai.ar:3000
+curl -I http://engage.orkestai.ar:3000
 # Should return 200 OK (currently HTTP, we'll fix with SSL next)
 ```
 
@@ -48,12 +46,12 @@ Run the SSL setup script on EC2:
 
 ```bash
 cd /home/ec2-user/engage
-bash infra/scripts/setup-ssl.sh orkestai.ar
+bash infra/scripts/setup-ssl.sh engage.orkestai.ar
 ```
 
 This script will:
 1. Install Certbot (Let's Encrypt client)
-2. Obtain a free SSL certificate for orkestai.ar
+2. Obtain a free SSL certificate for engage.orkestai.ar
 3. Configure auto-renewal
 4. Update systemd services to use HTTPS
 
@@ -67,16 +65,16 @@ This script will:
 
 After SSL setup, the web service will be available at:
 ```
-https://orkestai.ar:3000
-https://orkestai.ar:3001  (API)
+https://engage.orkestai.ar:3000
+https://engage.orkestai.ar:3001  (API)
 ```
 
 **Public URLs** (after systemd restart):
 ```
-Dashboard:  https://orkestai.ar
-API:        https://orkestai.ar:3001
-Swagger:    https://orkestai.ar:3001/docs
-Bull Board: https://orkestai.ar:3002
+Dashboard:  https://engage.orkestai.ar
+API:        https://engage.orkestai.ar:3001
+Swagger:    https://engage.orkestai.ar:3001/docs
+Bull Board: https://engage.orkestai.ar:3002
 ```
 
 ---
@@ -123,7 +121,7 @@ sudo journalctl -u orkestai-api -f
 sudo systemctl restart systemd-resolved
 
 # Or use external DNS
-nslookup orkestai.ar 8.8.8.8
+nslookup engage.orkestai.ar 8.8.8.8
 ```
 
 ### Certificate renewal fails
@@ -142,13 +140,13 @@ sudo lsof -i :443
 sudo kill -9 <PID>
 ```
 
-### Can't access https://orkestai.ar
+### Can't access https://engage.orkestai.ar
 ```bash
 # Check if ports are open in Security Group
 aws ec2 describe-security-groups --group-ids sg-xxxxx
 
 # Temporarily test on non-standard port
-curl -I http://orkestai.ar:3000
+curl -I http://engage.orkestai.ar:3000
 ```
 
 ---

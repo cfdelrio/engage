@@ -3,11 +3,11 @@
 
 set -e
 
-DOMAIN="${1:-orkestai.ar}"
+DOMAIN="${1:-engage.orkestai.ar}"
 
 if [ -z "$DOMAIN" ]; then
   echo "❌ Domain required. Usage: setup-ssl.sh <domain>"
-  echo "   Example: setup-ssl.sh orkestai.ar"
+  echo "   Example: setup-ssl.sh engage.orkestai.ar"
   exit 1
 fi
 

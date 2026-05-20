@@ -7,22 +7,22 @@
 - **Node.js**: v22 (via NVM)
 - **Docker**: Latest (for postgres, redis, bullboard)
 - **Git**: For cloning the repository
-- **Domain**: orkestai.ar (or your chosen domain)
+- **Domain**: orkestai.ar (with `engage` subdomain)
 - **Static IP**: Elastic IP assigned to your instance
 
-## Domain & SSL Setup (orkestai.ar)
+## Domain & SSL Setup (engage.orkestai.ar)
 
 **Before running services**, configure your domain:
 
 1. **Point DNS** to your EC2 instance IP in your domain registrar:
    ```
-   A record: @ → your-elastic-ip (e.g., 44.223.7.160)
+   A record: engage → your-elastic-ip (e.g., 44.223.7.160)
    ```
 
 2. **Run SSL setup** (after DNS propagates, ~5-30 mins):
    ```bash
    cd /home/ec2-user/engage
-   bash infra/scripts/setup-ssl.sh orkestai.ar
+   bash infra/scripts/setup-ssl.sh engage.orkestai.ar
    ```
 
    This script automatically:
@@ -33,8 +33,8 @@
 
 3. **Verify everything**:
    ```bash
-   curl -I https://orkestai.ar  # Should return 200
-   sudo systemctl status nginx   # Check reverse proxy
+   curl -I https://engage.orkestai.ar  # Should return 200
+   sudo systemctl status nginx          # Check reverse proxy
    ```
 
 **See `infra/DNS.md` for complete DNS & SSL troubleshooting.**
@@ -184,10 +184,10 @@ redis-cli ping  # Should return PONG
 
 | Service | URL |
 |---------|-----|
-| Dashboard | https://orkestai.ar |
-| API | https://api.orkestai.ar |
-| Swagger | https://api.orkestai.ar/docs |
-| Bull Board | http://orkestai.ar:3002 |
+| Dashboard | https://engage.orkestai.ar |
+| API | https://api.engage.orkestai.ar |
+| Swagger | https://api.engage.orkestai.ar/docs |
+| Bull Board | http://engage.orkestai.ar:3002 |
 
 **Direct IP access** (still works):
 ```
