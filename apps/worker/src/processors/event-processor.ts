@@ -80,7 +80,7 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
     }
 
     const deliveryQueue = getQueue(QUEUES.DELIVERIES_SCHEDULED);
-    const voiceQueue = getQueue('voice.calls');
+    const voiceQueue = getQueue(QUEUES.VOICE_CALLS);
 
     // Process SEND_NOTIFICATION actions
     for (const action of sendActions) {

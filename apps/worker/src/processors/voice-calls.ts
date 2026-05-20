@@ -34,12 +34,13 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
     let renderedScript = script;
     try {
       const template = Handlebars.compile(script);
+      const metadata = (user.metadata as Record<string, unknown>) || {};
       renderedScript = template({
         user: {
           firstName: user.externalId?.split('-')[0] || 'usuario',
           email: user.email,
           phone: user.phone,
-          ...user.metadata,
+          ...metadata,
         },
       });
     } catch (err) {
@@ -94,8 +95,8 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
     console.error(`[voice-calls] Error processing call: ${err}`);
 
     if (attempt < 3) {
-      const delays = [60000, 300000, 1800000]; // 1m, 5m, 30m
-      throw new Error(`Retryable error: ${err}. Retry in ${delays[attempt] / 1000}s`);
+      const delayMs = attempt === 0 ? 60000 : attempt === 1 ? 300000 : 1800000; // 1m, 5m, 30m
+      throw new Error(`Retryable error: ${err}. Retry in ${delayMs / 1000}s`);
     } else {
       // Max retries exceeded
       await prisma.voiceCall.update({
