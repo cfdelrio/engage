@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ApiKeysManager } from './_components/ApiKeysManager';
 
 export default function SettingsPage() {
   return (
@@ -62,20 +63,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">API Keys</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Gestioná API keys via{' '}
-            <code className="bg-muted px-1 rounded">POST /admin/api-keys</code>
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Las keys son hasheadas con SHA-256 — nunca se almacena el valor original.
-          </p>
-        </CardContent>
-      </Card>
+      <ApiKeysManager />
     </div>
   );
 }
