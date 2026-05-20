@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle, XCircle, ChevronDown, ChevronRight, Edit } from 'lucide-react';
 
 interface Rule {
   id: string;
@@ -92,6 +94,11 @@ export function RulesList() {
                     Cooldown {rule.cooldownSeconds / 3600}h
                   </Badge>
                 )}
+                <Link href={`/dashboard/rules/${rule.id}`}>
+                  <Button size="sm" variant="ghost">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </Link>
                 {expanded.has(rule.id) ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (
