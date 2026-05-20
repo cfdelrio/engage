@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Phone, Clock, PhoneX } from 'lucide-react';
+import { Phone, Clock } from 'lucide-react';
 
 interface VoiceCampaign {
   id: string;

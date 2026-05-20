@@ -47,7 +47,7 @@ export default function VoiceCampaignsPage() {
     script: 'Hola {{user.firstName}}, este es un mensaje de ORKESTAI ENGAGE',
     voiceConfig: {
       language: 'es-ES',
-      voice: 'female' as const,
+      voice: 'female' as 'male' | 'female',
       speed: 1.0,
       provider: 'twilio',
     },

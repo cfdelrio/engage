@@ -65,7 +65,7 @@ export default function NewTemplatePage() {
 
         <div>
           <label className="text-sm font-medium">Canal</label>
-          <Select value={channel} onValueChange={setChannel}>
+          <Select value={channel} onValueChange={(value) => value && setChannel(value)}>
             <SelectTrigger>
               <SelectValue placeholder="Selecciona canal" />
             </SelectTrigger>

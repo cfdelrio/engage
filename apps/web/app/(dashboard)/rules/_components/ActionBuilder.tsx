@@ -57,7 +57,7 @@ function ActionRow({
 
   return (
     <Card className="p-4 space-y-3">
-      <Select value={action.type} onValueChange={(type) => onUpdate({ type, params: {} })}>
+      <Select value={action.type || ''} onValueChange={(type) => type && onUpdate({ type, params: {} })}>
         <SelectTrigger>
           <SelectValue placeholder="Tipo de acción" />
         </SelectTrigger>
