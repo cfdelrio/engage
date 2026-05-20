@@ -16,11 +16,11 @@ RUN pnpm install --frozen-lockfile --prod=false 2>&1
 
 FROM base AS builder
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY packages ./packages
-COPY apps/api ./apps/api
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
-RUN packages/database/node_modules/.bin/prisma generate --schema=packages/database/prisma/schema.prisma
+COPY packages ./packages
+COPY apps/api ./apps/api
+RUN packages/database/node_modules/.bin/prisma generate --schema packages/database/prisma/schema.prisma
 RUN pnpm --filter @engage/core build
 RUN pnpm --filter @engage/database build
 RUN pnpm --filter @engage/event-bus build
