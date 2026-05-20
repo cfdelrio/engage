@@ -47,7 +47,7 @@ function evaluateCondition(condition: Condition, context: EventContext): boolean
 export function evaluateGroup(group: ConditionGroup, context: EventContext): boolean {
   if (group.operator === 'AND') {
     for (const cond of group.conditions) {
-      const result = 'operator' in cond
+      const result = 'conditions' in cond
         ? evaluateGroup(cond as ConditionGroup, context)
         : evaluateCondition(cond as Condition, context);
       if (!result) return false; // short-circuit
@@ -57,7 +57,7 @@ export function evaluateGroup(group: ConditionGroup, context: EventContext): boo
 
   // OR
   for (const cond of group.conditions) {
-    const result = 'operator' in cond
+    const result = 'conditions' in cond
       ? evaluateGroup(cond as ConditionGroup, context)
       : evaluateCondition(cond as Condition, context);
     if (result) return true; // short-circuit

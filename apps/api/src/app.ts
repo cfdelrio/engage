@@ -10,11 +10,15 @@ import prismaPlugin from './plugins/prisma.js';
 import apiKeyAuthPlugin from './plugins/api-key-auth.js';
 
 import eventsRoutes from './routes/events.js';
+import eventStreamRoutes from './routes/event-stream.js';
 import usersRoutes from './routes/users.js';
 import rulesRoutes from './routes/rules.js';
 import analyticsRoutes from './routes/analytics.js';
 import feedsRoutes from './routes/feeds.js';
 import webhooksRoutes from './routes/webhooks.js';
+import adminRoutes from './routes/admin.js';
+import campaignsRoutes from './routes/campaigns.js';
+import voiceRoutes from './routes/voice.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -45,7 +49,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(swagger, {
     openapi: {
       info: { title: 'ORKESTAI ENGAGE API', version: '1.0.0' },
-      tags: [{ name: 'events' }, { name: 'users' }, { name: 'rules' }, { name: 'analytics' }],
+      tags: [
+        { name: 'events' }, { name: 'users' }, { name: 'rules' },
+        { name: 'analytics' }, { name: 'campaigns' }, { name: 'admin' },
+      ],
     },
   });
   await app.register(swaggerUi, { routePrefix: '/docs', uiConfig: { deepLinking: false } });
@@ -60,11 +67,15 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // ─── Routes ───────────────────────────────────────────────────────────────
   await app.register(eventsRoutes, { prefix: '/v1/events' });
+  await app.register(eventStreamRoutes, { prefix: '/v1/events' });
   await app.register(usersRoutes, { prefix: '/v1/users' });
   await app.register(rulesRoutes, { prefix: '/v1/rules' });
   await app.register(analyticsRoutes, { prefix: '/v1/analytics' });
   await app.register(feedsRoutes, { prefix: '/v1/feeds' });
+  await app.register(campaignsRoutes, { prefix: '/v1/campaigns' });
+  await app.register(voiceRoutes, { prefix: '/v1/voice' });
   await app.register(webhooksRoutes, { prefix: '/webhooks' });
+  await app.register(adminRoutes, { prefix: '/admin' });
 
   return app;
 }

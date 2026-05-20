@@ -1,0 +1,139 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/engage-api:${{ steps.meta.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/engage-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/worker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/engage-worker:${{ steps.meta.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/engage-worker:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/engage-web:${{ steps.meta.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/engage-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  migrate:
+    name: Run DB Migrations
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.11.0'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm exec prisma migrate deploy --schema=packages/database/prisma/schema.prisma
+
+  deploy:
+    name: Deploy ECS Services
+    runs-on: ubuntu-latest
+    needs: [build-and-push, migrate]
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update ECS service — API
+        run: |
+          aws ecs update-service \
+            --cluster engage-prod \
+            --service engage-api \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Update ECS service — Worker
+        run: |
+          aws ecs update-service \
+            --cluster engage-prod \
+            --service engage-worker \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Update ECS service — Web
+        run: |
+          aws ecs update-service \
+            --cluster engage-prod \
+            --service engage-web \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for API deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster engage-prod \
+            --services engage-api \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deployment summary
+        run: |
+          echo "✅ Deployed image tag: ${{ needs.build-and-push.outputs.image-tag }}"
+          echo "Services updated: engage-api, engage-worker, engage-web"

@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { isDuplicate, getQueue, QUEUES } from '@engage/event-bus';
+import { REDIS_KEYS } from '@engage/core';
 import { asJson } from '../utils/prisma.js';
 
 interface EventJobPayload { eventId: string; tenantId: string; userId: string; type: string; }
@@ -67,6 +68,10 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
           receivedAt: body.timestamp ? new Date(body.timestamp) : new Date(),
         },
       });
+
+      // Publish to WebSocket stream subscribers
+      const streamPayload = JSON.stringify({ id: event.id, type: event.type, userId: body.userId, tenantId, receivedAt: event.receivedAt });
+      fastify.redis.publish(REDIS_KEYS.eventStream(tenantId), streamPayload).catch(() => {});
 
       // Enqueue for processing
       const queue = getQueue(QUEUES.EVENTS_INCOMING);
