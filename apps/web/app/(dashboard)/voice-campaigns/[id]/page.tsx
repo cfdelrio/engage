@@ -83,7 +83,7 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
       ]);
 
       const campaignData = await campaignRes.json();
-      const metricsData = await metricsRes.json();
+      await metricsRes.json();
       const callsData = await callsRes.json();
 
       setCampaign(campaignData);
@@ -104,9 +104,7 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   async function handlePauseCampaign() {

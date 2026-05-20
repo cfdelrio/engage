@@ -1,9 +1,7 @@
 export const dynamic = 'force-dynamic';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Megaphone, Bell, MessageCircle, Phone } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Bell, MessageCircle, Phone } from 'lucide-react';
 
 export default function CampaignsPage() {
   const campaignTypes = [

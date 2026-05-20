@@ -74,9 +74,7 @@ export default function PushCampaignDetailPage({ params }: { params: { id: strin
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   async function handlePauseCampaign() {
