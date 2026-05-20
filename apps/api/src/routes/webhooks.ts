@@ -98,7 +98,7 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
     if (!callSid || !callStatus) return reply.status(200).send({ ok: true });
 
     // Check for idempotency - don't process same event twice
-    const existingInteraction = await fastify.prisma.voiceInteraction.findFirst({
+    await fastify.prisma.voiceInteraction.findFirst({
       where: {
         data: { path: ['callSid'], equals: callSid },
       },
