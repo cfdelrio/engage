@@ -71,7 +71,6 @@ export default function VoiceCampaignsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCampaigns();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleCreateCampaign(e: React.FormEvent) {

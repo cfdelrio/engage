@@ -83,7 +83,7 @@ export default function VoiceCampaignDetailPage({ params }: { params: { id: stri
       ]);
 
       const campaignData = await campaignRes.json();
-      const metricsData = await metricsRes.json();
+      await metricsRes.json();
       const callsData = await callsRes.json();
 
       setCampaign(campaignData);
