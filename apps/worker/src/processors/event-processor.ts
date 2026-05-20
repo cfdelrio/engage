@@ -57,9 +57,11 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
     const actions = rulesEngine.collectActions(ruleResults);
     const sendActions = actions.filter((a) => a.type === 'SEND_NOTIFICATION');
     const voiceActions = actions.filter((a) => a.type === 'START_VOICE_CAMPAIGN');
+    const whatsappActions = actions.filter((a) => a.type === 'START_WHATSAPP_CAMPAIGN');
+    const pushActions = actions.filter((a) => a.type === 'START_PUSH_CAMPAIGN');
     const isSuppressed = actions.some((a) => a.type === 'SUPPRESS');
 
-    if (isSuppressed || (sendActions.length === 0 && voiceActions.length === 0)) {
+    if (isSuppressed || (sendActions.length === 0 && voiceActions.length === 0 && whatsappActions.length === 0 && pushActions.length === 0)) {
       await db.event.update({ where: { id: eventId }, data: { processedAt: new Date() } });
       return;
     }
@@ -71,6 +73,14 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
     const voiceEnabledTenant = await redis.get(REDIS_KEYS.featureFlag('voice_campaigns', tenantId));
     const voiceEnabledGlobal = await redis.get(REDIS_KEYS.featureFlag('voice_campaigns'));
     const voiceEnabled = voiceEnabledTenant ?? voiceEnabledGlobal;
+
+    const whatsappEnabledTenant = await redis.get(REDIS_KEYS.featureFlag('whatsapp_campaigns', tenantId));
+    const whatsappEnabledGlobal = await redis.get(REDIS_KEYS.featureFlag('whatsapp_campaigns'));
+    const whatsappEnabled = whatsappEnabledTenant ?? whatsappEnabledGlobal;
+
+    const pushEnabledTenant = await redis.get(REDIS_KEYS.featureFlag('push_campaigns', tenantId));
+    const pushEnabledGlobal = await redis.get(REDIS_KEYS.featureFlag('push_campaigns'));
+    const pushEnabled = pushEnabledTenant ?? pushEnabledGlobal;
 
     let aiDecision = null;
     if (aiEnabled === '1') {
@@ -161,7 +171,82 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
       }
     }
 
+    // Process START_WHATSAPP_CAMPAIGN actions
+    if (whatsappEnabled === '1') {
+      const whatsappQueue = getQueue(QUEUES.WHATSAPP_MESSAGES);
+      for (const action of whatsappActions) {
+        const params = action.params as Record<string, unknown>;
+        const campaignId = params['campaignId'] as string | undefined;
+
+        if (!campaignId) continue;
+
+        const campaign = await db.whatsAppCampaign.findFirst({
+          where: { id: campaignId, tenantId, status: 'active' },
+        });
+
+        if (!campaign || !user.phone) continue;
+
+        // Check quiet hours and unsubscribe for whatsapp
+        if (unsubscribes.some((u) => u.channel === 'whatsapp')) continue;
+
+        const whatsappPref = preferences.find((p) => p.channel === 'whatsapp');
+        if (whatsappPref?.quietHoursStart !== null && whatsappPref?.quietHoursStart !== undefined && whatsappPref?.quietHoursEnd !== null && whatsappPref?.quietHoursEnd !== undefined) {
+          if (isQuietHours(user.timezone, whatsappPref.quietHoursStart, whatsappPref.quietHoursEnd)) continue;
+        }
+
+        // Queue WhatsApp message
+        await whatsappQueue.add(`whatsapp-${campaign.id}-${userId}`, {
+          whatsappCampaignId: campaignId,
+          userId,
+          phone: user.phone,
+          body: campaign.body,
+          headerType: campaign.headerType,
+          headerValue: campaign.headerValue,
+          footerText: campaign.footerText,
+          buttons: campaign.buttons,
+          attempt: 0,
+        }, { attempts: campaign.maxRetries + 1, backoff: { type: 'exponential', delay: 2000 } });
+      }
+    }
+
+    // Process START_PUSH_CAMPAIGN actions
+    if (pushEnabled === '1') {
+      const pushQueue = getQueue(QUEUES.PUSH_NOTIFICATIONS);
+      for (const action of pushActions) {
+        const params = action.params as Record<string, unknown>;
+        const campaignId = params['campaignId'] as string | undefined;
+
+        if (!campaignId) continue;
+
+        const campaign = await db.pushCampaign.findFirst({
+          where: { id: campaignId, tenantId, status: 'active' },
+        });
+
+        if (!campaign) continue;
+
+        // Check quiet hours and unsubscribe for push
+        if (unsubscribes.some((u) => u.channel === 'push')) continue;
+
+        const pushPref = preferences.find((p) => p.channel === 'push');
+        if (pushPref?.quietHoursStart !== null && pushPref?.quietHoursStart !== undefined && pushPref?.quietHoursEnd !== null && pushPref?.quietHoursEnd !== undefined) {
+          if (isQuietHours(user.timezone, pushPref.quietHoursStart, pushPref.quietHoursEnd)) continue;
+        }
+
+        // Queue push notification
+        await pushQueue.add(`push-${campaign.id}-${userId}`, {
+          pushCampaignId: campaignId,
+          userId,
+          title: campaign.title,
+          body: campaign.body,
+          imageUrl: campaign.imageUrl,
+          actionUrl: campaign.actionUrl,
+          priority: campaign.priority,
+          attempt: 0,
+        }, { attempts: campaign.maxRetries + 1, backoff: { type: 'exponential', delay: 2000 } });
+      }
+    }
+
     await db.event.update({ where: { id: eventId }, data: { processedAt: new Date() } });
-    await db.eventProcessingLog.create({ data: { eventId, step: 'completed', status: 'ok', details: { sendActionsCount: sendActions.length, voiceActionsCount: voiceActions.length } } });
+    await db.eventProcessingLog.create({ data: { eventId, step: 'completed', status: 'ok', details: { sendActionsCount: sendActions.length, voiceActionsCount: voiceActions.length, whatsappActionsCount: whatsappActions.length, pushActionsCount: pushActions.length } } });
   };
 }

@@ -167,10 +167,18 @@ Documentación completa en Swagger: `http://localhost:3001/docs`
 | `GET/POST` | `/v1/campaigns` | Gestión de campañas |
 | `GET/POST` | `/v1/rules` | Gestión de reglas |
 | `GET` | `/v1/analytics/overview` | Métricas generales |
+| `GET/POST` | `/v1/voice-campaigns` | Gestión de voice campaigns |
+| `GET` | `/v1/voice-campaigns/:id/calls` | Listar llamadas de campaña |
+| `GET` | `/v1/voice-campaigns/:id/metrics` | Métricas de voice campaign |
+| `GET/POST` | `/v1/whatsapp-campaigns` | **[NUEVO]** Gestión de WhatsApp campaigns |
+| `GET` | `/v1/whatsapp-campaigns/:id/messages` | **[NUEVO]** Listar mensajes |
+| `GET` | `/v1/whatsapp-campaigns/:id/metrics` | **[NUEVO]** Métricas de WhatsApp campaign |
 | `GET` | `/v1/deliveries` | Historial de entregas |
 | `WS` | `/v1/events/stream` | Stream en tiempo real |
 | `POST` | `/webhooks/resend` | Webhook Resend (status email) |
 | `POST` | `/webhooks/twilio` | Webhook Twilio (status SMS/voice) |
+| `POST` | `/webhooks/twilio/whatsapp/status` | **[NUEVO]** Webhook Twilio WhatsApp status |
+| `POST` | `/webhooks/twilio/whatsapp/incoming` | **[NUEVO]** Webhook Twilio WhatsApp incoming |
 
 ---
 
@@ -195,7 +203,39 @@ Las reglas se definen con un DSL JSON:
 
 Operadores soportados: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `changed`, `exists`
 
-Acciones: `SEND_NOTIFICATION`, `ADD_TO_CAMPAIGN`, `SUPPRESS`, `ESCALATE`, `UPDATE_SCORE`
+Acciones: `SEND_NOTIFICATION`, `ADD_TO_CAMPAIGN`, `SUPPRESS`, `ESCALATE`, `UPDATE_SCORE`, `START_VOICE_CAMPAIGN`, `START_WHATSAPP_CAMPAIGN`
+
+---
+
+## Voice Campaigns
+
+Contacta usuarios vía **llamadas telefónicas automatizadas** con Twilio Voice API. Soporta:
+
+- ✅ Mensajes personalizados con variables Handlebars
+- ✅ Respuestas DTMF (teclas presionables: 1, 2, 3...)
+- ✅ Grabación automática de llamadas
+- ✅ Retry automático con exponential backoff
+- ✅ Quiet hours y frequency caps
+- ✅ Métricas en tiempo real
+
+**Documentación completa:** Ver [VOICE_CAMPAIGNS.md](/VOICE_CAMPAIGNS.md)
+
+---
+
+## WhatsApp Campaigns
+
+Contacta usuarios vía **mensajes WhatsApp** a través de Twilio WhatsApp API. Soporta:
+
+- ✅ Mensajes personalizados con variables Handlebars
+- ✅ Headers (texto, imagen, documento, video)
+- ✅ Quick reply buttons
+- ✅ Footer text personalizado
+- ✅ Seguimiento de estado: enviado, entregado, leído, fallido
+- ✅ Retry automático con exponential backoff
+- ✅ Quiet hours y frequency caps
+- ✅ Métricas en tiempo real: enviados, entregados, leídos
+
+**Documentación completa:** Ver [WHATSAPP_CAMPAIGNS.md](/WHATSAPP_CAMPAIGNS.md)
 
 ---
 

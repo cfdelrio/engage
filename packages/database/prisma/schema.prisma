@@ -41,6 +41,12 @@ model Tenant {
   voiceCampaigns      VoiceCampaign[]
   voiceCalls          VoiceCall[]         @relation("VoiceCallTenant")
   voiceMetrics        VoiceMetric[]
+  whatsappCampaigns   WhatsAppCampaign[]
+  whatsappMessages    WhatsAppMessage[]
+  whatsappMetrics     WhatsAppMetric[]
+  pushCampaigns       PushCampaign[]
+  pushNotifications   PushNotification[]
+  pushMetrics         PushMetric[]
   auditLogs           AuditLog[]
 
   @@map("tenants")
@@ -697,6 +703,184 @@ model VoiceMetric {
   @@unique([voiceCampaignId, date])
   @@index([tenantId, date])
   @@map("voice_metrics")
+}
+
+// ─────────────────────────────────────────────
+// WHATSAPP CAMPAIGNS
+// ─────────────────────────────────────────────
+
+model WhatsAppCampaign {
+  id                String    @id @default(cuid())
+  tenantId          String
+  name              String
+  description       String?
+  status            String    @default("draft")
+  triggerType       String    @default("manual")
+  body              String
+  headerType        String?
+  headerValue       String?
+  footerText        String?
+  buttons           Json?
+  aiGenerated       Boolean   @default(false)
+  aiInstructions    String?
+  audienceFilter    Json      @default("{}")
+  maxRetries        Int       @default(2)
+  scheduledFor      DateTime?
+  startAt           DateTime?
+  endAt             DateTime?
+  stats             Json      @default("{\"sent\": 0, \"delivered\": 0, \"read\": 0, \"failed\": 0}")
+  createdBy         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages WhatsAppMessage[]
+  metrics  WhatsAppMetric[]
+
+  @@index([tenantId, status])
+  @@map("whatsapp_campaigns")
+}
+
+model WhatsAppMessage {
+  id                  String    @id @default(cuid())
+  whatsappCampaignId  String
+  tenantId            String
+  userId              String
+  phone               String
+  status              String    @default("queued")
+  twilioMessageSid    String?   @unique
+  headerType          String?
+  headerValue         String?
+  footerText          String?
+  buttons             Json?
+  body                String
+  errorMessage        String?
+  failedAt            DateTime?
+  sentAt              DateTime?
+  deliveredAt         DateTime?
+  readAt              DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  campaign     WhatsAppCampaign       @relation(fields: [whatsappCampaignId], references: [id], onDelete: Cascade)
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  interactions WhatsAppInteraction[]
+
+  @@index([whatsappCampaignId])
+  @@index([tenantId, userId])
+  @@map("whatsapp_messages")
+}
+
+model WhatsAppInteraction {
+  id                String   @id @default(cuid())
+  whatsappMessageId String
+  tenantId          String
+  type              String
+  data              Json     @default("{}")
+  timestamp         DateTime @default(now())
+
+  message WhatsAppMessage @relation(fields: [whatsappMessageId], references: [id], onDelete: Cascade)
+
+  @@index([whatsappMessageId])
+  @@index([tenantId, timestamp])
+  @@map("whatsapp_interactions")
+}
+
+model WhatsAppMetric {
+  id           String   @id @default(cuid())
+  campaignId   String
+  tenantId     String
+  date         DateTime @db.Date
+  sent         Int      @default(0)
+  delivered    Int      @default(0)
+  read         Int      @default(0)
+  failed       Int      @default(0)
+
+  campaign WhatsAppCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([tenantId, date])
+  @@map("whatsapp_metrics")
+}
+
+// ─────────────────────────────────────────────
+// PUSH CAMPAIGNS
+// ─────────────────────────────────────────────
+
+model PushCampaign {
+  id                String    @id @default(cuid())
+  tenantId          String
+  name              String
+  description       String?
+  status            String    @default("draft")
+  triggerType       String    @default("manual")
+  title             String
+  body              String
+  imageUrl          String?
+  actionUrl         String?
+  priority          String    @default("high")
+  audienceFilter    Json      @default("{}")
+  maxRetries        Int       @default(2)
+  scheduledFor      DateTime?
+  startAt           DateTime?
+  endAt             DateTime?
+  stats             Json      @default("{\"sent\": 0, \"delivered\": 0, \"opened\": 0, \"failed\": 0}")
+  createdBy         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notifications PushNotification[]
+  metrics       PushMetric[]
+
+  @@index([tenantId, status])
+  @@map("push_campaigns")
+}
+
+model PushNotification {
+  id          String    @id @default(cuid())
+  campaignId  String
+  tenantId    String
+  userId      String
+  status      String    @default("queued")
+  title       String
+  body        String
+  imageUrl    String?
+  actionUrl   String?
+  priority    String    @default("high")
+  errorMessage String?
+  failedAt    DateTime?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  openedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  campaign PushCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([tenantId, userId])
+  @@map("push_notifications")
+}
+
+model PushMetric {
+  id        String   @id @default(cuid())
+  campaignId String
+  tenantId  String
+  date      DateTime @db.Date
+  sent      Int      @default(0)
+  delivered Int      @default(0)
+  opened    Int      @default(0)
+  failed    Int      @default(0)
+
+  campaign PushCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([tenantId, date])
+  @@map("push_metrics")
 }
 
 // ─────────────────────────────────────────────

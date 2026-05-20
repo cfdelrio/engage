@@ -7,6 +7,8 @@ export const QUEUES = {
   DELIVERIES_WHATSAPP: 'deliveries.whatsapp',
   DELIVERIES_VOICE: 'deliveries.voice',
   VOICE_CALLS: 'voice.calls',
+  PUSH_NOTIFICATIONS: 'push.notifications',
+  WHATSAPP_MESSAGES: 'whatsapp.messages',
   ANALYTICS_SCORE_RECALC: 'analytics.score_recalc',
 } as const;
 
