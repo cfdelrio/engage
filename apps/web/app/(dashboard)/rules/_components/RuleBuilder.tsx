@@ -63,7 +63,7 @@ function ConditionRow({
   return (
     <Card className="p-4 space-y-3">
       <div className="grid grid-cols-3 gap-3">
-        <Select value={condition.field} onValueChange={(field) => onUpdate({ ...condition, field })}>
+        <Select value={condition.field} onValueChange={(field) => field && onUpdate({ ...condition, field })}>
           <SelectTrigger>
             <SelectValue placeholder="Campo" />
           </SelectTrigger>
@@ -76,7 +76,7 @@ function ConditionRow({
           </SelectContent>
         </Select>
 
-        <Select value={condition.operator} onValueChange={(operator) => onUpdate({ ...condition, operator })}>
+        <Select value={condition.operator} onValueChange={(operator) => operator && onUpdate({ ...condition, operator })}>
           <SelectTrigger>
             <SelectValue placeholder="Operador" />
           </SelectTrigger>
