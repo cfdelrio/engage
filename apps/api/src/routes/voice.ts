@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { Queue } from 'bullmq';
 import { asJson } from '../utils/prisma.js';
 
 const createVoiceCampaignSchema = z.object({
@@ -161,10 +162,60 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Campaign must be in draft status' });
     }
 
+    // Update campaign status
     const updated = await fastify.prisma.voiceCampaign.update({
       where: { id },
       data: { status: 'active', startAt: new Date() },
     });
+
+    // Find users matching audience filter
+    const users = await fastify.prisma.user.findMany({
+      where: {
+        tenantId: request.tenantId,
+        phone: { not: null },
+      },
+      take: 1000,
+    });
+
+    // Create VoiceCall records and enqueue jobs
+    const voiceQueue = new Queue('voice.calls', { connection: fastify.redis });
+
+    for (const user of users) {
+      const voiceCall = await fastify.prisma.voiceCall.create({
+        data: {
+          voiceCampaignId: id,
+          tenantId: request.tenantId,
+          userId: user.id,
+          phone: user.phone!,
+          status: 'queued',
+        },
+      });
+
+      const voiceConfig = campaign.voiceConfig as Record<string, unknown> || {};
+      await voiceQueue.add(
+        'voice-call',
+        {
+          voiceCallId: voiceCall.id,
+          voiceCampaignId: id,
+          userId: user.id,
+          phone: user.phone,
+          script: campaign.script,
+          languageCode: (voiceConfig['language'] as string) || 'es-ES',
+          voiceGender: (voiceConfig['voice'] as 'male' | 'female') || 'female',
+          dtmfConfig: campaign.dtmfConfig,
+          attempt: 0,
+        },
+        {
+          attempts: campaign.maxRetries + 1,
+          backoff: {
+            type: 'exponential',
+            delay: 60000,
+          },
+        },
+      );
+    }
+
+    await voiceQueue.close();
 
     return reply.send(updated);
   });
