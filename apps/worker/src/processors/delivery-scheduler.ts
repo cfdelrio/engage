@@ -4,181 +4,158 @@ import type { Redis } from 'ioredis';
 import { QUEUES, isQuietHours, REDIS_KEYS } from '@engage/core';
 import { getQueue } from '@engage/event-bus';
 import type { DeliveryJobPayload } from './event-processor.js';
-import { EngagementScorer } from '@engage/analytics';
 import Handlebars from 'handlebars';
-
-const scorer = new EngagementScorer();
 
 export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
   return async (job: Job<DeliveryJobPayload>) => {
     const { engagementDecisionId, tenantId, userId, channel } = job.data;
 
-    const [decision, user, preferences, unsubscribes] = await Promise.all([
-      db.engagementDecision.findUniqueOrThrow({ where: { id: engagementDecisionId } }),
-      db.user.findUniqueOrThrow({ where: { id: userId } }),
-      db.userPreference.findMany({ where: { userId, tenantId, channel } }),
-      db.globalUnsubscribe.findMany({ where: { userId, tenantId, channel } }),
-    ]);
+    try {
+      const [decision, user, preferences, unsubscribes] = await Promise.all([
+        db.engagementDecision.findUniqueOrThrow({ where: { id: engagementDecisionId } }),
+        db.user.findUniqueOrThrow({ where: { id: userId } }),
+        db.userPreference.findMany({ where: { userId, tenantId, channel } }),
+        db.globalUnsubscribe.findMany({ where: { userId, tenantId, channel } }),
+      ]);
 
-    // ─── Suppression checks ───────────────────────────────────────────────────
-    if (unsubscribes.length > 0) {
-      await db.delivery.create({
-        data: {
-          tenantId,
-          engagementDecisionId,
-          userId,
-          channel,
-          provider: 'none',
-          status: 'suppressed',
-          payload: {},
-          metadata: { reason: 'global_unsubscribe' },
-        },
-      });
-      return;
-    }
-
-    const pref = preferences.find((p) => p.category === 'all');
-    if (pref?.enabled === false) {
-      await db.delivery.create({
-        data: {
-          tenantId, engagementDecisionId, userId, channel,
-          provider: 'none', status: 'suppressed', payload: {},
-          metadata: { reason: 'user_preference_disabled' },
-        },
-      });
-      return;
-    }
-
-    // Check quiet hours
-    if (
-      pref?.quietHoursStart !== null && pref?.quietHoursStart !== undefined &&
-      pref?.quietHoursEnd !== null && pref?.quietHoursEnd !== undefined
-    ) {
-      if (isQuietHours(user.timezone, pref.quietHoursStart, pref.quietHoursEnd)) {
-        // Re-schedule for end of quiet hours instead of suppressing
+      const suppress = async (reason: string) => {
         await db.delivery.create({
           data: {
             tenantId, engagementDecisionId, userId, channel,
             provider: 'none', status: 'suppressed', payload: {},
-            metadata: { reason: 'quiet_hours' },
+            metadata: { reason },
           },
         });
+      };
+
+      // ─── Suppression checks ───────────────────────────────────────────────
+      if (unsubscribes.length > 0) { await suppress('global_unsubscribe'); return; }
+
+      const pref = preferences.find((p) => p.category === 'all');
+      if (pref?.enabled === false) { await suppress('user_preference_disabled'); return; }
+
+      if (pref?.quietHoursStart != null && pref?.quietHoursEnd != null) {
+        if (isQuietHours(user.timezone, pref.quietHoursStart, pref.quietHoursEnd)) {
+          await suppress('quiet_hours');
+          return;
+        }
+      }
+
+      // ─── Frequency cap ────────────────────────────────────────────────────
+      const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, channel);
+      const currentCount = parseInt(await redis.get(capKey) ?? '0', 10);
+      const tenant = await db.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+      const settings = tenant.settings as Record<string, unknown>;
+      const maxPerHour = (settings['maxFrequencyPerHour'] as number | undefined) ?? 2;
+
+      if (currentCount >= maxPerHour) {
+        await suppress('frequency_cap');
         return;
       }
-    }
 
-    // ─── Frequency cap check ──────────────────────────────────────────────────
-    const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, channel);
-    const currentCount = parseInt(await redis.get(capKey) ?? '0', 10);
-    const tenant = await db.tenant.findUniqueOrThrow({ where: { id: tenantId } });
-    const settings = tenant.settings as Record<string, unknown>;
-    const maxPerHour = (settings['maxFrequencyPerHour'] as number | undefined) ?? 2;
-
-    if (currentCount >= maxPerHour) {
-      await db.delivery.create({
-        data: {
-          tenantId, engagementDecisionId, userId, channel,
-          provider: 'none', status: 'suppressed', payload: {},
-          metadata: { reason: 'frequency_cap', currentCount, maxPerHour },
-        },
-      });
-      return;
-    }
-
-    // Increment cap counter
-    const ttl = await redis.ttl(capKey);
-    if (ttl < 0) {
-      await redis.setex(capKey, 3600, '1');
-    } else {
-      await redis.incr(capKey);
-    }
-
-    // ─── Resolve provider ─────────────────────────────────────────────────────
-    const providerRecord = await db.channelProvider.findFirst({
-      where: { tenantId, channel, isActive: true, isDefault: true },
-    });
-
-    if (!providerRecord) {
-      await db.delivery.create({
-        data: {
-          tenantId, engagementDecisionId, userId, channel,
-          provider: 'none', status: 'failed', payload: {},
-          metadata: { reason: 'no_provider_configured' },
-        },
-      });
-      return;
-    }
-
-    // ─── Build delivery payload ───────────────────────────────────────────────
-    const template = await db.template.findFirst({
-      where: { tenantId, channel },
-    });
-
-    const event = await db.event.findUniqueOrThrow({
-      where: { id: decision.eventId },
-    });
-
-    let renderedSubject = template?.subject ?? '';
-    let renderedBody = template?.body ?? event.type;
-
-    if (template) {
-      try {
-        const payload = event.payload as Record<string, unknown>;
-        renderedSubject = Handlebars.compile(template.subject ?? '')(payload);
-        renderedBody = Handlebars.compile(template.body)(payload);
-      } catch {
-        // Template rendering failed — use raw body
+      const ttl = await redis.ttl(capKey);
+      if (ttl < 0) {
+        await redis.setex(capKey, 3600, '1');
+      } else {
+        await redis.incr(capKey);
       }
-    }
 
-    // ─── Route to channel-specific queue ─────────────────────────────────────
-    const queueMap: Record<string, string> = {
-      email: QUEUES.DELIVERIES_EMAIL,
-      sms: QUEUES.DELIVERIES_SMS,
-      push: QUEUES.DELIVERIES_PUSH,
-      whatsapp: QUEUES.DELIVERIES_WHATSAPP,
-      voice: QUEUES.DELIVERIES_VOICE,
-    };
+      // ─── Validate recipient ───────────────────────────────────────────────
+      if (channel === 'email' && !user.email) { await suppress('no_email'); return; }
+      if ((channel === 'sms' || channel === 'whatsapp' || channel === 'voice') && !user.phone) {
+        await suppress('no_phone'); return;
+      }
+      if (channel === 'push') {
+        const tokens = user.deviceTokens as string[] | null;
+        if (!tokens || tokens.length === 0) { await suppress('no_device_token'); return; }
+      }
 
-    const channelQueue = queueMap[channel];
-    if (!channelQueue) {
-      return;
-    }
+      // ─── Resolve provider ─────────────────────────────────────────────────
+      const providerRecord = await db.channelProvider.findFirst({
+        where: { tenantId, channel, isActive: true, isDefault: true },
+      });
 
-    const delivery = await db.delivery.create({
-      data: {
-        tenantId,
-        engagementDecisionId,
-        userId,
-        channel,
-        provider: providerRecord.provider,
-        status: 'queued',
-        payload: {
-          subject: renderedSubject,
-          body: renderedBody,
-          to: channel === 'email' ? user.email : channel === 'push' ? (user.deviceTokens as string[])[0] : user.phone,
+      if (!providerRecord) { await suppress('no_provider_configured'); return; }
+
+      // ─── Build payload ────────────────────────────────────────────────────
+      const event = await db.event.findUniqueOrThrow({ where: { id: decision.eventId } });
+      const eventPayload = event.payload as Record<string, unknown>;
+      const userPayload = { ...eventPayload, user: { id: user.id, email: user.email, phone: user.phone, ...(user.metadata as object) } };
+
+      // Resolve template — prefer templateId stored in reasoning, then by channel
+      const reasoning = decision.reasoning as Record<string, unknown> | null;
+      const templateId = reasoning?.['templateId'] as string | undefined;
+
+      const template = await (templateId
+        ? db.template.findFirst({ where: { id: templateId, tenantId } })
+        : db.template.findFirst({ where: { tenantId, channel } })
+      );
+
+      let renderedSubject = '';
+      let renderedBody = event.type;
+
+      if (template) {
+        try {
+          renderedSubject = template.subject ? Handlebars.compile(template.subject)(userPayload) : '';
+          renderedBody = Handlebars.compile(template.body)(userPayload);
+        } catch {
+          renderedBody = template.body;
+        }
+      }
+
+      // ─── Determine recipient ──────────────────────────────────────────────
+      let to: string;
+      if (channel === 'email') {
+        to = user.email as string;
+      } else if (channel === 'push') {
+        const tokens = user.deviceTokens as string[];
+        to = tokens[0] as string;
+      } else {
+        to = user.phone as string;
+      }
+
+      // ─── Create delivery record ───────────────────────────────────────────
+      const delivery = await db.delivery.create({
+        data: {
+          tenantId, engagementDecisionId, userId, channel,
+          provider: providerRecord.provider,
+          status: 'queued',
+          payload: { subject: renderedSubject, body: renderedBody, to },
+          metadata: { templateId: template?.id ?? null },
         },
-        metadata: { templateId: template?.id },
-      },
-    });
+      });
 
-    await getQueue(channelQueue as import('@engage/core').QueueName).add('deliver', {
-      deliveryId: delivery.id,
-      tenantId,
-      userId,
-      channel,
-      providerName: providerRecord.provider,
-      payload: {
+      // ─── Route to channel queue ───────────────────────────────────────────
+      const queueMap: Record<string, string> = {
+        email: QUEUES.DELIVERIES_EMAIL,
+        sms: QUEUES.DELIVERIES_SMS,
+        push: QUEUES.DELIVERIES_PUSH,
+        whatsapp: QUEUES.DELIVERIES_WHATSAPP,
+        voice: QUEUES.DELIVERIES_VOICE,
+      };
+
+      const channelQueue = queueMap[channel];
+      if (!channelQueue) return;
+
+      await getQueue(channelQueue as import('@engage/core').QueueName).add('deliver', {
         deliveryId: delivery.id,
         tenantId,
         userId,
         channel,
-        provider: providerRecord.provider,
-        to: (delivery.payload as Record<string, string>)['to'] ?? '',
-        subject: renderedSubject,
-        body: renderedBody,
-        metadata: {},
-      },
-    });
+        providerName: providerRecord.provider,
+        payload: {
+          deliveryId: delivery.id, tenantId, userId, channel,
+          provider: providerRecord.provider,
+          to,
+          subject: renderedSubject,
+          body: renderedBody,
+          metadata: {},
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[delivery-scheduler] engagementDecisionId=${engagementDecisionId} failed:`, message);
+      throw err;
+    }
   };
 }

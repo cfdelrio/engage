@@ -44,6 +44,36 @@ const rulesRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
+  fastify.get('/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const rule = await fastify.prisma.rule.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+    if (!rule) return reply.status(404).send({ error: 'Rule not found' });
+    return rule;
+  });
+
+  fastify.get('/:id/executions', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { limit = '50', matched } = request.query as { limit?: string; matched?: string };
+
+    const rule = await fastify.prisma.rule.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+    if (!rule) return reply.status(404).send({ error: 'Rule not found' });
+
+    const executions = await fastify.prisma.ruleExecution.findMany({
+      where: {
+        ruleId: id,
+        tenantId: request.tenantId,
+        ...(matched !== undefined ? { matched: matched === 'true' } : {}),
+      },
+      orderBy: { executedAt: 'desc' },
+      take: Math.min(parseInt(limit, 10) || 50, 200),
+    });
+    return executions;
+  });
+
   fastify.post('/', async (request, reply) => {
     const body = ruleSchema.parse(request.body);
     const rule = await fastify.prisma.rule.create({
