@@ -41,6 +41,9 @@ model Tenant {
   voiceCampaigns      VoiceCampaign[]
   voiceCalls          VoiceCall[]         @relation("VoiceCallTenant")
   voiceMetrics        VoiceMetric[]
+  pushCampaigns       PushCampaign[]
+  pushNotifications   PushNotification[]
+  pushMetrics         PushMetric[]
   auditLogs           AuditLog[]
 
   @@map("tenants")
@@ -92,6 +95,7 @@ model User {
   frequencyCaps       FrequencyCap[]
   ruleExecutions      RuleExecution[]
   voiceCalls          VoiceCall[]          @relation("VoiceCallUser")
+  pushNotifications   PushNotification[]
 
   @@unique([tenantId, externalId])
   @@index([tenantId])
@@ -697,6 +701,114 @@ model VoiceMetric {
   @@unique([voiceCampaignId, date])
   @@index([tenantId, date])
   @@map("voice_metrics")
+}
+
+// ─────────────────────────────────────────────
+// PUSH CAMPAIGNS
+// ─────────────────────────────────────────────
+
+model PushCampaign {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  name                String
+  description         String?
+  status              String    @default("draft")
+  triggerType         String    // manual, scheduled, rule-based, event-based
+  title               String    // Push notification title
+  body                String    // Push notification body (supports Handlebars)
+  imageUrl            String?   // Notification image/icon
+  actionUrl           String?   // Deep link or URL on tap
+  badge               Int?      // Badge count
+  sound               String?   // Notification sound
+  priority            String    @default("high") // high, default, low
+  ttl                 Int?      // Time to live in seconds
+  aiGenerated         Boolean   @default(false)
+  aiInstructions      String?   // Context for AI body generation
+  audienceFilter      Json?     // DSL JSON conditions
+  maxRetries          Int       @default(2)
+  scheduledFor        DateTime?
+  startAt             DateTime?
+  endAt               DateTime?
+  stats               Json      @default("{\"sent\": 0, \"delivered\": 0, \"opened\": 0, \"clicked\": 0, \"failed\": 0}")
+  createdBy           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  notifications       PushNotification[]
+  metrics             PushMetric[]
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@map("push_campaigns")
+}
+
+model PushNotification {
+  id                  String    @id @default(cuid())
+  pushCampaignId      String
+  tenantId            String
+  userId              String
+  deviceToken         String    // Firebase device token
+  status              String    @default("queued")
+  firebaseMessageId   String?   @unique
+
+  sentAt              DateTime?
+  deliveredAt         DateTime?
+  openedAt            DateTime?
+  clickedAt           DateTime?
+  failedAt            DateTime?
+
+  errorCode           String?
+  errorMessage        String?
+  metadata            Json      @default("{}")
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  campaign            PushCampaign @relation(fields: [pushCampaignId], references: [id], onDelete: Cascade)
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  interactions        PushInteraction[]
+
+  @@index([pushCampaignId])
+  @@index([tenantId, userId])
+  @@index([tenantId, status])
+  @@index([deviceToken])
+  @@map("push_notifications")
+}
+
+model PushInteraction {
+  id                  String    @id @default(cuid())
+  pushNotificationId  String
+  tenantId            String
+  type                String    // delivered, opened, clicked, error
+  data                Json      @default("{}")
+  timestamp           DateTime  @default(now())
+
+  notification        PushNotification @relation(fields: [pushNotificationId], references: [id], onDelete: Cascade)
+
+  @@index([pushNotificationId])
+  @@index([tenantId, timestamp])
+  @@map("push_interactions")
+}
+
+model PushMetric {
+  id                  String    @id @default(cuid())
+  pushCampaignId      String
+  tenantId            String
+  date                DateTime  @db.Date
+  notifications_sent     Int    @default(0)
+  notifications_delivered Int  @default(0)
+  notifications_opened   Int   @default(0)
+  notifications_clicked  Int   @default(0)
+  notifications_failed   Int   @default(0)
+
+  campaign            PushCampaign @relation(fields: [pushCampaignId], references: [id], onDelete: Cascade)
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([pushCampaignId, date])
+  @@index([tenantId, date])
+  @@map("push_metrics")
 }
 
 // ─────────────────────────────────────────────

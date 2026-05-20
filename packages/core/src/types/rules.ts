@@ -15,6 +15,7 @@ export type RuleActionType =
   | 'SEND_NOTIFICATION'
   | 'ADD_TO_CAMPAIGN'
   | 'START_VOICE_CAMPAIGN'
+  | 'START_PUSH_CAMPAIGN'
   | 'SUPPRESS'
   | 'ESCALATE'
   | 'UPDATE_SCORE'
