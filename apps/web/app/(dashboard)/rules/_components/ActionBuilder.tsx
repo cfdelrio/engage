@@ -17,12 +17,12 @@ interface Props {
 }
 
 const ACTION_TYPES = [
-  { label: 'Enviar Notificación', value: 'SEND_NOTIFICATION' },
-  { label: 'Agregar a Campaña', value: 'ADD_TO_CAMPAIGN' },
-  { label: 'Suprimir Notificaciones', value: 'SUPPRESS' },
-  { label: 'Escalar', value: 'ESCALATE' },
-  { label: 'Actualizar Score', value: 'UPDATE_SCORE' },
-  { label: 'Iniciar Campaña de Voz', value: 'START_VOICE_CAMPAIGN' },
+  { label: 'Enviar Notificación', value: 'SEND_NOTIFICATION', description: 'Envía una notificación por el canal especificado' },
+  { label: 'Agregar a Campaña', value: 'ADD_TO_CAMPAIGN', description: 'Agrega el usuario a una campaña' },
+  { label: 'Suprimir Notificaciones', value: 'SUPPRESS', description: 'Suprime notificaciones por tiempo' },
+  { label: 'Escalar', value: 'ESCALATE', description: 'Escala el engagement a prioridad mayor' },
+  { label: 'Actualizar Score', value: 'UPDATE_SCORE', description: 'Actualiza el score de engagement' },
+  { label: 'Iniciar Campaña de Voz', value: 'START_VOICE_CAMPAIGN', description: 'Inicia una campaña de voz' },
 ];
 
 function ActionRow({
@@ -55,8 +55,10 @@ function ActionRow({
 
   const paramKeys = getParamsForType(action.type);
 
+  const actionTypeData = ACTION_TYPES.find((opt) => opt.value === action.type);
+
   return (
-    <Card className="p-4 space-y-3">
+    <Card className="p-4 space-y-3 bg-gray-50">
       <Select value={action.type || ''} onValueChange={(type) => type && onUpdate({ type, params: {} })}>
         <SelectTrigger>
           <SelectValue placeholder="Tipo de acción" />
@@ -69,6 +71,7 @@ function ActionRow({
           ))}
         </SelectContent>
       </Select>
+      {actionTypeData && <p className="text-xs text-muted-foreground italic">{actionTypeData.description}</p>}
 
       <div className="space-y-2">
         {paramKeys.map((key) => (

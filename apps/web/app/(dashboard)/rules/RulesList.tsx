@@ -109,19 +109,40 @@ export function RulesList() {
           </CardHeader>
 
           {expanded.has(rule.id) && (
-            <CardContent className="pt-0 pb-4">
+            <CardContent className="pt-0 pb-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">CONDITIONS</p>
-                  <pre className="text-xs bg-muted rounded p-3 overflow-auto max-h-48">
-                    {JSON.stringify(rule.conditions, null, 2)}
-                  </pre>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase">Condiciones</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs">
+                    {typeof rule.conditions === 'object' && rule.conditions !== null && 'operator' in rule.conditions ? (
+                      <>
+                        <p className="font-mono font-semibold mb-2">
+                          {(rule.conditions as unknown as { operator: string }).operator}
+                        </p>
+                        <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">
+                          {JSON.stringify(
+                            (rule.conditions as unknown as { conditions: unknown }).conditions,
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground">Sin condiciones</p>
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">ACTIONS</p>
-                  <pre className="text-xs bg-muted rounded p-3 overflow-auto max-h-48">
-                    {JSON.stringify(rule.actions, null, 2)}
-                  </pre>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase">Acciones</p>
+                  <div className="bg-green-50 border border-green-200 rounded p-3 text-xs">
+                    {Array.isArray(rule.actions) && rule.actions.length > 0 ? (
+                      <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">
+                        {JSON.stringify(rule.actions, null, 2)}
+                      </pre>
+                    ) : (
+                      <p className="text-muted-foreground">Sin acciones</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
