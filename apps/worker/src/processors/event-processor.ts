@@ -56,9 +56,10 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
 
     const actions = rulesEngine.collectActions(ruleResults);
     const sendActions = actions.filter((a) => a.type === 'SEND_NOTIFICATION');
+    const voiceActions = actions.filter((a) => a.type === 'START_VOICE_CAMPAIGN');
     const isSuppressed = actions.some((a) => a.type === 'SUPPRESS');
 
-    if (isSuppressed || sendActions.length === 0) {
+    if (isSuppressed || (sendActions.length === 0 && voiceActions.length === 0)) {
       await db.event.update({ where: { id: eventId }, data: { processedAt: new Date() } });
       return;
     }
@@ -66,6 +67,10 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
     const aiEnabledTenant = await redis.get(REDIS_KEYS.featureFlag('ai_engagement_decisions', tenantId));
     const aiEnabledGlobal = await redis.get(REDIS_KEYS.featureFlag('ai_engagement_decisions'));
     const aiEnabled = aiEnabledTenant ?? aiEnabledGlobal;
+
+    const voiceEnabledTenant = await redis.get(REDIS_KEYS.featureFlag('voice_campaigns', tenantId));
+    const voiceEnabledGlobal = await redis.get(REDIS_KEYS.featureFlag('voice_campaigns'));
+    const voiceEnabled = voiceEnabledTenant ?? voiceEnabledGlobal;
 
     let aiDecision = null;
     if (aiEnabled === '1') {
@@ -75,7 +80,9 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
     }
 
     const deliveryQueue = getQueue(QUEUES.DELIVERIES_SCHEDULED);
+    const voiceQueue = getQueue('voice.calls');
 
+    // Process SEND_NOTIFICATION actions
     for (const action of sendActions) {
       const params = action.params as Record<string, unknown>;
       const channel = params['channel'] as string;
@@ -103,7 +110,58 @@ export function createEventProcessor(db: PrismaClient, redis: Redis, rulesEngine
       await deliveryQueue.add('schedule', { engagementDecisionId: decision.id, tenantId, userId, channel } satisfies DeliveryJobPayload, { delay: Math.max(0, scheduledFor.getTime() - Date.now()) });
     }
 
+    // Process START_VOICE_CAMPAIGN actions
+    if (voiceEnabled === '1') {
+      for (const action of voiceActions) {
+        const params = action.params as Record<string, unknown>;
+        const campaignId = params['campaignId'] as string | undefined;
+
+        if (!campaignId) continue;
+
+        const campaign = await db.voiceCampaign.findFirst({
+          where: { id: campaignId, tenantId, status: 'active' },
+        });
+
+        if (!campaign || !user.phone) continue;
+
+        // Check quiet hours and unsubscribe for voice
+        if (unsubscribes.some((u) => u.channel === 'voice')) continue;
+
+        const voicePref = preferences.find((p) => p.channel === 'voice');
+        if (voicePref?.quietHoursStart !== null && voicePref?.quietHoursStart !== undefined && voicePref?.quietHoursEnd !== null && voicePref?.quietHoursEnd !== undefined) {
+          if (isQuietHours(user.timezone, voicePref.quietHoursStart, voicePref.quietHoursEnd)) continue;
+        }
+
+        // Create voice call
+        const voiceCall = await db.voiceCall.create({
+          data: {
+            voiceCampaignId: campaignId,
+            tenantId,
+            userId,
+            phone: user.phone,
+            status: 'queued',
+          },
+        });
+
+        // Get voice config
+        const voiceConfig = (campaign.voiceConfig || {}) as Record<string, unknown>;
+
+        // Queue voice call
+        await voiceQueue.add('initiate', {
+          voiceCallId: voiceCall.id,
+          voiceCampaignId: campaignId,
+          userId,
+          phone: user.phone,
+          script: campaign.script,
+          languageCode: (voiceConfig['language'] as string) || 'es-ES',
+          voiceGender: (voiceConfig['voice'] as 'male' | 'female') || 'female',
+          dtmfConfig: campaign.dtmfConfig,
+          attempt: 0,
+        });
+      }
+    }
+
     await db.event.update({ where: { id: eventId }, data: { processedAt: new Date() } });
-    await db.eventProcessingLog.create({ data: { eventId, step: 'completed', status: 'ok', details: { actionsCount: sendActions.length } } });
+    await db.eventProcessingLog.create({ data: { eventId, step: 'completed', status: 'ok', details: { sendActionsCount: sendActions.length, voiceActionsCount: voiceActions.length } } });
   };
 }
