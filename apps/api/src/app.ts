@@ -20,6 +20,8 @@ import webhooksRoutes from './routes/webhooks.js';
 import adminRoutes from './routes/admin.js';
 import campaignsRoutes from './routes/campaigns.js';
 import voiceRoutes from './routes/voice.js';
+import whatsappRoutes from './routes/whatsapp.js';
+import pushRoutes from './routes/push.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -78,7 +80,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(analyticsRoutes, { prefix: '/v1/analytics' });
   await app.register(feedsRoutes, { prefix: '/v1/feeds' });
   await app.register(campaignsRoutes, { prefix: '/v1/campaigns' });
-  await app.register(voiceRoutes, { prefix: '/v1/voice' });
+  await app.register(voiceRoutes, { prefix: '/v1/voice-campaigns' });
+  await app.register(whatsappRoutes, { prefix: '/v1/whatsapp-campaigns' });
+  await app.register(pushRoutes, { prefix: '/v1/push-campaigns' });
   await app.register(webhooksRoutes, { prefix: '/webhooks' });
   await app.register(adminRoutes, { prefix: '/admin' });
 
