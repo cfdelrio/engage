@@ -87,7 +87,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @engage/database db:generate
-      - run: pnpm --filter @engage/database db:migrate:deploy
+      - run: pnpm --filter @engage/database db:push
       - run: pnpm test
 
   build:

@@ -5,3 +5,4 @@ export * from './rules.js';
 export * from './ai.js';
 export * from './engagement.js';
 export * from './admin-api.js';
+export * from './user-preferences.js';

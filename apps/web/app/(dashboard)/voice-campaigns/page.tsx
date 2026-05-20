@@ -122,7 +122,7 @@ export default function VoiceCampaignsPage() {
         method: 'POST',
         headers: { 'x-api-key': apiKey },
       });
-      fetchCampaigns();
+      refetchCampaigns();
     } catch (err) {
       console.error('Failed to start campaign:', err);
     }
@@ -136,7 +136,7 @@ export default function VoiceCampaignsPage() {
         method: 'DELETE',
         headers: { 'x-api-key': apiKey },
       });
-      fetchCampaigns();
+      refetchCampaigns();
     } catch (err) {
       console.error('Failed to delete campaign:', err);
     }
