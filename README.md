@@ -40,7 +40,9 @@ engage/
 
 ---
 
-## Inicio rápido
+## Inicio Rápido
+
+**¿Es tu primer día?** → Lee [GETTING_STARTED.md](/GETTING_STARTED.md) (10 minutos)
 
 ### Prerrequisitos
 
@@ -132,6 +134,7 @@ Workers de canal (con retry + DLQ):
   deliveries.sms       → Twilio SMS
   deliveries.push      → Firebase FCM
   deliveries.voice     → Twilio Voice + TTS
+  voice.calls          → Twilio Voice API + TwiML (IVR, DTMF, Recording)
 ```
 
 ---
@@ -166,11 +169,18 @@ Documentación completa en Swagger: `http://localhost:3001/docs`
 | `GET` | `/v1/users/:id/engagement` | Score y métricas de un usuario |
 | `GET/POST` | `/v1/campaigns` | Gestión de campañas |
 | `GET/POST` | `/v1/rules` | Gestión de reglas |
+| `GET/POST` | `/v1/voice-campaigns` | **[NUEVO]** Gestión de voice campaigns |
+| `GET` | `/v1/voice-campaigns/:id/calls` | **[NUEVO]** Listar llamadas de campaña |
+| `GET` | `/v1/voice-calls/:id` | **[NUEVO]** Detalles de una llamada |
+| `GET` | `/v1/voice-campaigns/:id/metrics` | **[NUEVO]** Métricas de voice campaign |
 | `GET` | `/v1/analytics/overview` | Métricas generales |
 | `GET` | `/v1/deliveries` | Historial de entregas |
 | `WS` | `/v1/events/stream` | Stream en tiempo real |
 | `POST` | `/webhooks/resend` | Webhook Resend (status email) |
 | `POST` | `/webhooks/twilio` | Webhook Twilio (status SMS/voice) |
+| `POST` | `/webhooks/twilio/voice` | **[NUEVO]** Webhook Twilio call status |
+| `POST` | `/webhooks/twilio/gather` | **[NUEVO]** Webhook DTMF responses |
+| `POST` | `/webhooks/twilio/recording` | **[NUEVO]** Webhook recording completed |
 
 ---
 
@@ -195,7 +205,42 @@ Las reglas se definen con un DSL JSON:
 
 Operadores soportados: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `changed`, `exists`
 
-Acciones: `SEND_NOTIFICATION`, `ADD_TO_CAMPAIGN`, `SUPPRESS`, `ESCALATE`, `UPDATE_SCORE`
+Acciones: `SEND_NOTIFICATION`, `ADD_TO_CAMPAIGN`, `SUPPRESS`, `ESCALATE`, `UPDATE_SCORE`, `START_VOICE_CAMPAIGN`
+
+---
+
+## Voice Campaigns
+
+Contacta usuarios vía **llamadas telefónicas automatizadas** con Twilio Voice API. Soporta:
+
+- ✅ Mensajes personalizados con variables Handlebars
+- ✅ IA para análisis de sentimiento y enriquecimiento de scripts
+- ✅ Respuestas DTMF (teclas presionables: 1, 2, 3...)
+- ✅ Grabación automática de llamadas
+- ✅ Retry automático con exponential backoff
+- ✅ Quiet hours (no llamar en horarios específicos)
+- ✅ Frequency caps y opt-out controls
+
+**Ejemplo:**
+```bash
+curl -X POST http://localhost:3001/v1/voice-campaigns \
+  -H "x-api-key: <tu-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Reactivación",
+    "script": "Hola {{user.firstName}}, te echamos de menos!",
+    "voiceConfig": { "language": "es-ES", "voice": "female" },
+    "dtmfConfig": {
+      "enabled": true,
+      "options": [
+        { "key": "1", "action": "callback", "label": "Volver" },
+        { "key": "2", "action": "unsubscribe", "label": "No contactarme" }
+      ]
+    }
+  }'
+```
+
+**Documentación completa:** Ver [VOICE_CAMPAIGNS.md](/VOICE_CAMPAIGNS.md)
 
 ---
 
@@ -256,6 +301,49 @@ pnpm db:seed          # Seed con datos de ProdeCaballito
 GitHub Actions con 4 jobs: `Typecheck → Lint → Test → Build`.
 
 Deploy automático a AWS ECS Fargate al hacer push a `main` (requiere secrets `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ACCOUNT_ID`, `DATABASE_URL`).
+
+---
+
+## Documentación
+
+| Documento | Descripción |
+|-----------|-------------|
+| [ARCHITECTURE.md](/ARCHITECTURE.md) | Arquitectura detallada del sistema |
+| [VOICE_CAMPAIGNS.md](/VOICE_CAMPAIGNS.md) | Guía completa de voice campaigns |
+| [API_REFERENCE.md](/API_REFERENCE.md) | Referencia de todos los endpoints |
+| [TEST_PLAN.md](/TEST_PLAN.md) | Estrategia de testing |
+| [infra/DEPLOYMENT.md](/infra/DEPLOYMENT.md) | Deploy a AWS |
+
+---
+
+## Stack Completo
+
+**Backend:**
+- Fastify 5 — REST API type-safe
+- BullMQ + Redis 7 — Job queues para async processing
+- Prisma — ORM con migrations y seed
+- Zod — Schema validation
+- Anthropic Claude — AI orchestration (provider-agnostic)
+
+**Frontend:**
+- Next.js 16 — React framework + SSR
+- Tailwind CSS — Styling
+- shadcn/ui — Accessible UI components
+- React Query — Data fetching
+- WebSocket — Real-time updates
+
+**Infraestructura:**
+- Docker Compose (local)
+- AWS ECS Fargate (production)
+- PostgreSQL 16
+- Redis 7
+- GitHub Actions (CI/CD)
+
+**Integraciones:**
+- Twilio — SMS, Voice, WhatsApp
+- Resend — Email transaccional
+- Firebase FCM — Push notifications
+- Anthropic — AI completions
 
 ---
 
