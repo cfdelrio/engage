@@ -144,6 +144,57 @@ const campaignsRoutes: FastifyPluginAsync = async (fastify) => {
     });
     return reply.status(202).send({ runId: run.id, status: "pending" });
   });
+
+  // Get AI-powered campaign suggestions
+  fastify.post<{
+    Body: { type: string; channels?: string[]; targetAudience?: string };
+  }>(
+    "/suggest",
+    {
+      schema: {
+        description:
+          "Get AI-powered suggestions for campaign name, timing, and channels",
+        tags: ["campaigns"],
+        body: z.object({
+          type: z.enum(["event-triggered", "scheduled", "recurring", "voice"]),
+          channels: z.array(z.string()).optional(),
+          targetAudience: z.string().optional(),
+        }),
+      },
+    },
+    async (request, reply) => {
+      const { type, channels = [], targetAudience } = request.body;
+      const tenantId = request.tenantId;
+
+      try {
+        // Get AI layer from fastify context
+        const aiLayer = (fastify as unknown as { aiLayer: unknown }).aiLayer;
+        if (!aiLayer) {
+          return reply.status(503).send({ error: "AI service not available" });
+        }
+
+        const suggestions = await aiLayer.suggestCampaignName(
+          tenantId,
+          type,
+          channels,
+          targetAudience,
+        );
+
+        if (!suggestions) {
+          return reply
+            .status(500)
+            .send({ error: "Failed to generate suggestions" });
+        }
+
+        return reply.send(suggestions);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: "Failed to generate suggestions" });
+      }
+    },
+  );
 };
 
 export default campaignsRoutes;
