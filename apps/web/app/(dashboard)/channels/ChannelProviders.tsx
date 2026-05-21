@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -29,9 +30,10 @@ export function ChannelProviders() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
+  const apiKey = useApiKey();
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!apiKey) return;
     let cancelled = false;
 
     fetch(`${API_URL}/v1/providers`, {
@@ -59,7 +61,6 @@ export function ChannelProviders() {
   }, []);
 
   const handleToggleActive = async (providerId: string, newActive: boolean) => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
     try {
       const res = await fetch(`${API_URL}/v1/providers/${providerId}`, {
         method: "PUT",
@@ -82,7 +83,6 @@ export function ChannelProviders() {
   };
 
   const handleSetDefault = async (providerId: string) => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
     try {
       const res = await fetch(`${API_URL}/v1/providers/${providerId}`, {
         method: "PUT",
@@ -114,7 +114,7 @@ export function ChannelProviders() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Canales configurados</CardTitle>
+        <CardTitle className="text-base">Configured channels</CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -149,9 +149,9 @@ export function ChannelProviders() {
                       <div className="font-medium capitalize">{channel}</div>
                       <div className="text-xs text-muted-foreground">
                         {channelProviders.length === 0
-                          ? "Sin proveedores configurados"
-                          : `${channelProviders.length} proveedor${
-                              channelProviders.length > 1 ? "es" : ""
+                          ? "No providers configured"
+                          : `${channelProviders.length} provider${
+                              channelProviders.length > 1 ? "s" : ""
                             }`}
                       </div>
                     </div>
@@ -166,7 +166,7 @@ export function ChannelProviders() {
                     <div className="border-t bg-muted/30 p-4 space-y-3">
                       {channelProviders.length === 0 ? (
                         <p className="text-xs text-muted-foreground">
-                          Sin proveedores configurados para {channel}
+                          No providers configured for {channel}
                         </p>
                       ) : (
                         <>
@@ -194,7 +194,7 @@ export function ChannelProviders() {
                                     }
                                     className="text-xs"
                                   >
-                                    {provider.isActive ? "Activo" : "Inactivo"}
+                                    {provider.isActive ? "Active" : "Inactive"}
                                   </Badge>
                                 </div>
                               </div>
@@ -232,7 +232,7 @@ export function ChannelProviders() {
 
                       <div className="pt-3 border-t">
                         <Button size="sm" variant="outline" className="w-full">
-                          + Agregar {channel}
+                          + Add {channel} provider
                         </Button>
                       </div>
                     </div>

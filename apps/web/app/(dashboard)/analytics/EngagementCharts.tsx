@@ -1,28 +1,15 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+"use client";
 
-const API_URL =
-  process.env["INTERNAL_API_URL"] ??
-  process.env["NEXT_PUBLIC_API_URL"] ??
-  "http://localhost:3001";
-const API_KEY = process.env["INTERNAL_API_KEY"] ?? "";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useApiKey } from "@/hooks/useApiKey";
+
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface ChannelMetric {
   channel: string;
   status: string;
   _count: number;
-}
-
-async function getChannelMetrics(): Promise<ChannelMetric[]> {
-  try {
-    const res = await fetch(`${API_URL}/v1/analytics/channels`, {
-      headers: { "x-api-key": API_KEY },
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
-    return [];
-  }
 }
 
 const CHANNEL_EMOJIS: Record<string, string> = {
@@ -34,8 +21,21 @@ const CHANNEL_EMOJIS: Record<string, string> = {
   in_app: "📱",
 };
 
-export async function EngagementCharts() {
-  const data = await getChannelMetrics();
+export function EngagementCharts() {
+  const [data, setData] = useState<ChannelMetric[]>([]);
+  const [loading, setLoading] = useState(true);
+  const apiKey = useApiKey();
+
+  useEffect(() => {
+    if (!apiKey) return;
+    fetch(`${API_URL}/v1/analytics/channels`, {
+      headers: { "x-api-key": apiKey },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((d: ChannelMetric[]) => setData(d))
+      .catch(() => setData([]))
+      .finally(() => setLoading(false));
+  }, [apiKey]);
 
   const byChannel = data.reduce<Record<string, Record<string, number>>>(
     (acc, item) => {
@@ -49,12 +49,28 @@ export async function EngagementCharts() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Rendimiento por Canal (7d)</CardTitle>
+        <CardTitle className="text-base">Channel Performance (7d)</CardTitle>
       </CardHeader>
       <CardContent>
-        {Object.keys(byChannel).length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div
+                      key={j}
+                      className="h-12 bg-muted rounded animate-pulse"
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : Object.keys(byChannel).length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            Sin datos
+            No data available
           </p>
         ) : (
           <div className="space-y-4">
