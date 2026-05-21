@@ -53,8 +53,8 @@ export function EmailCampaignStats({ campaignId }: EmailCampaignStatsProps) {
       if (!response.ok) throw new Error("Failed to fetch metrics");
       const data = await response.json();
       setMetrics((data.metrics || []).reverse());
-    } catch (err) {
-      console.error("Failed to fetch metrics:", err);
+    } catch {
+      // metrics unavailable — show empty state
     } finally {
       setLoading(false);
     }
@@ -65,9 +65,26 @@ export function EmailCampaignStats({ campaignId }: EmailCampaignStatsProps) {
     fetchMetrics();
   }, [apiKey, fetchMetrics]);
 
-  if (loading) return <div className="p-4">Loading metrics...</div>;
-  if (metrics.length === 0)
-    return <div className="p-4 text-muted-foreground">No metrics yet</div>;
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 bg-muted rounded animate-pulse" />
+          ))}
+        </div>
+        <div className="h-72 bg-muted rounded animate-pulse" />
+      </div>
+    );
+  }
+
+  if (metrics.length === 0) {
+    return (
+      <div className="text-center py-16 text-muted-foreground">
+        <p>No metrics yet. Send the campaign to start collecting data.</p>
+      </div>
+    );
+  }
 
   const totalStats = metrics.reduce(
     (acc, m) => ({
