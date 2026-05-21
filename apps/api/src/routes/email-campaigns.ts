@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { Queue } from 'bullmq';
 import { asJson } from '../utils/prisma.js';
 
 const createSchema = z.object({
@@ -140,11 +141,73 @@ const emailCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     if (campaign.status !== 'draft' && campaign.status !== 'paused') {
       return reply.status(400).send({ error: 'Campaign must be draft or paused to start' });
     }
+
+    // Update campaign status
     const updated = await fastify.prisma.emailCampaign.update({
       where: { id },
       data: { status: 'active', startAt: new Date() },
     });
-    return updated;
+
+    // Find users matching audience filter with email
+    const users = await fastify.prisma.user.findMany({
+      where: {
+        tenantId: request.tenantId,
+        email: { not: null },
+      },
+      take: 10000,
+    });
+
+    // Create EmailDelivery records and enqueue jobs
+    const emailQueue = new Queue('email.messages', { connection: fastify.redis });
+
+    let enqueuedCount = 0;
+    for (const user of users) {
+      if (!user.email) continue;
+
+      const delivery = await fastify.prisma.emailDelivery.create({
+        data: {
+          emailCampaignId: id,
+          tenantId: request.tenantId,
+          userId: user.id,
+          email: user.email,
+          status: 'queued',
+        },
+      });
+
+      await emailQueue.add(
+        'send-email',
+        {
+          deliveryId: delivery.id,
+          emailCampaignId: id,
+          userId: user.id,
+          email: user.email,
+          subject: campaign.subject,
+          bodyHtml: campaign.bodyHtml,
+          bodyText: campaign.bodyText,
+          fromName: campaign.fromName,
+          fromEmail: campaign.fromEmail,
+          replyTo: campaign.replyTo,
+          unsubscribeUrl: campaign.unsubscribeUrl,
+        },
+        {
+          attempts: campaign.maxRetries + 1,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+        },
+      );
+
+      enqueuedCount++;
+    }
+
+    await emailQueue.close();
+
+    return {
+      ...updated,
+      enqueuedCount,
+      message: `${enqueuedCount} emails enqueued for sending`,
+    };
   });
 
   // Pause campaign

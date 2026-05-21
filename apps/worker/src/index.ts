@@ -20,6 +20,7 @@ import { createDeliveryScheduler } from './processors/delivery-scheduler.js';
 import { createChannelDeliveryWorker } from './processors/channel-delivery.js';
 import { processEmailMessage } from './processors/email-messages.js';
 import { processSmsMessage } from './processors/sms-messages.js';
+import { processVoiceCall } from './processors/voice-calls.js';
 import type { AIProviderName } from '@engage/core';
 
 async function main() {
@@ -104,11 +105,12 @@ async function main() {
     createWorker(queueName, createChannelDeliveryWorker(db, channelRegistry), 5),
   );
 
-  // Dedicated workers for email and SMS campaigns
+  // Dedicated workers for email, SMS, and voice campaigns
   const emailCampaignWorker = createWorker(QUEUES.DELIVERIES_EMAIL, processEmailMessage, 5);
   const smsCampaignWorker = createWorker(QUEUES.DELIVERIES_SMS, processSmsMessage, 5);
+  const voiceCallWorker = createWorker('voice.calls', processVoiceCall, 3);
 
-  const allWorkers = [eventWorker, deliverySchedulerWorker, ...channelWorkers, emailCampaignWorker, smsCampaignWorker];
+  const allWorkers = [eventWorker, deliverySchedulerWorker, ...channelWorkers, emailCampaignWorker, smsCampaignWorker, voiceCallWorker];
 
   for (const worker of allWorkers) {
     worker.on('failed', (job, err) => {
