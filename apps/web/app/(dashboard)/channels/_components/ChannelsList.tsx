@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Edit, Save, X } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Edit, Save, X } from "lucide-react";
 
 interface ChannelProvider {
   id: string;
@@ -15,31 +15,34 @@ interface ChannelProvider {
   configEncrypted?: string;
 }
 
-const API_URL = process.env['INTERNAL_API_URL'] ?? process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
+const API_URL =
+  process.env["INTERNAL_API_URL"] ??
+  process.env["NEXT_PUBLIC_API_URL"] ??
+  "http://localhost:3001";
 
 const CHANNEL_EMOJI: Record<string, string> = {
-  email: '📧',
-  sms: '💬',
-  push: '🔔',
-  whatsapp: '💚',
-  voice: '📞',
-  'in-app': '📱',
+  email: "📧",
+  sms: "💬",
+  push: "🔔",
+  whatsapp: "💚",
+  voice: "📞",
+  "in-app": "📱",
 };
 
 const CHANNEL_NAMES: Record<string, string> = {
-  email: 'Email',
-  sms: 'SMS',
-  push: 'Push',
-  whatsapp: 'WhatsApp',
-  voice: 'Voz',
-  'in-app': 'In-App',
+  email: "Email",
+  sms: "SMS",
+  push: "Push",
+  whatsapp: "WhatsApp",
+  voice: "Voz",
+  "in-app": "In-App",
 };
 
 export function ChannelsList() {
   const [providers, setProviders] = useState<ChannelProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
-  const [editConfig, setEditConfig] = useState('');
+  const [editConfig, setEditConfig] = useState("");
 
   useEffect(() => {
     fetchProviders();
@@ -47,14 +50,14 @@ export function ChannelsList() {
 
   async function fetchProviders() {
     try {
-      const apiKey = localStorage.getItem('engage_api_key') ?? '';
+      const apiKey = localStorage.getItem("engage_api_key") ?? "";
       const res = await fetch(`${API_URL}/v1/providers`, {
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
       const data = await res.json();
       setProviders(data);
     } catch (err) {
-      console.error('Failed to fetch providers:', err);
+      console.error("Failed to fetch providers:", err);
     } finally {
       setLoading(false);
     }
@@ -62,29 +65,29 @@ export function ChannelsList() {
 
   const startEdit = (provider: ChannelProvider) => {
     setEditing(provider.id);
-    setEditConfig(provider.configEncrypted || '');
+    setEditConfig(provider.configEncrypted || "");
   };
 
   const cancelEdit = () => {
     setEditing(null);
-    setEditConfig('');
+    setEditConfig("");
   };
 
   const saveConfig = async (providerId: string) => {
     try {
-      const apiKey = localStorage.getItem('engage_api_key') ?? '';
+      const apiKey = localStorage.getItem("engage_api_key") ?? "";
       await fetch(`${API_URL}/v1/providers/${providerId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'x-api-key': apiKey,
-          'content-type': 'application/json',
+          "x-api-key": apiKey,
+          "content-type": "application/json",
         },
         body: JSON.stringify({ configEncrypted: editConfig }),
       });
       await fetchProviders();
       setEditing(null);
     } catch (err) {
-      console.error('Failed to save provider config:', err);
+      console.error("Failed to save provider config:", err);
     }
   };
 
@@ -101,14 +104,16 @@ export function ChannelsList() {
   }
 
   // Group providers by channel
-  const providersByChannel = providers.reduce(
-    (acc, p) => {
-      if (!acc[p.channel]) acc[p.channel] = [];
-      acc[p.channel].push(p);
-      return acc;
-    },
-    {} as Record<string, ChannelProvider[]>,
-  );
+  const providersByChannel: Record<string, ChannelProvider[]> = {};
+  for (const p of providers) {
+    if (!providersByChannel[p.channel]) {
+      providersByChannel[p.channel] = [];
+    }
+    const channel = providersByChannel[p.channel];
+    if (channel) {
+      channel.push(p);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -116,25 +121,36 @@ export function ChannelsList() {
         <Card key={channel}>
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-lg">
-              <span className="text-3xl">{CHANNEL_EMOJI[channel] || '🔧'}</span>
+              <span className="text-3xl">{CHANNEL_EMOJI[channel] || "🔧"}</span>
               {CHANNEL_NAMES[channel] || channel}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {channelProviders.map((provider) => (
-              <div key={provider.id} className="border rounded-lg p-4 space-y-3">
+              <div
+                key={provider.id}
+                className="border rounded-lg p-4 space-y-3"
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold text-sm">{provider.provider}</p>
                     <div className="flex gap-2 mt-2">
-                      <Badge variant={provider.isActive ? 'default' : 'secondary'}>
-                        {provider.isActive ? '✓ Activo' : 'Inactivo'}
+                      <Badge
+                        variant={provider.isActive ? "default" : "secondary"}
+                      >
+                        {provider.isActive ? "✓ Activo" : "Inactivo"}
                       </Badge>
-                      {provider.isDefault && <Badge variant="outline">Por defecto</Badge>}
+                      {provider.isDefault && (
+                        <Badge variant="outline">Por defecto</Badge>
+                      )}
                     </div>
                   </div>
                   {editing !== provider.id && (
-                    <Button size="sm" variant="outline" onClick={() => startEdit(provider)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => startEdit(provider)}
+                    >
                       <Edit className="h-4 w-4 mr-2" />
                       Editar
                     </Button>
@@ -144,7 +160,9 @@ export function ChannelsList() {
                 {editing === provider.id && (
                   <div className="space-y-3 border-t pt-4">
                     <div>
-                      <label className="text-sm font-medium">Configuración (JSON)</label>
+                      <label className="text-sm font-medium">
+                        Configuración (JSON)
+                      </label>
                       <textarea
                         value={editConfig}
                         onChange={(e) => setEditConfig(e.target.value)}

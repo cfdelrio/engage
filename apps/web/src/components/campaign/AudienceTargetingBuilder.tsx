@@ -87,7 +87,9 @@ interface ConditionRowProps {
 function ConditionRow({ condition, onUpdate, onRemove }: ConditionRowProps) {
   const fieldConfig = AVAILABLE_FIELDS.find((f) => f.value === condition.field);
   const fieldType = fieldConfig?.type || "default";
-  const operators = OPERATORS_BY_TYPE[fieldType] || OPERATORS_BY_TYPE.default;
+  const defaultOperators = OPERATORS_BY_TYPE["default"];
+  const operators = OPERATORS_BY_TYPE[fieldType] ??
+    defaultOperators ?? ["eq", "neq"];
 
   return (
     <div className="flex gap-2 items-end p-3 bg-slate-50 rounded-lg border border-slate-200">
@@ -173,8 +175,10 @@ function ConditionGroupEditor({
   const isRoot = level === 0;
 
   const handleAddCondition = () => {
+    const firstField = AVAILABLE_FIELDS[0];
+    if (!firstField) return;
     const newCondition: Condition = {
-      field: AVAILABLE_FIELDS[0].value,
+      field: firstField.value,
       operator: "eq",
       value: "",
     };
@@ -185,11 +189,13 @@ function ConditionGroupEditor({
   };
 
   const handleAddGroup = () => {
+    const firstField = AVAILABLE_FIELDS[0];
+    if (!firstField) return;
     const newGroup: ConditionGroup = {
       operator: "AND",
       conditions: [
         {
-          field: AVAILABLE_FIELDS[0].value,
+          field: firstField.value,
           operator: "eq",
           value: "",
         },
@@ -315,7 +321,7 @@ export function AudienceTargetingBuilder({
   onChange,
 }: AudienceTargetingBuilderProps) {
   const [group, setGroup] = useState<ConditionGroup>(
-    (value as ConditionGroup) || {
+    (value as unknown as ConditionGroup) ?? {
       operator: "AND",
       conditions: [],
     },

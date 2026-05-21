@@ -265,7 +265,15 @@ export default function EditPushCampaignPage() {
         <Card className="p-6">
           <AudienceTargetingBuilder
             value={form.audienceFilter}
-            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+            onChange={(audienceFilter) =>
+              setForm({
+                ...form,
+                audienceFilter: audienceFilter as unknown as Record<
+                  string,
+                  unknown
+                >,
+              })
+            }
           />
         </Card>
 

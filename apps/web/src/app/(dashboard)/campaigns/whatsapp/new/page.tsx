@@ -90,8 +90,11 @@ export default function NewWhatsAppCampaignPage() {
     value: string,
   ) => {
     const updated = [...buttons];
-    updated[idx][field] = value;
-    setButtons(updated);
+    const button = updated[idx];
+    if (button) {
+      button[field] = value;
+      setButtons(updated);
+    }
   };
 
   return (
@@ -339,7 +342,15 @@ export default function NewWhatsAppCampaignPage() {
         <Card className="p-6">
           <AudienceTargetingBuilder
             value={form.audienceFilter}
-            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+            onChange={(audienceFilter) =>
+              setForm({
+                ...form,
+                audienceFilter: audienceFilter as unknown as Record<
+                  string,
+                  unknown
+                >,
+              })
+            }
           />
         </Card>
 

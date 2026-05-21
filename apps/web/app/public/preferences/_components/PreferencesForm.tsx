@@ -14,7 +14,7 @@ import { ChannelPreferences } from "./ChannelPreferences";
 import { QuietHoursForm } from "./QuietHoursForm";
 import { CategoryPreferences } from "./CategoryPreferences";
 
-interface PublicPreferencesResponse {
+export interface PublicPreferencesResponse {
   preferences: Array<{
     id: string;
     userId: string;
@@ -53,6 +53,7 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const userId = initialData.preferences[0]?.userId ?? "";
 
   const handleChannelToggle = (channel: string, enabled: boolean) => {
     setPreferences((prev) =>
@@ -95,7 +96,7 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
         ...prev,
         {
           id: `${channel}_${category}_new`,
-          userId: initialData.preferences[0].userId,
+          userId,
           channel,
           category,
           enabled,

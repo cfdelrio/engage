@@ -1,5 +1,8 @@
 import { Suspense } from "react";
-import { PreferencesForm } from "../_components/PreferencesForm";
+import {
+  PreferencesForm,
+  type PublicPreferencesResponse,
+} from "../_components/PreferencesForm";
 
 interface PreferencesPageProps {
   params: Promise<{ token: string }>;
@@ -11,12 +14,8 @@ function ErrorUI({ title, message }: { title: string; message: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold mb-2">
-          {title}
-        </h1>
-        <p className="text-muted-foreground">
-          {message}
-        </p>
+        <h1 className="text-2xl font-semibold mb-2">{title}</h1>
+        <p className="text-muted-foreground">{message}</p>
       </div>
     </div>
   );
@@ -37,9 +36,10 @@ async function PreferencesContent({ token }: { token: string }) {
 
     if (!response.ok) {
       errorTitle = "Preferences Unavailable";
-      errorMessage = response.status === 404
-        ? "Token not found or expired"
-        : "Unable to load preferences";
+      errorMessage =
+        response.status === 404
+          ? "Token not found or expired"
+          : "Unable to load preferences";
     } else {
       data = await response.json();
     }
@@ -52,7 +52,12 @@ async function PreferencesContent({ token }: { token: string }) {
     return <ErrorUI title={errorTitle} message={errorMessage} />;
   }
 
-  return <PreferencesForm initialData={data} token={token} />;
+  return (
+    <PreferencesForm
+      initialData={data as PublicPreferencesResponse}
+      token={token}
+    />
+  );
 }
 
 export default async function PreferencesPage({

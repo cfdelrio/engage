@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, Save, X } from 'lucide-react';
+import React from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, Save, X } from "lucide-react";
 
 interface CampaignBuilderLayoutProps {
   title: string;
@@ -64,7 +64,9 @@ export function CampaignBuilderLayout({
                 </div>
                 <div className="border-t border-slate-200 pt-3 flex justify-between">
                   <span className="text-slate-600">Type</span>
-                  <span className="font-medium text-slate-900 capitalize">{title.split(' ')[0].toLowerCase()}</span>
+                  <span className="font-medium text-slate-900 capitalize">
+                    {title.split(" ")[0]?.toLowerCase()}
+                  </span>
                 </div>
               </div>
               <Button
@@ -73,7 +75,7 @@ export function CampaignBuilderLayout({
                 disabled={isLoading}
               >
                 <Save size={20} />
-                {isLoading ? 'Saving...' : 'Create Campaign'}
+                {isLoading ? "Saving..." : "Create Campaign"}
               </Button>
             </Card>
           </div>

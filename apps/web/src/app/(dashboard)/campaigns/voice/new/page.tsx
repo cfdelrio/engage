@@ -103,8 +103,11 @@ export default function NewVoiceCampaignPage() {
     value: string,
   ) => {
     const updated = [...dtmfOptions];
-    updated[idx][field] = value;
-    setDtmfOptions(updated);
+    const option = updated[idx];
+    if (option) {
+      option[field] = value;
+      setDtmfOptions(updated);
+    }
   };
 
   return (
@@ -328,7 +331,15 @@ export default function NewVoiceCampaignPage() {
         <Card className="p-6">
           <AudienceTargetingBuilder
             value={form.audienceFilter}
-            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+            onChange={(audienceFilter) =>
+              setForm({
+                ...form,
+                audienceFilter: audienceFilter as unknown as Record<
+                  string,
+                  unknown
+                >,
+              })
+            }
           />
         </Card>
 
