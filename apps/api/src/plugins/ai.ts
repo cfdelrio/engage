@@ -8,11 +8,9 @@ import {
 } from "@engage/ai";
 import type { AIProviderName } from "@engage/core";
 
-declare global {
-  namespace FastifyInstance {
-    interface FastifyInstance {
-      aiLayer: AIOrchestrationLayer;
-    }
+declare module "fastify" {
+  interface FastifyInstance {
+    aiLayer: AIOrchestrationLayer;
   }
 }
 

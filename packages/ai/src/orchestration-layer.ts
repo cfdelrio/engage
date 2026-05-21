@@ -74,40 +74,6 @@ export class AIOrchestrationLayer {
     }
   }
 
-  async suggestCampaignName(
-    tenantId: string,
-    type: string,
-    channels: string[],
-    targetAudience?: string,
-  ): Promise<{
-    name: string;
-    description: string;
-    suggestedChannels: string[];
-  } | null> {
-    const provider = this.registry.resolve(tenantId);
-    const userPrompt = `Suggest a campaign name and description for a ${type} campaign targeting ${channels.join(", ")} channels.${targetAudience ? ` Target audience: ${targetAudience}.` : ""}
-Respond with JSON: { "name": "...", "description": "...", "suggestedChannels": ["..."] }`;
-
-    try {
-      const response = await provider.complete({
-        systemPrompt:
-          "You are a marketing campaign assistant. Suggest creative, concise campaign names.",
-        userPrompt,
-        schema: {},
-        temperature: 0.7,
-        maxTokens: 256,
-      });
-
-      return response.parsedContent as {
-        name: string;
-        description: string;
-        suggestedChannels: string[];
-      } | null;
-    } catch {
-      return null;
-    }
-  }
-
   async generateCopy(
     context: EventContext,
     channel: string,
