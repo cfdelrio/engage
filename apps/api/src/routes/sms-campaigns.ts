@@ -1,5 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { Queue } from 'bullmq';
+import { QUEUES } from '@engage/core';
 import { asJson } from '../utils/prisma.js';
 
 const createSchema = z.object({
@@ -125,11 +127,68 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     if (campaign.status !== 'draft' && campaign.status !== 'paused') {
       return reply.status(400).send({ error: 'Campaign must be draft or paused to start' });
     }
+
+    // Update campaign status
     const updated = await fastify.prisma.smsCampaign.update({
       where: { id },
       data: { status: 'active', startAt: new Date() },
     });
-    return updated;
+
+    // Find users matching audience filter with phone
+    const users = await fastify.prisma.user.findMany({
+      where: {
+        tenantId: request.tenantId,
+        phone: { not: null },
+      },
+      take: 10000,
+    });
+
+    // Create SmsDelivery records and enqueue jobs
+    const smsQueue = new Queue(QUEUES.DELIVERIES_SMS, { connection: fastify.redis });
+
+    let enqueuedCount = 0;
+    for (const user of users) {
+      if (!user.phone) continue;
+
+      const delivery = await fastify.prisma.smsDelivery.create({
+        data: {
+          smsCampaignId: id,
+          tenantId: request.tenantId,
+          userId: user.id,
+          phone: user.phone,
+          status: 'queued',
+        },
+      });
+
+      await smsQueue.add(
+        'send-sms',
+        {
+          deliveryId: delivery.id,
+          smsCampaignId: id,
+          userId: user.id,
+          phone: user.phone,
+          body: campaign.body,
+          fromNumber: campaign.fromNumber,
+        },
+        {
+          attempts: campaign.maxRetries + 1,
+          backoff: {
+            type: 'exponential',
+            delay: 3000,
+          },
+        },
+      );
+
+      enqueuedCount++;
+    }
+
+    await smsQueue.close();
+
+    return {
+      ...updated,
+      enqueuedCount,
+      message: `${enqueuedCount} SMS enqueued for sending`,
+    };
   });
 
   // Pause campaign

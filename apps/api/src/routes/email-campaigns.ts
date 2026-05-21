@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { Queue } from 'bullmq';
+import { QUEUES } from '@engage/core';
 import { asJson } from '../utils/prisma.js';
 
 const createSchema = z.object({
@@ -158,7 +159,7 @@ const emailCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     // Create EmailDelivery records and enqueue jobs
-    const emailQueue = new Queue('email.messages', { connection: fastify.redis });
+    const emailQueue = new Queue(QUEUES.DELIVERIES_EMAIL, { connection: fastify.redis });
 
     let enqueuedCount = 0;
     for (const user of users) {

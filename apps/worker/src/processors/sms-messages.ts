@@ -4,48 +4,38 @@ import Handlebars from 'handlebars';
 import { TwilioSMSProvider } from '@engage/channels';
 
 interface SmsMessageJob {
+  deliveryId: string;
   smsCampaignId: string;
   userId: string;
   phone: string;
   body: string;
   fromNumber?: string;
-  attempt: number;
 }
 
 const prisma = new PrismaClient();
 
 export async function processSmsMessage(job: Job<SmsMessageJob>) {
-  const { smsCampaignId, userId, phone, body, fromNumber, attempt } = job.data;
+  const { deliveryId, smsCampaignId, userId, phone, body, fromNumber } = job.data;
 
-  console.log(`[sms-messages] Processing ${smsCampaignId}:${userId}, attempt ${attempt + 1}`);
-
-  let deliveryId: string | null = null;
+  console.log(`[sms-messages] Processing delivery ${deliveryId}, attempt ${job.attemptsMade + 1}`);
 
   try {
-    const [campaign, user] = await Promise.all([
+    const [campaign, delivery, user] = await Promise.all([
       prisma.smsCampaign.findUniqueOrThrow({ where: { id: smsCampaignId } }),
+      prisma.smsDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     ]);
-
-    // Create delivery record
-    const delivery = await prisma.smsDelivery.create({
-      data: {
-        smsCampaignId,
-        tenantId: campaign.tenantId,
-        userId,
-        phone,
-        status: 'queued',
-      },
-    });
-    deliveryId = delivery.id;
 
     // Render body with user context
     let renderedBody = body;
     try {
       const userContext = {
         user: {
+          id: user.id,
+          externalId: user.externalId,
           email: user.email,
           phone: user.phone,
+          firstName: user.externalId?.split('-')[0] || 'usuario',
           ...((user.metadata as Record<string, unknown>) ?? {}),
         },
       };
@@ -74,7 +64,7 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
 
     // Send
     const result = await smsProvider.send({
-      deliveryId: delivery.id,
+      deliveryId,
       tenantId: campaign.tenantId,
       userId,
       channel: 'sms',
@@ -86,7 +76,7 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
 
     if (result.success) {
       await prisma.smsDelivery.update({
-        where: { id: delivery.id },
+        where: { id: deliveryId },
         data: {
           status: 'sent',
           sentAt: new Date(),
@@ -107,19 +97,17 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[sms-messages] Error: ${message}`);
+    console.error(`[sms-messages] Error processing ${deliveryId}: ${message}`);
 
-    if (deliveryId) {
-      const isLast = attempt >= 2;
-      await prisma.smsDelivery.update({
-        where: { id: deliveryId },
-        data: {
-          status: isLast ? 'failed' : 'queued',
-          ...(isLast ? { failedAt: new Date(), errorMessage: message } : {}),
-        },
-      }).catch(() => {});
-    }
+    const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1) - 1;
+    await prisma.smsDelivery.update({
+      where: { id: deliveryId },
+      data: {
+        status: isLastAttempt ? 'failed' : 'queued',
+        ...(isLastAttempt ? { failedAt: new Date(), errorMessage: message } : {}),
+      },
+    }).catch(() => {});
 
-    if (attempt < 2) throw new Error(message);
+    throw err;
   }
 }
