@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { VoiceCampaignBuilder } from "../_components/VoiceCampaignBuilder";
 import { VoiceCampaignStats } from "../_components/VoiceCampaignStats";
+import { VoiceCallLog } from "../_components/VoiceCallLog";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export default async function VoiceCampaignDetailPage({
         <TabsList>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
+          <TabsTrigger value="calls">Calls</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-4">
@@ -40,6 +42,10 @@ export default async function VoiceCampaignDetailPage({
 
         <TabsContent value="metrics" className="space-y-4">
           <VoiceCampaignStats campaignId={id} />
+        </TabsContent>
+
+        <TabsContent value="calls" className="space-y-4">
+          <VoiceCallLog campaignId={id} />
         </TabsContent>
       </Tabs>
     </div>
