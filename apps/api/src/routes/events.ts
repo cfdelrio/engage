@@ -1,10 +1,15 @@
-import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
-import { isDuplicate, getQueue, QUEUES } from '@engage/event-bus';
-import { REDIS_KEYS } from '@engage/core';
-import { asJson } from '../utils/prisma.js';
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import { isDuplicate, getQueue, QUEUES } from "@engage/event-bus";
+import { REDIS_KEYS } from "@engage/core";
+import { asJson } from "../utils/prisma.js";
 
-interface EventJobPayload { eventId: string; tenantId: string; userId: string; type: string; }
+interface EventJobPayload {
+  eventId: string;
+  tenantId: string;
+  userId: string;
+  type: string;
+}
 
 const incomingEventSchema = z.object({
   type: z.string().min(1).max(128),
@@ -16,14 +21,14 @@ const incomingEventSchema = z.object({
 });
 
 const eventsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.addHook('onRequest', fastify.authenticateApiKey);
+  fastify.addHook("onRequest", fastify.authenticateApiKey);
 
   fastify.post<{ Body: typeof incomingEventSchema }>(
-    '/',
+    "/",
     {
       schema: {
-        description: 'Ingest a single event',
-        tags: ['events'],
+        description: "Ingest a single event",
+        tags: ["events"],
         body: incomingEventSchema,
         response: {
           202: z.object({
@@ -41,12 +46,16 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       const body = incomingEventSchema.parse(request.body);
       const tenantId = request.tenantId;
 
-      const idempotencyKey = body.idempotencyKey ?? `${tenantId}:${body.type}:${body.userId}:${body.timestamp ?? Date.now()}`;
+      const idempotencyKey =
+        body.idempotencyKey ??
+        `${tenantId}:${body.type}:${body.userId}:${body.timestamp ?? Date.now()}`;
 
       // Deduplication
       const duplicate = await isDuplicate(fastify.redis, idempotencyKey);
       if (duplicate) {
-        return reply.status(409).send({ error: 'Duplicate event', idempotencyKey });
+        return reply
+          .status(409)
+          .send({ error: "Duplicate event", idempotencyKey });
       }
 
       // Upsert user if not exists
@@ -56,8 +65,8 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         create: {
           tenantId,
           externalId: body.userId,
-          timezone: 'America/Argentina/Buenos_Aires',
-          locale: 'es-AR',
+          timezone: "America/Argentina/Buenos_Aires",
+          locale: "es-AR",
         },
       });
 
@@ -80,13 +89,21 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       // Publish to WebSocket stream subscribers
-      const streamPayload = JSON.stringify({ id: event.id, type: event.type, userId: body.userId, tenantId, receivedAt: event.receivedAt });
-      fastify.redis.publish(REDIS_KEYS.eventStream(tenantId), streamPayload).catch(() => {});
+      const streamPayload = JSON.stringify({
+        id: event.id,
+        type: event.type,
+        userId: body.userId,
+        tenantId,
+        receivedAt: event.receivedAt,
+      });
+      fastify.redis
+        .publish(REDIS_KEYS.eventStream(tenantId), streamPayload)
+        .catch(() => {});
 
       // Enqueue for processing
       const queue = getQueue(QUEUES.EVENTS_INCOMING);
       await queue.add(
-        'process',
+        "process",
         {
           eventId: event.id,
           tenantId,
@@ -96,16 +113,318 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         { priority: 1 },
       );
 
-      return reply.status(202).send({ eventId: event.id, status: 'queued' });
+      return reply.status(202).send({ eventId: event.id, status: "queued" });
+    },
+  );
+
+  fastify.post<{ Body: z.infer<typeof incomingEventSchema>[] }>(
+    "/batch",
+    {
+      schema: {
+        description: "Ingest multiple events in batch",
+        tags: ["events"],
+        body: z.array(incomingEventSchema),
+        response: {
+          202: z.object({
+            batchId: z.string(),
+            total: z.number(),
+            succeeded: z.number(),
+            failed: z.number(),
+            events: z.array(
+              z.object({
+                eventId: z.string().optional(),
+                userId: z.string(),
+                status: z.enum(["queued", "duplicate", "error"]),
+                error: z.string().optional(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const events = z.array(incomingEventSchema).parse(request.body);
+      const tenantId = request.tenantId;
+      const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+      const results = [];
+      let succeeded = 0;
+      let failed = 0;
+
+      for (const eventData of events) {
+        try {
+          const idempotencyKey =
+            eventData.idempotencyKey ??
+            `${tenantId}:${eventData.type}:${eventData.userId}:${eventData.timestamp ?? Date.now()}`;
+
+          const duplicate = await isDuplicate(fastify.redis, idempotencyKey);
+          if (duplicate) {
+            results.push({
+              userId: eventData.userId,
+              status: "duplicate",
+              error: "Duplicate event",
+            });
+            failed++;
+            continue;
+          }
+
+          await fastify.prisma.user.upsert({
+            where: {
+              tenantId_externalId: { tenantId, externalId: eventData.userId },
+            },
+            update: {},
+            create: {
+              tenantId,
+              externalId: eventData.userId,
+              timezone: "America/Argentina/Buenos_Aires",
+              locale: "es-AR",
+            },
+          });
+
+          const user = await fastify.prisma.user.findUniqueOrThrow({
+            where: {
+              tenantId_externalId: { tenantId, externalId: eventData.userId },
+            },
+          });
+
+          const event = await fastify.prisma.event.create({
+            data: {
+              tenantId,
+              type: eventData.type,
+              userId: user.id,
+              payload: asJson(eventData.payload),
+              metadata: asJson({ ...eventData.metadata, batchId }),
+              idempotencyKey,
+              sourceIp: request.ip,
+              receivedAt: eventData.timestamp
+                ? new Date(eventData.timestamp)
+                : new Date(),
+            },
+          });
+
+          fastify.redis
+            .publish(
+              REDIS_KEYS.eventStream(tenantId),
+              JSON.stringify({
+                id: event.id,
+                type: event.type,
+                userId: eventData.userId,
+                tenantId,
+                receivedAt: event.receivedAt,
+              }),
+            )
+            .catch(() => {});
+
+          const queue = getQueue(QUEUES.EVENTS_INCOMING);
+          await queue.add(
+            "process",
+            {
+              eventId: event.id,
+              tenantId,
+              userId: user.id,
+              type: event.type,
+            } satisfies EventJobPayload,
+            { priority: 1 },
+          );
+
+          results.push({
+            eventId: event.id,
+            userId: eventData.userId,
+            status: "queued",
+          });
+          succeeded++;
+        } catch (error) {
+          results.push({
+            userId: eventData.userId,
+            status: "error",
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          failed++;
+        }
+      }
+
+      return reply.status(202).send({
+        batchId,
+        total: events.length,
+        succeeded,
+        failed,
+        events: results,
+      });
+    },
+  );
+
+  fastify.post<{ Params: { eventId: string } }>(
+    "/:eventId/replay",
+    {
+      schema: {
+        description: "Replay an event (create a copy and re-enqueue)",
+        tags: ["events"],
+        params: z.object({ eventId: z.string() }),
+        response: {
+          202: z.object({
+            originalEventId: z.string(),
+            replayEventId: z.string(),
+            status: z.string(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { eventId } = request.params;
+      const tenantId = request.tenantId;
+
+      const originalEvent = await fastify.prisma.event.findFirst({
+        where: { id: eventId, tenantId },
+      });
+
+      if (!originalEvent) {
+        return reply.status(404).send({ error: "Event not found" });
+      }
+
+      const replayMetadata: Record<string, unknown> = { replayedFrom: eventId };
+
+      const replayedEvent = await fastify.prisma.event.create({
+        data: {
+          tenantId,
+          type: originalEvent.type,
+          userId: originalEvent.userId,
+          payload: asJson(originalEvent.payload as Record<string, unknown>),
+          metadata: asJson(replayMetadata),
+          idempotencyKey: `replay_${eventId}_${Date.now()}`,
+          sourceIp: request.ip,
+          receivedAt: new Date(),
+        },
+      });
+
+      fastify.redis
+        .publish(
+          REDIS_KEYS.eventStream(tenantId),
+          JSON.stringify({
+            id: replayedEvent.id,
+            type: replayedEvent.type,
+            replayedFrom: eventId,
+            tenantId,
+            receivedAt: replayedEvent.receivedAt,
+          }),
+        )
+        .catch(() => {});
+
+      const queue = getQueue(QUEUES.EVENTS_INCOMING);
+      await queue.add(
+        "process",
+        {
+          eventId: replayedEvent.id,
+          tenantId,
+          userId: replayedEvent.userId,
+          type: replayedEvent.type,
+        } satisfies EventJobPayload,
+        { priority: 2 },
+      );
+
+      return reply.status(202).send({
+        originalEventId: eventId,
+        replayEventId: replayedEvent.id,
+        status: "queued",
+      });
+    },
+  );
+
+  fastify.get<{ Params: { tenantId?: string } }>(
+    "/health/workers",
+    {
+      schema: {
+        description: "Get worker health and queue metrics",
+        tags: ["health"],
+        response: {
+          200: z.object({
+            status: z.string(),
+            queues: z.record(
+              z.object({
+                name: z.string(),
+                active: z.number(),
+                completed: z.number(),
+                failed: z.number(),
+                delayed: z.number(),
+                paused: z.number(),
+                waiting: z.number(),
+              }),
+            ),
+            timestamp: z.string(),
+          }),
+        },
+      },
+    },
+    async (_request, reply) => {
+      const queueNames = [
+        QUEUES.EVENTS_INCOMING,
+        QUEUES.DELIVERIES_SCHEDULED,
+        QUEUES.DELIVERIES_EMAIL,
+        QUEUES.DELIVERIES_SMS,
+        QUEUES.DELIVERIES_PUSH,
+        QUEUES.DELIVERIES_VOICE,
+        QUEUES.DELIVERIES_WHATSAPP,
+      ];
+
+      const queues = {} as Record<
+        string,
+        {
+          name: string;
+          active: number;
+          completed: number;
+          failed: number;
+          delayed: number;
+          paused: number;
+          waiting: number;
+        }
+      >;
+
+      for (const queueName of queueNames) {
+        try {
+          const queue = getQueue(queueName);
+          const [active, completed, failed, delayed, waiting] =
+            await Promise.all([
+              queue.getActiveCount(),
+              queue.getCompletedCount(),
+              queue.getFailedCount(),
+              queue.getDelayedCount(),
+              queue.getWaitingCount(),
+            ]);
+          queues[queueName] = {
+            name: queueName,
+            active: active ?? 0,
+            completed: completed ?? 0,
+            failed: failed ?? 0,
+            delayed: delayed ?? 0,
+            paused: 0,
+            waiting: waiting ?? 0,
+          };
+        } catch {
+          queues[queueName] = {
+            name: queueName,
+            active: 0,
+            completed: 0,
+            failed: 0,
+            delayed: 0,
+            paused: 0,
+            waiting: 0,
+          };
+        }
+      }
+
+      return reply.send({
+        status: "healthy",
+        queues,
+        timestamp: new Date().toISOString(),
+      });
     },
   );
 
   fastify.get<{ Params: { eventId: string } }>(
-    '/:eventId',
+    "/:eventId",
     {
       schema: {
-        description: 'Get event by ID',
-        tags: ['events'],
+        description: "Get event by ID",
+        tags: ["events"],
         params: z.object({ eventId: z.string() }),
       },
     },
@@ -115,7 +434,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id: eventId, tenantId: request.tenantId },
         include: { processingLogs: true },
       });
-      if (!event) return reply.status(404).send({ error: 'Event not found' });
+      if (!event) return reply.status(404).send({ error: "Event not found" });
       return event;
     },
   );
