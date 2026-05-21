@@ -5,6 +5,7 @@ import { format } from "date-fns";
 
 interface DateRangePickerProps {
   value: { from: Date; to: Date };
+  onChange?: (range: { from: Date; to: Date }) => void;
 }
 
 export function DateRangePicker({ value }: DateRangePickerProps) {

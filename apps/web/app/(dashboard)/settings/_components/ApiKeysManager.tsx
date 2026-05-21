@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -41,19 +41,18 @@ export function ApiKeysManager() {
   const [copied, setCopied] = useState(false);
 
   const storedApiKey = useApiKey();
-  const getApiKey = () => storedApiKey;
 
   const [rotateKeyId, setRotateKeyId] = useState<string | null>(null);
   const [rotateKeyName, setRotateKeyName] = useState("");
   const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
   const [deleteKeyName, setDeleteKeyName] = useState("");
 
-  const fetchKeys = async () => {
+  const fetchKeys = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${API_URL}/admin/api-keys`, {
-        headers: { "x-api-key": getApiKey() },
+        headers: { "x-api-key": storedApiKey },
       });
       if (!res.ok) throw new Error("Failed to fetch API keys");
       setKeys(await res.json());
@@ -62,11 +61,11 @@ export function ApiKeysManager() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [storedApiKey]);
 
   useEffect(() => {
     void fetchKeys();
-  }, []);
+  }, [fetchKeys]);
 
   const handleCreateSuccess = (keyData: {
     id: string;
@@ -101,7 +100,7 @@ export function ApiKeysManager() {
   const handleRotateConfirm = async (keyId: string) => {
     const res = await fetch(`${API_URL}/admin/api-keys/${keyId}/rotate`, {
       method: "POST",
-      headers: { "x-api-key": getApiKey() },
+      headers: { "x-api-key": storedApiKey },
     });
     if (!res.ok) throw new Error("Failed to rotate API key");
 
@@ -131,7 +130,7 @@ export function ApiKeysManager() {
   const handleDeleteConfirm = async (keyId: string) => {
     const res = await fetch(`${API_URL}/admin/api-keys/${keyId}`, {
       method: "DELETE",
-      headers: { "x-api-key": getApiKey() },
+      headers: { "x-api-key": storedApiKey },
     });
     if (!res.ok) throw new Error("Failed to delete API key");
     setDeleteKeyId(null);

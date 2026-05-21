@@ -9,17 +9,23 @@ import { ChannelComparison } from "./ChannelComparison";
 import { CampaignPerformance } from "./CampaignPerformance";
 import { DateRangePicker } from "./DateRangePicker";
 
+const QUICK_DAYS = [7, 14, 30] as const;
+
+function buildDateRange(days: number) {
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+  return { from, to };
+}
+
 export function AnalyticsV2() {
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    to: new Date(),
-  });
+  const [selectedDays, setSelectedDays] = useState<number>(7);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() =>
+    buildDateRange(7),
+  );
 
   const handleRangeQuick = (days: number) => {
-    setDateRange({
-      from: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-      to: new Date(),
-    });
+    setSelectedDays(days);
+    setDateRange(buildDateRange(days));
   };
 
   return (
@@ -37,15 +43,10 @@ export function AnalyticsV2() {
         <div className="flex flex-col gap-2">
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <div className="flex gap-2">
-            {[7, 14, 30].map((days) => (
+            {QUICK_DAYS.map((days) => (
               <Button
                 key={days}
-                variant={
-                  dateRange.from.getTime() ===
-                  new Date(Date.now() - days * 24 * 60 * 60 * 1000).getTime()
-                    ? "default"
-                    : "outline"
-                }
+                variant={selectedDays === days ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleRangeQuick(days)}
               >

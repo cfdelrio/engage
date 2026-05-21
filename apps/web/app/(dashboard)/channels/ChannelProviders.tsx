@@ -58,7 +58,7 @@ export function ChannelProviders() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiKey]);
 
   const handleToggleActive = async (providerId: string, newActive: boolean) => {
     try {
