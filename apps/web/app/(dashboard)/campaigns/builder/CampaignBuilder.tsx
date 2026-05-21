@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, Circle } from "lucide-react";
 import { RuleBuilder } from "../../rules/_components/RuleBuilder";
+import { TemplateSelector } from "./TemplateSelector";
 
 interface BuilderStep {
   id: string;
@@ -297,24 +298,21 @@ export function CampaignBuilder({ onSave }: CampaignBuilderProps) {
 
             {/* Step 4: Template */}
             {step.id === "template" && (
-              <div className="space-y-3">
-                <label className="text-sm font-medium mb-2 block">
-                  Selecciona un template
-                </label>
-                <div className="border rounded-lg p-4 bg-muted/30">
-                  <p className="text-sm text-muted-foreground">
-                    Próximamente: selector de templates. Crea templates en la
-                    sección Templates.
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-3 block">
+                    Selecciona un template (opcional)
+                  </label>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Los templates están filtrados por los canales seleccionados.
+                    Puedes crear más en la sección Templates.
                   </p>
+                  <TemplateSelector
+                    channels={data.channels}
+                    value={data.templateId}
+                    onChange={(templateId) => setData({ ...data, templateId })}
+                  />
                 </div>
-                <Input
-                  value={data.templateId ?? ""}
-                  onChange={(e) =>
-                    setData({ ...data, templateId: e.target.value })
-                  }
-                  placeholder="Template ID (opcional)"
-                  className="text-xs"
-                />
               </div>
             )}
 
