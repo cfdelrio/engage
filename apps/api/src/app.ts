@@ -9,6 +9,7 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import { getQueue, QUEUES } from "@engage/event-bus";
 
 import redisPlugin from "./plugins/redis.js";
 import prismaPlugin from "./plugins/prisma.js";
@@ -95,12 +96,78 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(aiPlugin);
   await app.register(apiKeyAuthPlugin);
   await app.register(rateLimitApiKeyPlugin);
+  await app.register(aiPlugin);
 
   // ─── Health ───────────────────────────────────────────────────────────────
   app.get("/health", async () => ({
     status: "ok",
     timestamp: new Date().toISOString(),
   }));
+
+  app.get("/health/workers", async (_request, reply) => {
+    const queueNames = [
+      QUEUES.EVENTS_INCOMING,
+      QUEUES.DELIVERIES_SCHEDULED,
+      QUEUES.DELIVERIES_EMAIL,
+      QUEUES.DELIVERIES_SMS,
+      QUEUES.DELIVERIES_PUSH,
+      QUEUES.DELIVERIES_VOICE,
+      QUEUES.DELIVERIES_WHATSAPP,
+    ];
+
+    const queues = {} as Record<
+      string,
+      {
+        name: string;
+        active: number;
+        completed: number;
+        failed: number;
+        delayed: number;
+        paused: number;
+        waiting: number;
+      }
+    >;
+
+    for (const queueName of queueNames) {
+      try {
+        const queue = getQueue(queueName);
+        const [active, completed, failed, delayed, waiting] = await Promise.all(
+          [
+            queue.getActiveCount(),
+            queue.getCompletedCount(),
+            queue.getFailedCount(),
+            queue.getDelayedCount(),
+            queue.getWaitingCount(),
+          ],
+        );
+        queues[queueName] = {
+          name: queueName,
+          active: active ?? 0,
+          completed: completed ?? 0,
+          failed: failed ?? 0,
+          delayed: delayed ?? 0,
+          paused: 0,
+          waiting: waiting ?? 0,
+        };
+      } catch {
+        queues[queueName] = {
+          name: queueName,
+          active: 0,
+          completed: 0,
+          failed: 0,
+          delayed: 0,
+          paused: 0,
+          waiting: 0,
+        };
+      }
+    }
+
+    return reply.send({
+      status: "healthy",
+      queues,
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   // ─── Routes ───────────────────────────────────────────────────────────────
   await app.register(eventsRoutes, { prefix: "/v1/events" });
