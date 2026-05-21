@@ -33,6 +33,7 @@ import emailCampaignsRoutes from "./routes/email-campaigns.js";
 import smsCampaignsRoutes from "./routes/sms-campaigns.js";
 import providersRoutes from "./routes/providers.js";
 import templatesRoutes from "./routes/templates.js";
+import deliveriesRoutes from "./routes/deliveries.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -115,6 +116,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(smsCampaignsRoutes, { prefix: "/v1/sms-campaigns" });
   await app.register(providersRoutes, { prefix: "/v1/providers" });
   await app.register(templatesRoutes, { prefix: "/v1/templates" });
+  await app.register(deliveriesRoutes, { prefix: "/v1/deliveries" });
   await app.register(webhooksRoutes, { prefix: "/webhooks" });
   await app.register(adminRoutes, { prefix: "/admin" });
 
