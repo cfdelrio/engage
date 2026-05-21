@@ -12,10 +12,12 @@ COPY packages/ai/package.json packages/ai/
 COPY packages/channels/package.json packages/channels/
 COPY packages/analytics/package.json packages/analytics/
 COPY apps/api/package.json apps/api/
+COPY apps/worker/package.json apps/worker/
+COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --prod=false 2>&1
 
 FROM base AS builder
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
 COPY packages ./packages
