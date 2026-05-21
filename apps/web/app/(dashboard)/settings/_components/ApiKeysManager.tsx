@@ -15,6 +15,7 @@ import { ApiKeysList } from "./ApiKeysList";
 import { CreateApiKeyDialog } from "./CreateApiKeyDialog";
 import { RotateApiKeyDialog } from "./RotateApiKeyDialog";
 import { DeleteApiKeyDialog } from "./DeleteApiKeyDialog";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -32,16 +33,15 @@ interface CreatedKey extends ApiKey {
   rawKey: string;
 }
 
-function getApiKey() {
-  return localStorage.getItem("engage_api_key") ?? "";
-}
-
 export function ApiKeysManager() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<CreatedKey | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const storedApiKey = useApiKey();
+  const getApiKey = () => storedApiKey;
 
   const [rotateKeyId, setRotateKeyId] = useState<string | null>(null);
   const [rotateKeyName, setRotateKeyName] = useState("");

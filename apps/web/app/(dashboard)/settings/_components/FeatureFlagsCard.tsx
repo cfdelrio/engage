@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -48,9 +49,10 @@ export function FeatureFlagsCard() {
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+  const apiKey = useApiKey();
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!apiKey) return;
     fetch(`${API_URL}/admin/feature-flags`, {
       headers: { "x-api-key": apiKey },
     })
@@ -58,7 +60,7 @@ export function FeatureFlagsCard() {
       .then((data: FeatureFlag[]) => setFlags(data))
       .catch(() => setFlags([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [apiKey]);
 
   const handleToggle = async (
     flag: string,
@@ -67,7 +69,6 @@ export function FeatureFlagsCard() {
     const enable = currentEffective !== "1";
     setToggling(flag);
     try {
-      const apiKey = localStorage.getItem("engage_api_key") ?? "";
       const res = await fetch(`${API_URL}/admin/feature-flags/${flag}`, {
         method: "PUT",
         headers: {

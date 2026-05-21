@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -38,9 +39,10 @@ export function TenantCard() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
+  const apiKey = useApiKey();
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!apiKey) return;
     fetch(`${API_URL}/admin/tenant`, {
       headers: { "x-api-key": apiKey },
     })
@@ -53,12 +55,11 @@ export function TenantCard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [apiKey]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const apiKey = localStorage.getItem("engage_api_key") ?? "";
       const res = await fetch(`${API_URL}/admin/tenant`, {
         method: "PUT",
         headers: {

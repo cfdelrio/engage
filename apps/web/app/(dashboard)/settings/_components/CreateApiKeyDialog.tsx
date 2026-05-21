@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -46,6 +47,7 @@ export function CreateApiKeyDialog({ onSuccess }: CreateApiKeyDialogProps) {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const apiKey = useApiKey();
 
   const handlePermissionChange = (permissionId: string, checked: boolean) => {
     setPermissions((prev) =>
@@ -69,7 +71,6 @@ export function CreateApiKeyDialog({ onSuccess }: CreateApiKeyDialogProps) {
     setError(null);
 
     try {
-      const apiKey = localStorage.getItem("engage_api_key") ?? "";
       const res = await fetch(`${API_URL}/admin/api-keys`, {
         method: "POST",
         headers: {
