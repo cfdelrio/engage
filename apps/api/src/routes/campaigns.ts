@@ -1,11 +1,11 @@
-import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
-import { asJson } from '../utils/prisma.js';
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import { asJson } from "../utils/prisma.js";
 
 const campaignSchema = z.object({
   name: z.string().min(1).max(256),
-  type: z.enum(['event-triggered', 'scheduled', 'recurring', 'voice']),
-  status: z.enum(['draft', 'active', 'paused', 'completed']).default('draft'),
+  type: z.enum(["event-triggered", "scheduled", "recurring", "voice"]),
+  status: z.enum(["draft", "active", "paused", "completed"]).default("draft"),
   trigger: z.record(z.unknown()).optional().default({}),
   rules: z.record(z.unknown()).optional().default({}),
   channels: z.array(z.string()).default([]),
@@ -15,17 +15,33 @@ const campaignSchema = z.object({
   endAt: z.string().datetime().optional(),
 });
 
-const campaignsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.addHook('onRequest', fastify.authenticateApiKey);
+const paginationSchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.string().regex(/^\d+$/).transform(Number).default("20"),
+});
 
-  fastify.get('/', async (request) => {
-    return fastify.prisma.campaign.findMany({
+const campaignsRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook("onRequest", fastify.authenticateApiKey);
+
+  fastify.get("/", async (request) => {
+    const { cursor, limit } = paginationSchema.parse(request.query);
+    const campaigns = await fastify.prisma.campaign.findMany({
       where: { tenantId: request.tenantId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      cursor: cursor ? { id: cursor } : undefined,
+      skip: cursor ? 1 : 0,
     });
+    const hasMore = campaigns.length > limit;
+    const items = campaigns.slice(0, limit);
+    return {
+      campaigns: items,
+      nextCursor: hasMore ? items[items.length - 1]?.id : null,
+      hasMore,
+    };
   });
 
-  fastify.post('/', async (request, reply) => {
+  fastify.post("/", async (request, reply) => {
     const body = campaignSchema.parse(request.body);
     const campaign = await fastify.prisma.campaign.create({
       data: {
@@ -45,28 +61,38 @@ const campaignsRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(campaign);
   });
 
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const campaign = await fastify.prisma.campaign.findFirst({
       where: { id, tenantId: request.tenantId },
-      include: { runs: { orderBy: { startedAt: 'desc' }, take: 10 } },
+      include: { runs: { orderBy: { startedAt: "desc" }, take: 10 } },
     });
-    if (!campaign) return reply.status(404).send({ error: 'Not found' });
+    if (!campaign) return reply.status(404).send({ error: "Not found" });
     return campaign;
   });
 
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = campaignSchema.partial().parse(request.body);
-    const existing = await fastify.prisma.campaign.findFirst({ where: { id, tenantId: request.tenantId } });
-    if (!existing) return reply.status(404).send({ error: 'Not found' });
+    const existing = await fastify.prisma.campaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+    if (!existing) return reply.status(404).send({ error: "Not found" });
+
+    if (existing.status === "completed") {
+      return reply
+        .status(409)
+        .send({ error: "Cannot update completed campaign" });
+    }
 
     const campaign = await fastify.prisma.campaign.update({
       where: { id },
       data: {
         ...(body.name ? { name: body.name } : {}),
         ...(body.type ? { type: body.type } : {}),
-        ...(body.status ? { status: body.status } : {}),
+        ...(body.status && body.status !== existing.status
+          ? { status: body.status }
+          : {}),
         ...(body.trigger ? { trigger: asJson(body.trigger) } : {}),
         ...(body.rules ? { rules: asJson(body.rules) } : {}),
         ...(body.channels ? { channels: body.channels } : {}),
@@ -79,22 +105,44 @@ const campaignsRoutes: FastifyPluginAsync = async (fastify) => {
     return campaign;
   });
 
-  // Manually trigger a campaign run
-  fastify.post('/:id/trigger', async (request, reply) => {
+  fastify.delete("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const campaign = await fastify.prisma.campaign.findFirst({ where: { id, tenantId: request.tenantId } });
-    if (!campaign) return reply.status(404).send({ error: 'Not found' });
-    if (campaign.status !== 'active') return reply.status(409).send({ error: 'Campaign must be active to trigger' });
+    const campaign = await fastify.prisma.campaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+    if (!campaign) return reply.status(404).send({ error: "Not found" });
+
+    if (campaign.status !== "draft") {
+      return reply
+        .status(409)
+        .send({ error: "Can only delete draft campaigns" });
+    }
+
+    await fastify.prisma.campaign.delete({ where: { id } });
+    return reply.status(204).send();
+  });
+
+  // Manually trigger a campaign run
+  fastify.post("/:id/trigger", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const campaign = await fastify.prisma.campaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+    if (!campaign) return reply.status(404).send({ error: "Not found" });
+    if (campaign.status !== "active")
+      return reply
+        .status(409)
+        .send({ error: "Campaign must be active to trigger" });
 
     const run = await fastify.prisma.campaignRun.create({
       data: {
         campaignId: id,
-        triggeredBy: 'api',
-        status: 'pending',
+        triggeredBy: "api",
+        status: "pending",
         stats: asJson({}),
       },
     });
-    return reply.status(202).send({ runId: run.id, status: 'pending' });
+    return reply.status(202).send({ runId: run.id, status: "pending" });
   });
 };
 
