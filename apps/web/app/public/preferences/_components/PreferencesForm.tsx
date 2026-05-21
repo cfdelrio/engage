@@ -38,6 +38,8 @@ interface PreferencesFormProps {
   token: string;
 }
 
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
+
 const CHANNELS = ["email", "sms", "push", "whatsapp", "voice"] as const;
 const CATEGORIES = [
   "promotions",
@@ -124,7 +126,7 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
         quietHoursEnd: p.quietHoursEnd,
       }));
 
-      const response = await fetch("/api/public/preferences", {
+      const response = await fetch(`${API_URL}/v1/public/preferences`, {
         method: "PUT",
         headers: {
           "X-Preference-Token": token,
@@ -155,7 +157,7 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
     setError(null);
 
     try {
-      const response = await fetch("/api/public/preferences/opt-out", {
+      const response = await fetch(`${API_URL}/v1/public/preferences/opt-out`, {
         method: "POST",
         headers: { "X-Preference-Token": token },
       });
