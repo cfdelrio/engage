@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,12 +49,7 @@ export function VoiceCampaignList() {
   const [deleting, setDeleting] = useState(false);
   const apiKey = useApiKey();
 
-  useEffect(() => {
-    if (!apiKey) return;
-    fetchCampaigns();
-  }, [apiKey]);
-
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`${API_URL}/v1/voice-campaigns`, {
@@ -68,7 +63,12 @@ export function VoiceCampaignList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiKey]);
+
+  useEffect(() => {
+    if (!apiKey) return;
+    fetchCampaigns();
+  }, [apiKey, fetchCampaigns]);
 
   const handleDelete = async (id: string) => {
     try {

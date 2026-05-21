@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   LineChart,
@@ -43,12 +43,7 @@ export function VoiceCampaignStats({ campaignId }: VoiceCampaignStatsProps) {
   const [loading, setLoading] = useState(true);
   const apiKey = useApiKey();
 
-  useEffect(() => {
-    if (!apiKey) return;
-    fetchMetrics();
-  }, [campaignId, apiKey]);
-
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
       const response = await fetch(
         `${API_URL}/v1/voice-campaigns/${campaignId}/metrics`,
@@ -62,7 +57,12 @@ export function VoiceCampaignStats({ campaignId }: VoiceCampaignStatsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [campaignId, apiKey]);
+
+  useEffect(() => {
+    if (!apiKey) return;
+    fetchMetrics();
+  }, [apiKey, fetchMetrics]);
 
   if (loading) return <div className="p-4">Loading metrics...</div>;
   if (metrics.length === 0)
