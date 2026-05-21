@@ -1,41 +1,80 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, Zap, TrendingUp } from 'lucide-react';
+"use client";
 
-const API_URL = process.env['INTERNAL_API_URL'] ?? process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
-const API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Send, Users, Zap, TrendingUp } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
-async function getMetrics() {
-  try {
-    const res = await fetch(`${API_URL}/v1/analytics/overview`, {
-      headers: { 'x-api-key': API_KEY },
-      next: { revalidate: 30 },
-    });
-    if (!res.ok) return null;
-    return res.json() as Promise<{
-      totalDeliveries: number;
-      totalUsers: number;
-      recentEvents: number;
-      deliveryByStatus: { status: string; _count: number }[];
-    }>;
-  } catch {
-    return null;
-  }
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
+
+interface OverviewData {
+  totalDeliveries: number;
+  totalUsers: number;
+  recentEvents: number;
+  deliveryByStatus: { status: string; _count: number }[];
 }
 
-export async function MetricsGrid() {
-  const data = await getMetrics();
+export function MetricsGrid() {
+  const [data, setData] = useState<OverviewData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const apiKey = useApiKey();
 
-  const delivered = data?.deliveryByStatus.find((d) => d.status === 'delivered')?._count ?? 0;
+  useEffect(() => {
+    if (!apiKey) return;
+    fetch(`${API_URL}/v1/analytics/overview`, {
+      headers: { "x-api-key": apiKey },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d: OverviewData | null) => setData(d))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [apiKey]);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-lg border bg-card p-6 animate-pulse">
+            <div className="h-4 w-24 bg-muted rounded mb-4" />
+            <div className="h-8 w-16 bg-muted rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const delivered =
+    data?.deliveryByStatus.find((d) => d.status === "delivered")?._count ?? 0;
   const deliveryRate =
     data && data.totalDeliveries > 0
       ? Math.round((delivered / data.totalDeliveries) * 100)
       : 0;
 
   const metrics = [
-    { title: 'Total Usuarios', value: data?.totalUsers?.toLocaleString() ?? '–', icon: Users, description: 'Registrados' },
-    { title: 'Eventos (30d)', value: data?.recentEvents?.toLocaleString() ?? '–', icon: Zap, description: 'Procesados' },
-    { title: 'Deliveries', value: data?.totalDeliveries?.toLocaleString() ?? '–', icon: Send, description: 'Total enviados' },
-    { title: 'Delivery Rate', value: `${deliveryRate}%`, icon: TrendingUp, description: 'Últimos 30 días' },
+    {
+      title: "Total Users",
+      value: data?.totalUsers?.toLocaleString() ?? "–",
+      icon: Users,
+      description: "Registered",
+    },
+    {
+      title: "Events (30d)",
+      value: data?.recentEvents?.toLocaleString() ?? "–",
+      icon: Zap,
+      description: "Processed",
+    },
+    {
+      title: "Deliveries",
+      value: data?.totalDeliveries?.toLocaleString() ?? "–",
+      icon: Send,
+      description: "Total sent",
+    },
+    {
+      title: "Delivery Rate",
+      value: `${deliveryRate}%`,
+      icon: TrendingUp,
+      description: "Last 30 days",
+    },
   ];
 
   return (
