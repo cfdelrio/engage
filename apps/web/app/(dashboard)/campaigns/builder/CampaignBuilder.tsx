@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, Circle } from "lucide-react";
-import { RuleBuilder } from "../../rules/_components/RuleBuilder";
+import { ConditionGroupBuilder } from "../../rules/_components/ConditionGroupBuilder";
+import type { ConditionGroupNode } from "../../rules/_components/ConditionGroup";
 import { TemplateSelector } from "./TemplateSelector";
 import { CampaignSuggestions } from "./CampaignSuggestions";
 
@@ -48,11 +49,6 @@ const TRIGGER_TYPES = [
   },
 ];
 
-interface ConditionGroup {
-  operator: "AND" | "OR";
-  conditions: unknown[];
-}
-
 interface CampaignData {
   name: string;
   trigger: {
@@ -62,7 +58,7 @@ interface CampaignData {
     eventType?: string;
     frequency?: string;
   };
-  rules: ConditionGroup;
+  rules: ConditionGroupNode;
   templateId?: string;
   channels: string[];
 }
@@ -295,11 +291,9 @@ export function CampaignBuilder({ onSave }: CampaignBuilderProps) {
                     Define qué usuarios recibirán esta campaña. Sin condiciones,
                     se envía a todos.
                   </p>
-                  <RuleBuilder
+                  <ConditionGroupBuilder
                     value={data.rules}
-                    onChange={(v) =>
-                      setData({ ...data, rules: v as ConditionGroup })
-                    }
+                    onChange={(v) => setData({ ...data, rules: v })}
                   />
                 </div>
               </div>

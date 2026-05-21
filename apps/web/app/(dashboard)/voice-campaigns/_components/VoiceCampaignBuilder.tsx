@@ -360,11 +360,13 @@ export function VoiceCampaignBuilder() {
                         value={option.key}
                         onValueChange={(value) => {
                           const opts = [...(data.dtmfConfig?.options || [])];
-                          opts[index].key = value;
-                          setData({
-                            ...data,
-                            dtmfConfig: { ...data.dtmfConfig, options: opts },
-                          });
+                          if (opts[index]) {
+                            opts[index].key = value;
+                            setData({
+                              ...data,
+                              dtmfConfig: { ...data.dtmfConfig, options: opts },
+                            });
+                          }
                         }}
                       >
                         <SelectTrigger className="w-20">
@@ -383,11 +385,13 @@ export function VoiceCampaignBuilder() {
                         value={option.label}
                         onChange={(e) => {
                           const opts = [...(data.dtmfConfig?.options || [])];
-                          opts[index].label = e.target.value;
-                          setData({
-                            ...data,
-                            dtmfConfig: { ...data.dtmfConfig, options: opts },
-                          });
+                          if (opts[index]) {
+                            opts[index].label = e.target.value;
+                            setData({
+                              ...data,
+                              dtmfConfig: { ...data.dtmfConfig, options: opts },
+                            });
+                          }
                         }}
                         className="flex-1"
                       />

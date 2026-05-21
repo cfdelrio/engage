@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -54,12 +54,7 @@ export function VoiceCallLog({ campaignId }: VoiceCallLogProps) {
   const [selectedCall, setSelectedCall] = useState<VoiceCall | null>(null);
   const apiKey = useApiKey();
 
-  useEffect(() => {
-    if (!apiKey) return;
-    fetchCalls();
-  }, [campaignId, apiKey]);
-
-  const fetchCalls = async () => {
+  const fetchCalls = useCallback(async () => {
     try {
       const response = await fetch(
         `${API_URL}/v1/voice-campaigns/${campaignId}/calls`,
@@ -73,7 +68,12 @@ export function VoiceCallLog({ campaignId }: VoiceCallLogProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [campaignId, apiKey]);
+
+  useEffect(() => {
+    if (!apiKey) return;
+    fetchCalls();
+  }, [apiKey, fetchCalls]);
 
   if (loading) return <div className="p-4">Loading calls...</div>;
   if (calls.length === 0)
