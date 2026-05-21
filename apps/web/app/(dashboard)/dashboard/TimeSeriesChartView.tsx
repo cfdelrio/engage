@@ -76,8 +76,8 @@ export function TimeSeriesChartView({ series }: { series: TimeSeriesPoint[] }) {
           stroke="hsl(var(--muted-foreground))"
         />
         <Tooltip
-          labelFormatter={(value: string) =>
-            new Date(value).toLocaleDateString("es-AR", {
+          labelFormatter={(label) =>
+            new Date(label as string).toLocaleDateString("es-AR", {
               weekday: "short",
               day: "2-digit",
               month: "short",
