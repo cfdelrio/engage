@@ -130,7 +130,15 @@ export function EmailCampaignBuilder({ campaignId }: { campaignId?: string }) {
     }
   };
 
-  if (loading) return <div className="p-4">Loading campaign...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-4 max-w-4xl">
+        <div className="h-10 bg-muted rounded animate-pulse" />
+        <div className="h-24 bg-muted rounded animate-pulse" />
+        <div className="h-64 bg-muted rounded animate-pulse" />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
