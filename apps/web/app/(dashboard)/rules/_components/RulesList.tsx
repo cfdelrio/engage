@@ -42,7 +42,7 @@ export function RulesList() {
       .then((data: Rule[]) => setRules(data))
       .catch(() => setRules([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [apiKey]);
 
   if (loading) {
     return (

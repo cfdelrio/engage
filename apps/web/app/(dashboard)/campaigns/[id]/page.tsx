@@ -68,7 +68,7 @@ export default function CampaignDetailPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [campaignId]);
+  }, [campaignId, apiKey]);
 
   if (loading) {
     return (

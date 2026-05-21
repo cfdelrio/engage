@@ -219,7 +219,7 @@ export default function UserDetailPage(props: {
         setPrefSaving(null);
       }
     },
-    [user, userId],
+    [user, userId, apiKey],
   );
 
   const handleGenerateLink = useCallback(async () => {

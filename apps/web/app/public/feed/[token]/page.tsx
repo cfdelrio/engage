@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Image from "next/image";
 
 interface FeedEntry {
   id: string;
@@ -94,9 +95,11 @@ function EntryCard({ entry }: { entry: FeedEntry }) {
           )}
           {body && <p className="text-sm text-gray-700">{body}</p>}
           {imageUrl && (
-            <img
+            <Image
               src={imageUrl}
               alt=""
+              width={800}
+              height={160}
               className="mt-2 rounded-lg w-full object-cover max-h-40"
             />
           )}
