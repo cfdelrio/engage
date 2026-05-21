@@ -93,6 +93,55 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     return user;
   });
 
+  fastify.put("/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = upsertUserSchema
+      .partial()
+      .omit({ externalId: true })
+      .parse(request.body);
+
+    const existing = await fastify.prisma.user.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+    if (!existing) return reply.status(404).send({ error: "User not found" });
+
+    const updated = await fastify.prisma.user.update({
+      where: { id },
+      data: {
+        ...(body.email !== undefined ? { email: body.email } : {}),
+        ...(body.phone !== undefined ? { phone: body.phone } : {}),
+        ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),
+        ...(body.locale !== undefined ? { locale: body.locale } : {}),
+        ...(body.tags !== undefined ? { tags: body.tags } : {}),
+        ...(body.metadata !== undefined
+          ? { metadata: asJson(body.metadata) }
+          : {}),
+      },
+    });
+    return updated;
+  });
+
+  fastify.get("/:id/deliveries", async (request) => {
+    const { id } = request.params as { id: string };
+    const { limit = "20", cursor } = request.query as {
+      limit?: string;
+      cursor?: string;
+    };
+    const take = Math.min(parseInt(limit, 10) || 20, 100);
+
+    const deliveries = await fastify.prisma.delivery.findMany({
+      where: { userId: id, tenantId: request.tenantId },
+      orderBy: { createdAt: "desc" },
+      take: take + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+
+    const hasMore = deliveries.length > take;
+    const page = hasMore ? deliveries.slice(0, take) : deliveries;
+    const nextCursor = hasMore ? (page[page.length - 1]?.id ?? null) : null;
+    return { deliveries: page, nextCursor, hasMore };
+  });
+
   fastify.get("/:id/preferences", async (request) => {
     const { id } = request.params as { id: string };
     const prefs = await fastify.prisma.userPreference.findMany({
