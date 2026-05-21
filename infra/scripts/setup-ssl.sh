@@ -21,7 +21,7 @@ sudo yum install -y certbot python3-certbot-nginx
 echo ""
 echo "📧 Obtaining SSL certificate for $DOMAIN and api.$DOMAIN..."
 echo ""
-sudo certbot certonly --standalone -d "$DOMAIN" -d "api.$DOMAIN" --non-interactive --agree-tos --email cfdelrio@gmail.com --keep-until-expiring
+sudo certbot certonly --standalone -d "$DOMAIN" -d "api.$DOMAIN" --non-interactive --agree-tos --email cfdelrio@gmail.com --expand
 
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 KEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
