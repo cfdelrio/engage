@@ -19,9 +19,9 @@ sudo yum install -y certbot python3-certbot-nginx
 
 # Get certificate (with email prompt)
 echo ""
-echo "📧 Obtaining SSL certificate for $DOMAIN..."
+echo "📧 Obtaining SSL certificate for $DOMAIN and api.$DOMAIN..."
 echo ""
-sudo certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos --email cfdelrio@gmail.com --keep-until-expiring
+sudo certbot certonly --standalone -d "$DOMAIN" -d "api.$DOMAIN" --non-interactive --agree-tos --email cfdelrio@gmail.com --keep-until-expiring
 
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 KEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
@@ -56,7 +56,7 @@ Environment="NODE_ENV=production"
 Environment="HOSTNAME=0.0.0.0"
 Environment="PORT=3000"
 Environment="INTERNAL_API_URL=http://localhost:3001"
-Environment="NEXT_PUBLIC_API_URL=https://$DOMAIN:3001"
+Environment="NEXT_PUBLIC_API_URL=https://api.$DOMAIN"
 
 [Install]
 WantedBy=multi-user.target
@@ -221,7 +221,7 @@ echo "✨ SSL setup complete!"
 echo ""
 echo "📍 Your ORKESTAI ENGAGE URLs:"
 echo "  Dashboard:  https://$DOMAIN"
-echo "  API:        https://api.$DOMAIN (or https://$DOMAIN:3001)"
+echo "  API:        https://api.$DOMAIN"
 echo "  Swagger:    https://api.$DOMAIN/docs"
 echo "  Bull Board: http://$DOMAIN:3002"
 echo ""
