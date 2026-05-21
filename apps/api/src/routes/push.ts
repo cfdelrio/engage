@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { Queue } from 'bullmq';
 import { asJson } from '../utils/prisma.js';
-import { getQueue } from '@engage/event-bus';
 import { QUEUES } from '@engage/core';
 
 const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -136,55 +136,83 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/push-campaigns/:id/start
   fastify.post('/:id/start', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
-    const { scheduledFor } = request.body as { scheduledFor?: string };
 
     const campaign = await fastify.prisma.pushCampaign.findFirst({
       where: { id, tenantId: request.tenantId },
     });
 
     if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'draft') {
-      return reply.status(400).send({ error: 'Can only start draft campaigns' });
+    if (campaign.status !== 'draft' && campaign.status !== 'paused') {
+      return reply.status(400).send({ error: 'Can only start draft or paused campaigns' });
     }
 
+    // Update campaign status
     const updated = await fastify.prisma.pushCampaign.update({
       where: { id },
-      data: {
-        status: 'active',
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : new Date(),
-      },
+      data: { status: 'active', startAt: new Date() },
     });
 
-    // Enqueue push notifications
-    const pushQueue = getQueue(QUEUES.PUSH_NOTIFICATIONS);
+    // Find users with device tokens
     const users = await fastify.prisma.user.findMany({
       where: { tenantId: request.tenantId },
+      take: 10000,
     });
 
+    // Create PushNotification records and enqueue jobs
+    const pushQueue = new Queue(QUEUES.DELIVERIES_PUSH, { connection: fastify.redis });
+
+    let enqueuedCount = 0;
     for (const user of users) {
-      const deviceTokens = Array.isArray(user.deviceTokens) ? user.deviceTokens : [];
-      if (deviceTokens.length > 0) {
-        for (const token of deviceTokens) {
-          await pushQueue.add(
-            `push-${campaign.id}-${user.id}`,
-            {
-              pushCampaignId: id,
-              userId: user.id,
-              deviceToken: token,
-              title: campaign.title,
-              body: campaign.body,
-              imageUrl: campaign.imageUrl,
-              actionUrl: campaign.actionUrl,
-              priority: campaign.priority,
-              attempt: 0,
+      const deviceTokens = (Array.isArray(user.deviceTokens) ? user.deviceTokens : []) as string[];
+
+      for (const token of deviceTokens) {
+        const notification = await fastify.prisma.pushNotification.create({
+          data: {
+            campaignId: id,
+            tenantId: request.tenantId,
+            userId: user.id,
+            status: 'queued',
+            title: campaign.title,
+            body: campaign.body,
+            imageUrl: campaign.imageUrl,
+            actionUrl: campaign.actionUrl,
+            priority: campaign.priority,
+          },
+        });
+
+        await pushQueue.add(
+          'send-push',
+          {
+            notificationId: notification.id,
+            pushCampaignId: id,
+            userId: user.id,
+            deviceToken: token,
+            title: campaign.title,
+            body: campaign.body,
+            imageUrl: campaign.imageUrl,
+            actionUrl: campaign.actionUrl,
+            priority: campaign.priority,
+          },
+          {
+            attempts: campaign.maxRetries + 1,
+            backoff: {
+              type: 'exponential',
+              delay: 2000,
             },
-            { attempts: campaign.maxRetries + 1, backoff: { type: 'exponential', delay: 2000 } }
-          );
-        }
+          },
+        );
+
+        enqueuedCount++;
       }
     }
 
-    return updated;
+    await pushQueue.close();
+
+    return {
+      ...updated,
+      enqueuedCount,
+      message: `${enqueuedCount} push notifications enqueued for sending`,
+    };
   });
 
   // POST /v1/push-campaigns/:id/pause

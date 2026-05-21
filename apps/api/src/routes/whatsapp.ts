@@ -1,8 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { Queue } from 'bullmq';
 import { asJson } from '../utils/prisma.js';
-import { getQueue } from '@engage/event-bus';
-import { QUEUES } from '@engage/core';
 
 const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticateApiKey);
@@ -149,7 +148,6 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/whatsapp-campaigns/:id/start
   fastify.post('/:id/start', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
-    const { scheduledFor } = request.body as { scheduledFor?: string };
 
     const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
       where: { id, tenantId: request.tenantId },
@@ -164,37 +162,66 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       where: { id },
       data: {
         status: 'active',
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : new Date(),
+        startAt: new Date(),
       },
     });
 
-    // Enqueue WhatsApp messages
-    const whatsappQueue = getQueue(QUEUES.WHATSAPP_MESSAGES);
+    // Find users with phone numbers
     const users = await fastify.prisma.user.findMany({
-      where: { tenantId: request.tenantId },
+      where: { tenantId: request.tenantId, phone: { not: null } },
+      take: 10000,
     });
 
+    // Create WhatsAppMessage records and enqueue jobs
+    const whatsappQueue = new Queue('whatsapp.messages', { connection: fastify.redis });
+
+    let enqueuedCount = 0;
     for (const user of users) {
-      if (user.phone) {
-        await whatsappQueue.add(
-          `whatsapp-${campaign.id}-${user.id}`,
-          {
-            whatsappCampaignId: id,
-            userId: user.id,
-            phone: user.phone,
-            body: campaign.body,
-            headerType: campaign.headerType,
-            headerValue: campaign.headerValue,
-            footerText: campaign.footerText,
-            buttons: campaign.buttons,
-            attempt: 0,
+      if (!user.phone) continue;
+
+      const message = await fastify.prisma.whatsAppMessage.create({
+        data: {
+          whatsappCampaignId: id,
+          tenantId: request.tenantId,
+          userId: user.id,
+          phone: user.phone,
+          body: campaign.body,
+          headerType: campaign.headerType,
+          headerValue: campaign.headerValue,
+          footerText: campaign.footerText,
+          buttons: campaign.buttons as any,
+          status: 'queued',
+        },
+      });
+
+      await whatsappQueue.add(
+        'send-whatsapp',
+        {
+          whatsappMessageId: message.id,
+          whatsappCampaignId: id,
+          userId: user.id,
+          phone: user.phone,
+          body: campaign.body,
+          headerType: campaign.headerType,
+          headerValue: campaign.headerValue,
+          footerText: campaign.footerText,
+          buttons: campaign.buttons,
+        },
+        {
+          attempts: campaign.maxRetries + 1,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
           },
-          { attempts: campaign.maxRetries + 1, backoff: { type: 'exponential', delay: 2000 } }
-        );
-      }
+        },
+      );
+
+      enqueuedCount++;
     }
 
-    return updated;
+    await whatsappQueue.close();
+
+    return reply.send({ ...updated, enqueuedCount, message: `${enqueuedCount} WhatsApp messages enqueued for sending` });
   });
 
   // POST /v1/whatsapp-campaigns/:id/pause

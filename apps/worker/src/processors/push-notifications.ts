@@ -4,6 +4,7 @@ import Handlebars from 'handlebars';
 import { FirebasePushProvider } from '@engage/channels';
 
 interface PushNotificationJob {
+  notificationId: string;
   pushCampaignId: string;
   userId: string;
   deviceToken: string;
@@ -12,13 +13,13 @@ interface PushNotificationJob {
   imageUrl?: string;
   actionUrl?: string;
   priority: string;
-  attempt: number;
 }
 
 const prisma = new PrismaClient();
 
 export async function processPushNotification(job: Job<PushNotificationJob>) {
   const {
+    notificationId,
     pushCampaignId,
     userId,
     deviceToken,
@@ -27,17 +28,17 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
     imageUrl,
     actionUrl,
     priority,
-    attempt,
   } = job.data;
 
   console.log(
-    `[push-notifications] Processing notification ${pushCampaignId}:${userId}, attempt ${attempt + 1}`
+    `[push-notifications] Processing notification ${notificationId}, attempt ${job.attemptsMade + 1}`
   );
 
   try {
-    // Fetch campaign and user
-    const [campaign, user] = await Promise.all([
+    // Fetch campaign, notification, and user
+    const [campaign, notification, user] = await Promise.all([
       prisma.pushCampaign.findUniqueOrThrow({ where: { id: pushCampaignId } }),
+      prisma.pushNotification.findUniqueOrThrow({ where: { id: notificationId } }),
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     ]);
 
@@ -50,6 +51,8 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
       const metadata = (user.metadata as Record<string, unknown>) || {};
       renderedBody = bodyTemplate({
         user: {
+          id: user.id,
+          externalId: user.externalId,
           firstName: user.externalId?.split('-')[0] || 'usuario',
           email: user.email,
           phone: user.phone,
@@ -58,6 +61,8 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
       });
       renderedTitle = titleTemplate({
         user: {
+          id: user.id,
+          externalId: user.externalId,
           firstName: user.externalId?.split('-')[0] || 'usuario',
           email: user.email,
           phone: user.phone,
@@ -87,7 +92,7 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
 
     // Send notification via Firebase
     const result = await pushProvider.send({
-      deliveryId: `push-${campaign.tenantId}-${userId}`,
+      deliveryId: notificationId,
       tenantId: campaign.tenantId,
       userId,
       to: deviceToken,
@@ -103,56 +108,42 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
     });
 
     if (result.success) {
-      // Create PushNotification record
-      const notification = await prisma.pushNotification.create({
+      // Update existing PushNotification record
+      await prisma.pushNotification.update({
+        where: { id: notificationId },
         data: {
-          campaignId: pushCampaignId,
-          tenantId: campaign.tenantId,
-          userId,
           status: 'sent',
           title: renderedTitle,
           body: renderedBody,
-          imageUrl,
-          actionUrl,
-          priority,
           sentAt: new Date(),
         },
       });
 
-      console.log(`[push-notifications] Notification sent: ${notification.id}`);
+      // Update campaign stats
+      await prisma.$executeRaw`
+        UPDATE push_campaigns
+        SET stats = jsonb_set(stats, '{sent}', (COALESCE((stats->>'sent')::int, 0) + 1)::text::jsonb)
+        WHERE id = ${pushCampaignId}
+      `;
+
+      console.log(`[push-notifications] Notification sent: ${notificationId}`);
     } else {
       throw new Error(`Firebase error: ${result.error}`);
     }
   } catch (err) {
-    console.error(`[push-notifications] Error processing notification: ${err}`);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[push-notifications] Error processing ${notificationId}: ${message}`);
 
-    if (attempt < 3) {
-      const delayMs = attempt === 0 ? 60000 : attempt === 1 ? 300000 : 1800000; // 1m, 5m, 30m
-      throw new Error(`Retryable error: ${err}. Retry in ${delayMs / 1000}s`);
-    } else {
-      // Max retries exceeded
-      try {
-        const notification = await prisma.pushNotification.findFirst({
-          where: {
-            campaignId: job.data.pushCampaignId,
-            userId: job.data.userId,
-          },
-        });
+    const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1) - 1;
+    await prisma.pushNotification.update({
+      where: { id: notificationId },
+      data: {
+        status: isLastAttempt ? 'failed' : 'queued',
+        ...(isLastAttempt ? { failedAt: new Date(), errorMessage: message } : {}),
+      },
+    }).catch(() => {});
 
-        if (notification) {
-          await prisma.pushNotification.update({
-            where: { id: notification.id },
-            data: {
-              status: 'failed',
-              failedAt: new Date(),
-              errorMessage: String(err),
-            },
-          });
-        }
-      } catch (updateErr) {
-        console.error(`[push-notifications] Failed to mark as failed: ${updateErr}`);
-      }
-    }
+    throw err;
   }
 }
 

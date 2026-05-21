@@ -52,7 +52,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticateApiKey);
 
   // List campaigns
-  fastify.get('/campaigns', async (request: FastifyRequest) => {
+  fastify.get('/', async (request: FastifyRequest) => {
     return fastify.prisma.voiceCampaign.findMany({
       where: { tenantId: request.tenantId },
       orderBy: { createdAt: 'desc' },
@@ -60,7 +60,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Create campaign
-  fastify.post('/campaigns', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = createVoiceCampaignSchema.parse(request.body);
     const campaign = await fastify.prisma.voiceCampaign.create({
       data: {
@@ -86,180 +86,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(campaign);
   });
 
-  // Get campaign
-  fastify.get('/campaigns/:id', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const campaign = await fastify.prisma.voiceCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-      include: { calls: { orderBy: { createdAt: 'desc' }, take: 50 } },
-    });
-    if (!campaign) return reply.status(404).send({ error: 'Not found' });
-    return campaign;
-  });
-
-  // Update campaign
-  fastify.put('/campaigns/:id', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const body = updateVoiceCampaignSchema.parse(request.body);
-
-    const campaign = await fastify.prisma.voiceCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
-
-    if (!campaign) return reply.status(404).send({ error: 'Not found' });
-    if (campaign.status !== 'draft' && campaign.status !== 'paused') {
-      return reply.status(400).send({ error: 'Can only update draft or paused campaigns' });
-    }
-
-    const updated = await fastify.prisma.voiceCampaign.update({
-      where: { id },
-      data: {
-        ...(body.name && { name: body.name }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.script && { script: body.script }),
-        ...(body.triggerType && { triggerType: body.triggerType }),
-        ...(body.voiceConfig && { voiceConfig: asJson(body.voiceConfig) }),
-        ...(body.aiGenerated !== undefined && { aiGenerated: body.aiGenerated }),
-        ...(body.aiInstructions !== undefined && { aiInstructions: body.aiInstructions }),
-        ...(body.recordingUrl !== undefined && { recordingUrl: body.recordingUrl }),
-        ...(body.audienceFilter && { audienceFilter: asJson(body.audienceFilter) }),
-        ...(body.dtmfConfig && { dtmfConfig: asJson(body.dtmfConfig) }),
-        ...(body.callbackWorkflow && { callbackWorkflow: asJson(body.callbackWorkflow) }),
-        ...(body.maxRetries !== undefined && { maxRetries: body.maxRetries }),
-        ...(body.startAt && { startAt: new Date(body.startAt) }),
-        ...(body.endAt && { endAt: new Date(body.endAt) }),
-      },
-    });
-
-    return reply.send(updated);
-  });
-
-  // Delete campaign
-  fastify.delete('/campaigns/:id', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const campaign = await fastify.prisma.voiceCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
-
-    if (!campaign) return reply.status(404).send({ error: 'Not found' });
-    if (campaign.status !== 'draft') {
-      return reply.status(400).send({ error: 'Can only delete draft campaigns' });
-    }
-
-    await fastify.prisma.voiceCampaign.delete({ where: { id } });
-    return reply.status(204).send();
-  });
-
-  // Start campaign
-  fastify.post('/campaigns/:id/start', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const campaign = await fastify.prisma.voiceCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
-
-    if (!campaign) return reply.status(404).send({ error: 'Not found' });
-    if (campaign.status !== 'draft') {
-      return reply.status(400).send({ error: 'Campaign must be in draft status' });
-    }
-
-    // Update campaign status
-    const updated = await fastify.prisma.voiceCampaign.update({
-      where: { id },
-      data: { status: 'active', startAt: new Date() },
-    });
-
-    // Find users matching audience filter
-    const users = await fastify.prisma.user.findMany({
-      where: {
-        tenantId: request.tenantId,
-        phone: { not: null },
-      },
-      take: 1000,
-    });
-
-    // Create VoiceCall records and enqueue jobs
-    const voiceQueue = new Queue('voice.calls', { connection: fastify.redis });
-
-    for (const user of users) {
-      const voiceCall = await fastify.prisma.voiceCall.create({
-        data: {
-          voiceCampaignId: id,
-          tenantId: request.tenantId,
-          userId: user.id,
-          phone: user.phone!,
-          status: 'queued',
-        },
-      });
-
-      const voiceConfig = campaign.voiceConfig as Record<string, unknown> || {};
-      await voiceQueue.add(
-        'voice-call',
-        {
-          voiceCallId: voiceCall.id,
-          voiceCampaignId: id,
-          userId: user.id,
-          phone: user.phone,
-          script: campaign.script,
-          languageCode: (voiceConfig['language'] as string) || 'es-ES',
-          voiceGender: (voiceConfig['voice'] as 'male' | 'female') || 'female',
-          dtmfConfig: campaign.dtmfConfig,
-          attempt: 0,
-        },
-        {
-          attempts: campaign.maxRetries + 1,
-          backoff: {
-            type: 'exponential',
-            delay: 60000,
-          },
-        },
-      );
-    }
-
-    await voiceQueue.close();
-
-    return reply.send(updated);
-  });
-
-  // Pause campaign
-  fastify.post('/campaigns/:id/pause', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const campaign = await fastify.prisma.voiceCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
-
-    if (!campaign) return reply.status(404).send({ error: 'Not found' });
-    if (campaign.status !== 'active') {
-      return reply.status(400).send({ error: 'Campaign must be in active status' });
-    }
-
-    const updated = await fastify.prisma.voiceCampaign.update({
-      where: { id },
-      data: { status: 'paused' },
-    });
-
-    return reply.send(updated);
-  });
-
-  // List calls for campaign
-  fastify.get('/campaigns/:id/calls', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-
-    const campaign = await fastify.prisma.voiceCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
-
-    if (!campaign) return reply.status(404).send({ error: 'Not found' });
-
-    const calls = await fastify.prisma.voiceCall.findMany({
-      where: { voiceCampaignId: id },
-      include: { interactions: { orderBy: { timestamp: 'asc' } } },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return reply.send(calls);
-  });
-
-  // Get call details
+  // Get call details (must come before /:id to avoid match conflict)
   fastify.get('/calls/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
 
@@ -297,8 +124,184 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(updated);
   });
 
+  // Get campaign
+  fastify.get('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const campaign = await fastify.prisma.voiceCampaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+      include: { calls: { orderBy: { createdAt: 'desc' }, take: 50 } },
+    });
+    if (!campaign) return reply.status(404).send({ error: 'Not found' });
+    return campaign;
+  });
+
+  // Update campaign
+  fastify.put('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const body = updateVoiceCampaignSchema.parse(request.body);
+
+    const campaign = await fastify.prisma.voiceCampaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+
+    if (!campaign) return reply.status(404).send({ error: 'Not found' });
+    if (campaign.status !== 'draft' && campaign.status !== 'paused') {
+      return reply.status(400).send({ error: 'Can only update draft or paused campaigns' });
+    }
+
+    const updated = await fastify.prisma.voiceCampaign.update({
+      where: { id },
+      data: {
+        ...(body.name && { name: body.name }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.script && { script: body.script }),
+        ...(body.triggerType && { triggerType: body.triggerType }),
+        ...(body.voiceConfig && { voiceConfig: asJson(body.voiceConfig) }),
+        ...(body.aiGenerated !== undefined && { aiGenerated: body.aiGenerated }),
+        ...(body.aiInstructions !== undefined && { aiInstructions: body.aiInstructions }),
+        ...(body.recordingUrl !== undefined && { recordingUrl: body.recordingUrl }),
+        ...(body.audienceFilter && { audienceFilter: asJson(body.audienceFilter) }),
+        ...(body.dtmfConfig && { dtmfConfig: asJson(body.dtmfConfig) }),
+        ...(body.callbackWorkflow && { callbackWorkflow: asJson(body.callbackWorkflow) }),
+        ...(body.maxRetries !== undefined && { maxRetries: body.maxRetries }),
+        ...(body.startAt && { startAt: new Date(body.startAt) }),
+        ...(body.endAt && { endAt: new Date(body.endAt) }),
+      },
+    });
+
+    return reply.send(updated);
+  });
+
+  // Delete campaign
+  fastify.delete('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const campaign = await fastify.prisma.voiceCampaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+
+    if (!campaign) return reply.status(404).send({ error: 'Not found' });
+    if (campaign.status !== 'draft') {
+      return reply.status(400).send({ error: 'Can only delete draft campaigns' });
+    }
+
+    await fastify.prisma.voiceCampaign.delete({ where: { id } });
+    return reply.status(204).send();
+  });
+
+  // Start campaign
+  fastify.post('/:id/start', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const campaign = await fastify.prisma.voiceCampaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+
+    if (!campaign) return reply.status(404).send({ error: 'Not found' });
+    if (campaign.status !== 'draft') {
+      return reply.status(400).send({ error: 'Campaign must be in draft status' });
+    }
+
+    // Update campaign status
+    const updated = await fastify.prisma.voiceCampaign.update({
+      where: { id },
+      data: { status: 'active', startAt: new Date() },
+    });
+
+    // Find users matching audience filter
+    const users = await fastify.prisma.user.findMany({
+      where: {
+        tenantId: request.tenantId,
+        phone: { not: null },
+      },
+      take: 1000,
+    });
+
+    // Create VoiceCall records and enqueue jobs
+    const voiceQueue = new Queue('voice.calls', { connection: fastify.redis });
+
+    let enqueuedCount = 0;
+    for (const user of users) {
+      const voiceCall = await fastify.prisma.voiceCall.create({
+        data: {
+          voiceCampaignId: id,
+          tenantId: request.tenantId,
+          userId: user.id,
+          phone: user.phone!,
+          status: 'queued',
+        },
+      });
+
+      const voiceConfig = campaign.voiceConfig as Record<string, unknown> || {};
+      await voiceQueue.add(
+        'voice-call',
+        {
+          voiceCallId: voiceCall.id,
+          voiceCampaignId: id,
+          userId: user.id,
+          phone: user.phone,
+          script: campaign.script,
+          languageCode: (voiceConfig['language'] as string) || 'es-ES',
+          voiceGender: (voiceConfig['voice'] as 'male' | 'female') || 'female',
+          dtmfConfig: campaign.dtmfConfig,
+          attempt: 0,
+        },
+        {
+          attempts: campaign.maxRetries + 1,
+          backoff: {
+            type: 'exponential',
+            delay: 60000,
+          },
+        },
+      );
+
+      enqueuedCount++;
+    }
+
+    await voiceQueue.close();
+
+    return reply.send({ ...updated, enqueuedCount, message: `${enqueuedCount} voice calls enqueued for delivery` });
+  });
+
+  // Pause campaign
+  fastify.post('/:id/pause', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const campaign = await fastify.prisma.voiceCampaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+
+    if (!campaign) return reply.status(404).send({ error: 'Not found' });
+    if (campaign.status !== 'active') {
+      return reply.status(400).send({ error: 'Campaign must be in active status' });
+    }
+
+    const updated = await fastify.prisma.voiceCampaign.update({
+      where: { id },
+      data: { status: 'paused' },
+    });
+
+    return reply.send(updated);
+  });
+
+  // List calls for campaign
+  fastify.get('/:id/calls', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+
+    const campaign = await fastify.prisma.voiceCampaign.findFirst({
+      where: { id, tenantId: request.tenantId },
+    });
+
+    if (!campaign) return reply.status(404).send({ error: 'Not found' });
+
+    const calls = await fastify.prisma.voiceCall.findMany({
+      where: { voiceCampaignId: id },
+      include: { interactions: { orderBy: { timestamp: 'asc' } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return reply.send(calls);
+  });
+
   // Get campaign metrics
-  fastify.get('/campaigns/:id/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get('/:id/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
 
     const campaign = await fastify.prisma.voiceCampaign.findFirst({

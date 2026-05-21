@@ -4,6 +4,7 @@ import Handlebars from 'handlebars';
 import { TwilioWhatsAppProvider } from '@engage/channels';
 
 interface WhatsAppMessageJob {
+  whatsappMessageId: string;
   whatsappCampaignId: string;
   userId: string;
   phone: string;
@@ -12,13 +13,13 @@ interface WhatsAppMessageJob {
   headerValue?: string;
   footerText?: string;
   buttons?: Array<{ id: string; title: string }>;
-  attempt: number;
 }
 
 const prisma = new PrismaClient();
 
 export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
   const {
+    whatsappMessageId,
     whatsappCampaignId,
     userId,
     phone,
@@ -27,16 +28,14 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
     headerValue,
     footerText,
     buttons,
-    attempt,
   } = job.data;
 
-  console.log(
-    `[whatsapp-messages] Processing message ${whatsappCampaignId}:${userId}, attempt ${attempt + 1}`
-  );
+  console.log(`[whatsapp-messages] Processing message ${whatsappMessageId}, attempt ${job.attemptsMade + 1}`);
 
   try {
-    // Fetch campaign and user
-    const [campaign, user] = await Promise.all([
+    // Fetch message, campaign, and user
+    const [message, campaign, user] = await Promise.all([
+      prisma.whatsAppMessage.findUniqueOrThrow({ where: { id: whatsappMessageId } }),
       prisma.whatsAppCampaign.findUniqueOrThrow({ where: { id: whatsappCampaignId } }),
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     ]);
@@ -90,19 +89,12 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
     });
 
     if (result.status === 'queued' || result.status === 'sent') {
-      // Create WhatsAppMessage record
-      const message = await prisma.whatsAppMessage.create({
+      // Update WhatsAppMessage record
+      await prisma.whatsAppMessage.update({
+        where: { id: whatsappMessageId },
         data: {
-          whatsappCampaignId,
-          userId,
-          tenantId: campaign.tenantId,
-          phone,
-          body: renderedBody,
-          headerType,
-          headerValue,
-          footerText,
-          buttons,
           status: 'sent',
+          body: renderedBody,
           twilioMessageSid: result.messageSid,
           sentAt: new Date(),
         },
@@ -111,46 +103,37 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
       // Create interaction record
       await prisma.whatsAppInteraction.create({
         data: {
-          whatsappMessageId: message.id,
+          whatsappMessageId,
           tenantId: campaign.tenantId,
           type: 'sent',
           data: { messageSid: result.messageSid },
         },
       });
 
+      // Update campaign stats
+      await prisma.$executeRaw`
+        UPDATE whatsapp_campaigns
+        SET stats = jsonb_set(stats, '{sent}', (COALESCE((stats->>'sent')::int, 0) + 1)::text::jsonb)
+        WHERE id = ${whatsappCampaignId}
+      `;
+
       console.log(`[whatsapp-messages] Message sent: ${result.messageSid}`);
     } else {
       throw new Error(`Twilio error: ${result.error}`);
     }
   } catch (err) {
-    console.error(`[whatsapp-messages] Error processing message: ${err}`);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[whatsapp-messages] Error processing message: ${errMsg}`);
 
-    if (attempt < 3) {
-      const delayMs = attempt === 0 ? 60000 : attempt === 1 ? 300000 : 1800000; // 1m, 5m, 30m
-      throw new Error(`Retryable error: ${err}. Retry in ${delayMs / 1000}s`);
-    } else {
-      // Max retries exceeded
-      try {
-        const message = await prisma.whatsAppMessage.findFirst({
-          where: {
-            whatsappCampaignId: job.data.whatsappCampaignId,
-            userId: job.data.userId,
-          },
-        });
+    const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1) - 1;
+    await prisma.whatsAppMessage.update({
+      where: { id: whatsappMessageId },
+      data: {
+        status: isLastAttempt ? 'failed' : 'queued',
+        ...(isLastAttempt ? { failedAt: new Date(), errorMessage: errMsg } : {}),
+      },
+    }).catch(() => {});
 
-        if (message) {
-          await prisma.whatsAppMessage.update({
-            where: { id: message.id },
-            data: {
-              status: 'failed',
-              failedAt: new Date(),
-              errorMessage: String(err),
-            },
-          });
-        }
-      } catch (updateErr) {
-        console.error(`[whatsapp-messages] Failed to mark as failed: ${updateErr}`);
-      }
-    }
+    throw err;
   }
 }
