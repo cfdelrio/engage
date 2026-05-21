@@ -14,7 +14,7 @@ export default function CampaignsPage() {
             Crea y gestiona campañas de engagement
           </p>
         </div>
-        <Link href="/campaigns/new">
+        <Link href="/campaigns/builder">
           <Button>
             <Plus className="h-4 w-4 mr-2" />
             Nueva campaña
