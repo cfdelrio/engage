@@ -1,19 +1,26 @@
-export const dynamic = 'force-dynamic';
-import { Suspense } from 'react';
-import { MetricsGrid } from './MetricsGrid';
-import { LiveEventFeed } from './LiveEventFeed';
-import { ChannelBreakdown } from './ChannelBreakdown';
+export const dynamic = "force-dynamic";
+import { Suspense } from "react";
+import { MetricsGrid } from "./MetricsGrid";
+import { LiveEventFeed } from "./LiveEventFeed";
+import { ChannelBreakdown } from "./ChannelBreakdown";
+import { TimeSeriesChart } from "./TimeSeriesChart";
 
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Engagement en tiempo real</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          Engagement en tiempo real
+        </p>
       </div>
 
       <Suspense fallback={<MetricsSkeleton />}>
         <MetricsGrid />
+      </Suspense>
+
+      <Suspense fallback={<ChartSkeleton />}>
+        <TimeSeriesChart />
       </Suspense>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -22,6 +29,15 @@ export default function DashboardPage() {
         </div>
         <ChannelBreakdown />
       </div>
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="rounded-lg border bg-card p-6 animate-pulse">
+      <div className="h-4 w-48 bg-muted rounded mb-6" />
+      <div className="h-64 bg-muted rounded" />
     </div>
   );
 }
