@@ -1,93 +1,160 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft } from "lucide-react";
 
-const API_URL = process.env['INTERNAL_API_URL'] ?? process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
-
-const CHANNELS = ['email', 'sms', 'push', 'whatsapp', 'voice'];
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 export default function NewTemplatePage() {
   const router = useRouter();
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState('');
-  const [channel, setChannel] = useState('');
+  const [name, setName] = useState("");
+  const [channel, setChannel] = useState("email");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleCreate() {
-    if (!name.trim() || !channel) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    setCreating(true);
+    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+
     try {
-      const apiKey = localStorage.getItem('engage_api_key') ?? '';
       const res = await fetch(`${API_URL}/v1/templates`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'x-api-key': apiKey,
-          'content-type': 'application/json',
+          "x-api-key": apiKey,
+          "content-type": "application/json",
         },
         body: JSON.stringify({
           name,
           channel,
-          body: 'Hola {{user.firstName}}, bienvenido',
+          ...(subject ? { subject } : {}),
+          body,
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        router.push(`/dashboard/templates/${data.id}`);
+      if (!res.ok) {
+        setError("Error al crear el template");
+        return;
       }
-    } catch (err) {
-      console.error('Failed to create template:', err);
-      setCreating(false);
+
+      const template = await res.json();
+      router.push(`/templates/${template.id}`);
+    } catch {
+      setError("Error de red");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="space-y-6 max-w-lg">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Nuevo Template</h1>
-        <p className="text-muted-foreground text-sm mt-1">Crea una nueva plantilla de mensajes</p>
+        <Link href="/templates">
+          <Button variant="ghost" size="sm" className="-ml-3">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver
+          </Button>
+        </Link>
+        <h1 className="text-2xl font-semibold mt-2">Nuevo template</h1>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="text-sm font-medium">Nombre</label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nombre del template"
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-          />
-        </div>
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <CardTitle className="text-base">Crear template</CardTitle>
+          <p className="text-xs text-muted-foreground mt-2">
+            Usa {"{{variable}}"} para placeholders. Ej: {"{{user.email}}"},{" "}
+            {"{{event.data}}"}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-3 bg-destructive/10 text-destructive rounded text-sm">
+                {error}
+              </div>
+            )}
 
-        <div>
-          <label className="text-sm font-medium">Canal</label>
-          <Select value={channel} onValueChange={(value) => value && setChannel(value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona canal" />
-            </SelectTrigger>
-            <SelectContent>
-              {CHANNELS.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Nombre</label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="ej: Welcome Email"
+                  required
+                />
+              </div>
 
-        <div className="flex gap-4">
-          <Button onClick={handleCreate} disabled={!name.trim() || !channel || creating}>
-            {creating ? 'Creando...' : 'Crear Template'}
-          </Button>
-          <Button variant="outline" onClick={() => router.back()}>
-            Cancelar
-          </Button>
-        </div>
-      </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Canal</label>
+                <select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md bg-background"
+                >
+                  <option value="email">Email</option>
+                  <option value="sms">SMS</option>
+                  <option value="push">Push</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="voice">Voice</option>
+                </select>
+              </div>
+            </div>
+
+            {channel === "email" && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">Asunto</label>
+                <Input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="ej: ¡Bienvenido {{user.firstName}}!"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Cuerpo</label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={
+                  channel === "email"
+                    ? "Cuerpo del email..."
+                    : channel === "sms"
+                      ? "Mensaje SMS (160 chars)..."
+                      : channel === "push"
+                        ? "Título + descripción..."
+                        : channel === "whatsapp"
+                          ? "Mensaje WhatsApp..."
+                          : "Script de voz..."
+                }
+                required
+                className="w-full px-3 py-2 border rounded-md bg-background font-mono text-sm min-h-32"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button type="submit" disabled={!name || !body || loading}>
+                {loading ? "Creando..." : "Crear template"}
+              </Button>
+              <Link href="/templates">
+                <Button type="button" variant="outline">
+                  Cancelar
+                </Button>
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
