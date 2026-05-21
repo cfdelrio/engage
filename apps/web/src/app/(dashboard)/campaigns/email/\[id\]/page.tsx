@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -69,12 +69,7 @@ export default function EmailCampaignDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [deliveryFilter, setDeliveryFilter] = useState<string>('');
 
-  useEffect(() => {
-    fetchCampaign();
-    fetchDeliveries();
-  }, [campaignId]);
-
-  async function fetchCampaign() {
+  const fetchCampaign = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/email-campaigns/${campaignId}`);
@@ -86,9 +81,9 @@ export default function EmailCampaignDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [campaignId]);
 
-  async function fetchDeliveries() {
+  const fetchDeliveries = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/email-campaigns/${campaignId}/deliveries`);
       if (!res.ok) return;
@@ -97,7 +92,12 @@ export default function EmailCampaignDetailPage() {
     } catch (err) {
       console.error('Failed to load deliveries:', err);
     }
-  }
+  }, [campaignId]);
+
+  useEffect(() => {
+    fetchCampaign();
+    fetchDeliveries();
+  }, [fetchCampaign, fetchDeliveries]);
 
   async function handleDelete() {
     if (!confirm('Are you sure? This action cannot be undone.')) return;

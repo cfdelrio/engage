@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,12 +60,7 @@ export default function WhatsAppCampaignDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [messageFilter, setMessageFilter] = useState<string>('');
 
-  useEffect(() => {
-    fetchCampaign();
-    fetchMessages();
-  }, [campaignId]);
-
-  async function fetchCampaign() {
+  const fetchCampaign = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/whatsapp-campaigns/${campaignId}`);
@@ -76,9 +72,9 @@ export default function WhatsAppCampaignDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [campaignId]);
 
-  async function fetchMessages() {
+  const fetchMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/whatsapp-campaigns/${campaignId}/messages`);
       if (!res.ok) return;
@@ -87,7 +83,12 @@ export default function WhatsAppCampaignDetailPage() {
     } catch (err) {
       console.error('Failed to load messages:', err);
     }
-  }
+  }, [campaignId]);
+
+  useEffect(() => {
+    fetchCampaign();
+    fetchMessages();
+  }, [fetchCampaign, fetchMessages]);
 
   async function handleDelete() {
     if (!confirm('Are you sure? This action cannot be undone.')) return;
@@ -229,7 +230,7 @@ export default function WhatsAppCampaignDetailPage() {
               <p className="text-sm font-semibold text-slate-900 mb-2">{campaign.headerValue}</p>
             )}
             {campaign.headerValue && campaign.headerType === 'image' && (
-              <img src={campaign.headerValue} alt="header" className="w-full rounded mb-2 max-h-32 object-cover" />
+              <Image src={campaign.headerValue} alt="header" width={400} height={128} className="w-full rounded mb-2" style={{ objectFit: "cover" }} />
             )}
             <p className="text-sm text-slate-900 mb-2">{campaign.body}</p>
             {campaign.footerText && (

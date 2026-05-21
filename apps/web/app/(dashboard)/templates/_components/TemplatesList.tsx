@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Edit, Trash2 } from 'lucide-react';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Edit, Trash2 } from "lucide-react";
 
 interface Template {
   id: string;
@@ -18,22 +18,25 @@ interface Template {
   createdAt: string;
 }
 
-const API_URL = process.env['INTERNAL_API_URL'] ?? process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
+const API_URL =
+  process.env["INTERNAL_API_URL"] ??
+  process.env["NEXT_PUBLIC_API_URL"] ??
+  "http://localhost:3001";
 
 const CHANNEL_EMOJI: Record<string, string> = {
-  email: '📧',
-  sms: '💬',
-  push: '🔔',
-  whatsapp: '💚',
-  voice: '📞',
+  email: "📧",
+  sms: "💬",
+  push: "🔔",
+  whatsapp: "💚",
+  voice: "📞",
 };
 
 const CHANNEL_LABELS: Record<string, string> = {
-  email: 'Email',
-  sms: 'SMS',
-  push: 'Push',
-  whatsapp: 'WhatsApp',
-  voice: 'Voz',
+  email: "Email",
+  sms: "SMS",
+  push: "Push",
+  whatsapp: "WhatsApp",
+  voice: "Voz",
 };
 
 export function TemplatesList() {
@@ -42,28 +45,28 @@ export function TemplatesList() {
 
   const refetchTemplates = async () => {
     try {
-      const apiKey = localStorage.getItem('engage_api_key') ?? '';
+      const apiKey = localStorage.getItem("engage_api_key") ?? "";
       const res = await fetch(`${API_URL}/v1/templates`, {
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
       const data = await res.json();
       setTemplates(data);
     } catch (err) {
-      console.error('Failed to fetch templates:', err);
+      console.error("Failed to fetch templates:", err);
     }
   };
 
   useEffect(() => {
     (async () => {
       try {
-        const apiKey = localStorage.getItem('engage_api_key') ?? '';
+        const apiKey = localStorage.getItem("engage_api_key") ?? "";
         const res = await fetch(`${API_URL}/v1/templates`, {
-          headers: { 'x-api-key': apiKey },
+          headers: { "x-api-key": apiKey },
         });
         const data = await res.json();
         setTemplates(data);
       } catch (err) {
-        console.error('Failed to fetch templates:', err);
+        console.error("Failed to fetch templates:", err);
       } finally {
         setLoading(false);
       }
@@ -71,17 +74,17 @@ export function TemplatesList() {
   }, []);
 
   async function deleteTemplate(id: string) {
-    if (!confirm('¿Estás seguro de que querés eliminar este template?')) return;
+    if (!confirm("¿Estás seguro de que querés eliminar este template?")) return;
 
     try {
-      const apiKey = localStorage.getItem('engage_api_key') ?? '';
+      const apiKey = localStorage.getItem("engage_api_key") ?? "";
       await fetch(`${API_URL}/v1/templates/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-api-key': apiKey },
+        method: "DELETE",
+        headers: { "x-api-key": apiKey },
       });
       refetchTemplates();
     } catch (err) {
-      console.error('Failed to delete template:', err);
+      console.error("Failed to delete template:", err);
     }
   }
 
@@ -108,14 +111,16 @@ export function TemplatesList() {
   }
 
   // Group by channel
-  const templatesByChannel = templates.reduce(
-    (acc, t) => {
-      if (!acc[t.channel]) acc[t.channel] = [];
-      acc[t.channel].push(t);
-      return acc;
-    },
-    {} as Record<string, Template[]>,
-  );
+  const templatesByChannel: Record<string, Template[]> = {};
+  for (const t of templates) {
+    if (!templatesByChannel[t.channel]) {
+      templatesByChannel[t.channel] = [];
+    }
+    const channel = templatesByChannel[t.channel];
+    if (channel) {
+      channel.push(t);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -123,22 +128,35 @@ export function TemplatesList() {
         <Card key={channel}>
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-lg">
-              <span className="text-3xl">{CHANNEL_EMOJI[channel] || '📄'}</span>
+              <span className="text-3xl">{CHANNEL_EMOJI[channel] || "📄"}</span>
               {CHANNEL_LABELS[channel] || channel}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {channelTemplates.map((template) => (
-              <div key={template.id} className="border rounded-lg p-4 space-y-3">
+              <div
+                key={template.id}
+                className="border rounded-lg p-4 space-y-3"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm">{template.name}</h3>
-                    {template.subject && <p className="text-xs text-muted-foreground mt-1">Asunto: {template.subject}</p>}
-                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{template.body}</p>
+                    {template.subject && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Asunto: {template.subject}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                      {template.body}
+                    </p>
                     {template.variables.length > 0 && (
                       <div className="flex gap-1 mt-3 flex-wrap">
                         {template.variables.map((variable) => (
-                          <Badge key={variable} variant="secondary" className="text-xs">
+                          <Badge
+                            key={variable}
+                            variant="secondary"
+                            className="text-xs"
+                          >
                             {`{{${variable}}}`}
                           </Badge>
                         ))}
@@ -151,13 +169,18 @@ export function TemplatesList() {
                         <Edit className="h-4 w-4" />
                       </Button>
                     </Link>
-                    <Button size="sm" variant="ghost" onClick={() => deleteTemplate(template.id)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteTemplate(template.id)}
+                    >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground pt-2 border-t">
-                  v{template.version} • {new Date(template.createdAt).toLocaleDateString('es-AR')}
+                  v{template.version} •{" "}
+                  {new Date(template.createdAt).toLocaleDateString("es-AR")}
                 </div>
               </div>
             ))}

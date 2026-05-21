@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -57,12 +57,7 @@ export default function VoiceCampaignDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [callFilter, setCallFilter] = useState<string>('');
 
-  useEffect(() => {
-    fetchCampaign();
-    fetchCalls();
-  }, [campaignId]);
-
-  async function fetchCampaign() {
+  const fetchCampaign = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/voice-campaigns/${campaignId}`);
@@ -74,9 +69,9 @@ export default function VoiceCampaignDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [campaignId]);
 
-  async function fetchCalls() {
+  const fetchCalls = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/voice-campaigns/${campaignId}/calls`);
       if (!res.ok) return;
@@ -85,7 +80,12 @@ export default function VoiceCampaignDetailPage() {
     } catch (err) {
       console.error('Failed to load calls:', err);
     }
-  }
+  }, [campaignId]);
+
+  useEffect(() => {
+    fetchCampaign();
+    fetchCalls();
+  }, [fetchCampaign, fetchCalls]);
 
   async function handleDelete() {
     if (!confirm('Are you sure? This action cannot be undone.')) return;

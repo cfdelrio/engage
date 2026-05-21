@@ -1,43 +1,66 @@
-import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
-import { generateApiKey, hashApiKey, getApiKeyPrefix } from '@engage/core';
-import { REDIS_KEYS } from '@engage/core';
-import { asJson } from '../utils/prisma.js';
-import type { ApiKeyInfoResponse, ApiKeyResponse, ApiErrorResponse } from '@engage/core';
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import { generateApiKey } from "@engage/core";
+import { REDIS_KEYS } from "@engage/core";
+import { asJson } from "../utils/prisma.js";
+import type {
+  ApiKeyInfoResponse,
+  ApiKeyResponse,
+  ApiErrorResponse,
+} from "@engage/core";
 
 const adminRoutes: FastifyPluginAsync = async (fastify) => {
   // Admin routes use the same API key auth — in production you'd add a separate JWT admin auth
-  fastify.addHook('onRequest', fastify.authenticateApiKey);
+  fastify.addHook("onRequest", fastify.authenticateApiKey);
 
   // ─── Tenant ───────────────────────────────────────────────────────────────
-  fastify.get('/tenant', async (request) => {
+  fastify.get("/tenant", async (request) => {
     return fastify.prisma.tenant.findUniqueOrThrow({
       where: { id: request.tenantId },
-      select: { id: true, slug: true, name: true, plan: true, brandingConfig: true, settings: true, createdAt: true },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        plan: true,
+        brandingConfig: true,
+        settings: true,
+        createdAt: true,
+      },
     });
   });
 
-  fastify.put('/tenant', async (request) => {
-    const body = z.object({
-      name: z.string().optional(),
-      brandingConfig: z.record(z.unknown()).optional(),
-      settings: z.record(z.unknown()).optional(),
-    }).parse(request.body);
+  fastify.put("/tenant", async (request) => {
+    const body = z
+      .object({
+        name: z.string().optional(),
+        brandingConfig: z.record(z.unknown()).optional(),
+        settings: z.record(z.unknown()).optional(),
+      })
+      .parse(request.body);
 
     return fastify.prisma.tenant.update({
       where: { id: request.tenantId },
       data: {
         ...(body.name ? { name: body.name } : {}),
-        ...(body.brandingConfig ? { brandingConfig: asJson(body.brandingConfig) } : {}),
+        ...(body.brandingConfig
+          ? { brandingConfig: asJson(body.brandingConfig) }
+          : {}),
         ...(body.settings ? { settings: asJson(body.settings) } : {}),
       },
-      select: { id: true, slug: true, name: true, plan: true, brandingConfig: true, settings: true },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        plan: true,
+        brandingConfig: true,
+        settings: true,
+      },
     });
   });
 
   // ─── API Keys ─────────────────────────────────────────────────────────────
   // GET /admin/api-keys — List all API keys for tenant
-  fastify.get<{ Reply: ApiKeyInfoResponse[] }>('/api-keys', async (request) => {
+  fastify.get<{ Reply: ApiKeyInfoResponse[] }>("/api-keys", async (request) => {
     const keys = await fastify.prisma.tenantApiKey.findMany({
       where: { tenantId: request.tenantId },
       select: {
@@ -50,14 +73,17 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         createdAt: true,
         updatedAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     return keys.map((key) => ({
       id: key.id,
       name: key.name,
       keyPrefix: key.keyPrefix,
-      permissions: typeof key.permissions === 'string' ? JSON.parse(key.permissions) : key.permissions || [],
+      permissions:
+        typeof key.permissions === "string"
+          ? JSON.parse(key.permissions)
+          : key.permissions || [],
       status: key.status as never,
       lastUsedAt: key.lastUsedAt?.toISOString() || null,
       createdAt: key.createdAt.toISOString(),
@@ -66,95 +92,98 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // GET /admin/api-keys/:id — Get specific API key
-  fastify.get<{ Params: { id: string }; Reply: ApiKeyInfoResponse | ApiErrorResponse }>(
-    '/api-keys/:id',
-    async (request, reply) => {
-      const { id } = request.params;
-      const key = await fastify.prisma.tenantApiKey.findUnique({
-        where: { id },
-      });
+  fastify.get<{
+    Params: { id: string };
+    Reply: ApiKeyInfoResponse | ApiErrorResponse;
+  }>("/api-keys/:id", async (request, reply) => {
+    const { id } = request.params;
+    const key = await fastify.prisma.tenantApiKey.findUnique({
+      where: { id },
+    });
 
-      if (!key || key.tenantId !== request.tenantId) {
-        return reply.status(404).send({
-          error: 'API key not found',
-          code: 'NOT_FOUND',
-        } as ApiErrorResponse);
-      }
+    if (!key || key.tenantId !== request.tenantId) {
+      return reply.status(404).send({
+        error: "API key not found",
+        code: "NOT_FOUND",
+      } as ApiErrorResponse);
+    }
 
-      return {
-        id: key.id,
-        name: key.name,
-        keyPrefix: key.keyPrefix,
-        permissions: typeof key.permissions === 'string' ? JSON.parse(key.permissions) : key.permissions || [],
-        status: key.status as never,
-        lastUsedAt: key.lastUsedAt?.toISOString() || null,
-        createdAt: key.createdAt.toISOString(),
-        updatedAt: key.updatedAt.toISOString(),
-      } as ApiKeyInfoResponse;
-    },
-  );
+    return {
+      id: key.id,
+      name: key.name,
+      keyPrefix: key.keyPrefix,
+      permissions:
+        typeof key.permissions === "string"
+          ? JSON.parse(key.permissions)
+          : key.permissions || [],
+      status: key.status as never,
+      lastUsedAt: key.lastUsedAt?.toISOString() || null,
+      createdAt: key.createdAt.toISOString(),
+      updatedAt: key.updatedAt.toISOString(),
+    } as ApiKeyInfoResponse;
+  });
 
   // POST /admin/api-keys — Create new API key
-  fastify.post<{ Body: { name: string; permissions?: string[] }; Reply: ApiKeyResponse | ApiErrorResponse }>(
-    '/api-keys',
-    async (request, reply) => {
-      const body = z
-        .object({
-          name: z.string().min(1).max(128),
-          permissions: z.array(z.string()).default(['events:write']),
-        })
-        .parse(request.body);
+  fastify.post<{
+    Body: { name: string; permissions?: string[] };
+    Reply: ApiKeyResponse | ApiErrorResponse;
+  }>("/api-keys", async (request, reply) => {
+    const body = z
+      .object({
+        name: z.string().min(1).max(128),
+        permissions: z.array(z.string()).default(["events:write"]),
+      })
+      .parse(request.body);
 
-      // Generate key
-      const { raw: rawKey, hash: keyHash, prefix: keyPrefix } = generateApiKey();
+    // Generate key
+    const { raw: rawKey, hash: keyHash, prefix: keyPrefix } = generateApiKey();
 
-      // Store in DB
-      const createdKey = await fastify.prisma.tenantApiKey.create({
-        data: {
-          tenantId: request.tenantId,
-          name: body.name,
-          keyHash,
-          keyPrefix,
-          permissions: asJson(body.permissions),
-          status: 'active',
-        },
-      });
+    // Store in DB
+    const createdKey = await fastify.prisma.tenantApiKey.create({
+      data: {
+        tenantId: request.tenantId,
+        name: body.name,
+        keyHash,
+        keyPrefix,
+        permissions: asJson(body.permissions),
+        status: "active",
+      },
+    });
 
-      // Audit log
-      await fastify.prisma.auditLog.create({
-        data: {
-          tenantId: request.tenantId,
-          action: 'api_key_created',
-          resource: 'ApiKey',
-          resourceId: createdKey.id,
-          after: JSON.stringify({
-            id: createdKey.id,
-            name: createdKey.name,
-            permissions: body.permissions,
-          }),
-        },
-      });
+    // Audit log
+    await fastify.prisma.auditLog.create({
+      data: {
+        tenantId: request.tenantId,
+        action: "api_key_created",
+        resource: "ApiKey",
+        resourceId: createdKey.id,
+        after: JSON.stringify({
+          id: createdKey.id,
+          name: createdKey.name,
+          permissions: body.permissions,
+        }),
+      },
+    });
 
-      return reply.status(201).send({
-        id: createdKey.id,
-        name: createdKey.name,
-        keyPrefix: createdKey.keyPrefix,
-        permissions: body.permissions,
-        status: createdKey.status as never,
-        lastUsedAt: null,
-        createdAt: createdKey.createdAt.toISOString(),
-        updatedAt: createdKey.updatedAt.toISOString(),
-        rawKey,
-      } as unknown as ApiKeyResponse);
-    },
-  );
+    return reply.status(201).send({
+      id: createdKey.id,
+      name: createdKey.name,
+      keyPrefix: createdKey.keyPrefix,
+      permissions: body.permissions,
+      status: createdKey.status as never,
+      lastUsedAt: null,
+      createdAt: createdKey.createdAt.toISOString(),
+      updatedAt: createdKey.updatedAt.toISOString(),
+      rawKey,
+    } as unknown as ApiKeyResponse);
+  });
 
   // PUT /admin/api-keys/:id — Update API key
   fastify.put<{
     Params: { id: string };
     Body: { name?: string; permissions?: string[] };
     Reply: ApiKeyInfoResponse | ApiErrorResponse;
-  }>('/api-keys/:id', async (request, reply) => {
+  }>("/api-keys/:id", async (request, reply) => {
     const { id } = request.params;
     const body = z
       .object({
@@ -166,8 +195,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const key = await fastify.prisma.tenantApiKey.findUnique({ where: { id } });
     if (!key || key.tenantId !== request.tenantId) {
       return reply.status(404).send({
-        error: 'API key not found',
-        code: 'NOT_FOUND',
+        error: "API key not found",
+        code: "NOT_FOUND",
       } as ApiErrorResponse);
     }
 
@@ -177,8 +206,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (Object.keys(updateData).length === 0) {
       return reply.status(400).send({
-        error: 'No fields to update',
-        code: 'INVALID_REQUEST',
+        error: "No fields to update",
+        code: "INVALID_REQUEST",
       } as ApiErrorResponse);
     }
 
@@ -191,8 +220,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     await fastify.prisma.auditLog.create({
       data: {
         tenantId: request.tenantId,
-        action: 'api_key_updated',
-        resource: 'ApiKey',
+        action: "api_key_updated",
+        resource: "ApiKey",
         resourceId: id,
         before: JSON.stringify({ name: key.name }),
         after: JSON.stringify({ name: updatedKey.name }),
@@ -203,7 +232,10 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       id: updatedKey.id,
       name: updatedKey.name,
       keyPrefix: updatedKey.keyPrefix,
-      permissions: typeof updatedKey.permissions === 'string' ? JSON.parse(updatedKey.permissions) : updatedKey.permissions || [],
+      permissions:
+        typeof updatedKey.permissions === "string"
+          ? JSON.parse(updatedKey.permissions)
+          : updatedKey.permissions || [],
       status: updatedKey.status as never,
       lastUsedAt: updatedKey.lastUsedAt?.toISOString() || null,
       createdAt: updatedKey.createdAt.toISOString(),
@@ -212,123 +244,129 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /admin/api-keys/:id/rotate — Rotate API key
-  fastify.post<{ Params: { id: string }; Reply: ApiKeyResponse | ApiErrorResponse }>(
-    '/api-keys/:id/rotate',
-    async (request, reply) => {
-      const { id } = request.params;
-      const oldKey = await fastify.prisma.tenantApiKey.findUnique({
-        where: { id },
-      });
+  fastify.post<{
+    Params: { id: string };
+    Reply: ApiKeyResponse | ApiErrorResponse;
+  }>("/api-keys/:id/rotate", async (request, reply) => {
+    const { id } = request.params;
+    const oldKey = await fastify.prisma.tenantApiKey.findUnique({
+      where: { id },
+    });
 
-      if (!oldKey || oldKey.tenantId !== request.tenantId) {
-        return reply.status(404).send({
-          error: 'API key not found',
-          code: 'NOT_FOUND',
-        } as ApiErrorResponse);
-      }
+    if (!oldKey || oldKey.tenantId !== request.tenantId) {
+      return reply.status(404).send({
+        error: "API key not found",
+        code: "NOT_FOUND",
+      } as ApiErrorResponse);
+    }
 
-      // Generate new key
-      const { raw: rawKey, hash: keyHash, prefix: keyPrefix } = generateApiKey();
+    // Generate new key
+    const { raw: rawKey, hash: keyHash, prefix: keyPrefix } = generateApiKey();
 
-      // Disable old key
-      await fastify.prisma.tenantApiKey.update({
-        where: { id },
-        data: { status: 'revoked', revokedAt: new Date() },
-      });
+    // Disable old key
+    await fastify.prisma.tenantApiKey.update({
+      where: { id },
+      data: { status: "revoked", revokedAt: new Date() },
+    });
 
-      // Create new key
-      const newKey = await fastify.prisma.tenantApiKey.create({
-        data: {
-          tenantId: request.tenantId,
-          name: `${oldKey.name} (rotated)`,
-          keyHash,
-          keyPrefix,
-          permissions: oldKey.permissions || asJson([]),
-          status: 'active',
-        },
-      });
+    // Create new key
+    const newKey = await fastify.prisma.tenantApiKey.create({
+      data: {
+        tenantId: request.tenantId,
+        name: `${oldKey.name} (rotated)`,
+        keyHash,
+        keyPrefix,
+        permissions: oldKey.permissions || asJson([]),
+        status: "active",
+      },
+    });
 
-      // Invalidate old key cache
-      await fastify.redis.del(REDIS_KEYS.apiKeyCache(oldKey.keyHash));
+    // Invalidate old key cache
+    await fastify.redis.del(REDIS_KEYS.apiKeyCache(oldKey.keyHash));
 
-      // Audit log
-      await fastify.prisma.auditLog.create({
-        data: {
-          tenantId: request.tenantId,
-          action: 'api_key_rotated',
-          resource: 'ApiKey',
-          resourceId: newKey.id,
-          after: JSON.stringify({
-            oldKeyId: oldKey.id,
-            newKeyId: newKey.id,
-          }),
-        },
-      });
+    // Audit log
+    await fastify.prisma.auditLog.create({
+      data: {
+        tenantId: request.tenantId,
+        action: "api_key_rotated",
+        resource: "ApiKey",
+        resourceId: newKey.id,
+        after: JSON.stringify({
+          oldKeyId: oldKey.id,
+          newKeyId: newKey.id,
+        }),
+      },
+    });
 
-      return reply.status(201).send({
-        id: newKey.id,
-        name: newKey.name,
-        keyPrefix: newKey.keyPrefix,
-        permissions: typeof newKey.permissions === 'string' ? JSON.parse(newKey.permissions) : newKey.permissions || [],
-        status: newKey.status as never,
-        lastUsedAt: null,
-        createdAt: newKey.createdAt.toISOString(),
-        updatedAt: newKey.updatedAt.toISOString(),
-        rawKey,
-      } as unknown as ApiKeyResponse);
-    },
-  );
+    return reply.status(201).send({
+      id: newKey.id,
+      name: newKey.name,
+      keyPrefix: newKey.keyPrefix,
+      permissions:
+        typeof newKey.permissions === "string"
+          ? JSON.parse(newKey.permissions)
+          : newKey.permissions || [],
+      status: newKey.status as never,
+      lastUsedAt: null,
+      createdAt: newKey.createdAt.toISOString(),
+      updatedAt: newKey.updatedAt.toISOString(),
+      rawKey,
+    } as unknown as ApiKeyResponse);
+  });
 
   // POST /admin/api-keys/:id/disable — Disable API key
-  fastify.post<{ Params: { id: string }; Reply: ApiKeyInfoResponse | ApiErrorResponse }>(
-    '/api-keys/:id/disable',
-    async (request, reply) => {
-      const { id } = request.params;
-      const key = await fastify.prisma.tenantApiKey.findUnique({
-        where: { id },
-      });
+  fastify.post<{
+    Params: { id: string };
+    Reply: ApiKeyInfoResponse | ApiErrorResponse;
+  }>("/api-keys/:id/disable", async (request, reply) => {
+    const { id } = request.params;
+    const key = await fastify.prisma.tenantApiKey.findUnique({
+      where: { id },
+    });
 
-      if (!key || key.tenantId !== request.tenantId) {
-        return reply.status(404).send({
-          error: 'API key not found',
-          code: 'NOT_FOUND',
-        } as ApiErrorResponse);
-      }
+    if (!key || key.tenantId !== request.tenantId) {
+      return reply.status(404).send({
+        error: "API key not found",
+        code: "NOT_FOUND",
+      } as ApiErrorResponse);
+    }
 
-      const updatedKey = await fastify.prisma.tenantApiKey.update({
-        where: { id },
-        data: { status: 'disabled' },
-      });
+    const updatedKey = await fastify.prisma.tenantApiKey.update({
+      where: { id },
+      data: { status: "disabled" },
+    });
 
-      // Invalidate cache
-      await fastify.redis.del(REDIS_KEYS.apiKeyCache(key.keyHash));
+    // Invalidate cache
+    await fastify.redis.del(REDIS_KEYS.apiKeyCache(key.keyHash));
 
-      // Audit log
-      await fastify.prisma.auditLog.create({
-        data: {
-          tenantId: request.tenantId,
-          action: 'api_key_disabled',
-          resource: 'ApiKey',
-          resourceId: id,
-        },
-      });
+    // Audit log
+    await fastify.prisma.auditLog.create({
+      data: {
+        tenantId: request.tenantId,
+        action: "api_key_disabled",
+        resource: "ApiKey",
+        resourceId: id,
+      },
+    });
 
-      return {
-        id: updatedKey.id,
-        name: updatedKey.name,
-        keyPrefix: updatedKey.keyPrefix,
-        permissions: typeof updatedKey.permissions === 'string' ? JSON.parse(updatedKey.permissions) : updatedKey.permissions || [],
-        status: updatedKey.status as never,
-        lastUsedAt: updatedKey.lastUsedAt?.toISOString() || null,
-        createdAt: updatedKey.createdAt.toISOString(),
-        updatedAt: updatedKey.updatedAt.toISOString(),
-      } as ApiKeyInfoResponse;
-    },
-  );
+    return {
+      id: updatedKey.id,
+      name: updatedKey.name,
+      keyPrefix: updatedKey.keyPrefix,
+      permissions:
+        typeof updatedKey.permissions === "string"
+          ? JSON.parse(updatedKey.permissions)
+          : updatedKey.permissions || [],
+      status: updatedKey.status as never,
+      lastUsedAt: updatedKey.lastUsedAt?.toISOString() || null,
+      createdAt: updatedKey.createdAt.toISOString(),
+      updatedAt: updatedKey.updatedAt.toISOString(),
+    } as ApiKeyInfoResponse;
+  });
 
   // DELETE /admin/api-keys/:id — Delete (soft delete) API key
   fastify.delete<{ Params: { id: string }; Reply: void | ApiErrorResponse }>(
-    '/api-keys/:id',
+    "/api-keys/:id",
     async (request, reply) => {
       const { id } = request.params;
       const key = await fastify.prisma.tenantApiKey.findUnique({
@@ -337,15 +375,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!key || key.tenantId !== request.tenantId) {
         return reply.status(404).send({
-          error: 'API key not found',
-          code: 'NOT_FOUND',
+          error: "API key not found",
+          code: "NOT_FOUND",
         } as ApiErrorResponse);
       }
 
       // Soft delete
       await fastify.prisma.tenantApiKey.update({
         where: { id },
-        data: { status: 'revoked', revokedAt: new Date() },
+        data: { status: "revoked", revokedAt: new Date() },
       });
 
       // Invalidate cache
@@ -355,8 +393,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.prisma.auditLog.create({
         data: {
           tenantId: request.tenantId,
-          action: 'api_key_deleted',
-          resource: 'ApiKey',
+          action: "api_key_deleted",
+          resource: "ApiKey",
           resourceId: id,
         },
       });
@@ -366,20 +404,29 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // ─── Channel Providers ────────────────────────────────────────────────────
-  fastify.get('/providers', async (request) => {
+  fastify.get("/providers", async (request) => {
     return fastify.prisma.channelProvider.findMany({
       where: { tenantId: request.tenantId },
-      select: { id: true, channel: true, provider: true, isDefault: true, isActive: true, createdAt: true },
+      select: {
+        id: true,
+        channel: true,
+        provider: true,
+        isDefault: true,
+        isActive: true,
+        createdAt: true,
+      },
     });
   });
 
-  fastify.post('/providers', async (request, reply) => {
-    const body = z.object({
-      channel: z.enum(['email', 'sms', 'push', 'whatsapp', 'voice']),
-      provider: z.string().min(1),
-      config: z.record(z.unknown()),
-      isDefault: z.boolean().default(false),
-    }).parse(request.body);
+  fastify.post("/providers", async (request, reply) => {
+    const body = z
+      .object({
+        channel: z.enum(["email", "sms", "push", "whatsapp", "voice"]),
+        provider: z.string().min(1),
+        config: z.record(z.unknown()),
+        isDefault: z.boolean().default(false),
+      })
+      .parse(request.body);
 
     // In production: encrypt config with AES-256-GCM before storing
     // For now store as JSON string (TODO: wire KMS encryption)
@@ -392,38 +439,61 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         isDefault: body.isDefault,
         isActive: true,
       },
-      select: { id: true, channel: true, provider: true, isDefault: true, isActive: true, createdAt: true },
+      select: {
+        id: true,
+        channel: true,
+        provider: true,
+        isDefault: true,
+        isActive: true,
+        createdAt: true,
+      },
     });
     return reply.status(201).send(provider);
   });
 
   // ─── Feature Flags ────────────────────────────────────────────────────────
-  fastify.get('/feature-flags', async (request) => {
-    const flags = ['ai_engagement_decisions', 'voice_campaigns', 'whatsapp_channel', 'analytics_v2', 'event_replay'];
+  fastify.get("/feature-flags", async (request) => {
+    const flags = [
+      "ai_engagement_decisions",
+      "voice_campaigns",
+      "whatsapp_channel",
+      "analytics_v2",
+      "event_replay",
+    ];
     const tenantId = request.tenantId;
     const results = await Promise.all(
       flags.map(async (flag) => {
-        const tenantVal = await fastify.redis.get(REDIS_KEYS.featureFlag(flag, tenantId));
+        const tenantVal = await fastify.redis.get(
+          REDIS_KEYS.featureFlag(flag, tenantId),
+        );
         const globalVal = await fastify.redis.get(REDIS_KEYS.featureFlag(flag));
-        return { flag, tenantOverride: tenantVal, global: globalVal, effective: tenantVal ?? globalVal };
+        return {
+          flag,
+          tenantOverride: tenantVal,
+          global: globalVal,
+          effective: tenantVal ?? globalVal,
+        };
       }),
     );
     return results;
   });
 
-  fastify.put('/feature-flags/:flag', async (request) => {
+  fastify.put("/feature-flags/:flag", async (request) => {
     const { flag } = request.params as { flag: string };
-    const { enabled, scope } = z.object({
-      enabled: z.boolean(),
-      scope: z.enum(['tenant', 'global']).default('tenant'),
-    }).parse(request.body);
+    const { enabled, scope } = z
+      .object({
+        enabled: z.boolean(),
+        scope: z.enum(["tenant", "global"]).default("tenant"),
+      })
+      .parse(request.body);
 
-    const key = scope === 'tenant'
-      ? REDIS_KEYS.featureFlag(flag, request.tenantId)
-      : REDIS_KEYS.featureFlag(flag);
+    const key =
+      scope === "tenant"
+        ? REDIS_KEYS.featureFlag(flag, request.tenantId)
+        : REDIS_KEYS.featureFlag(flag);
 
     if (enabled) {
-      await fastify.redis.set(key, '1');
+      await fastify.redis.set(key, "1");
     } else {
       await fastify.redis.del(key);
     }

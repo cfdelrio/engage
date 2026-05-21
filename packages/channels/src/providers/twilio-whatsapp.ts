@@ -1,10 +1,10 @@
-import twilio from 'twilio';
-import Handlebars from 'handlebars';
+import twilio from "twilio";
+import Handlebars from "handlebars";
 
 export interface WhatsAppMessagePayload {
   phone: string; // E.164: +5491123456789
   body: string;
-  headerType?: 'text' | 'image' | 'document' | 'video'; // default: text
+  headerType?: "text" | "image" | "document" | "video"; // default: text
   headerValue?: string;
   footerText?: string;
   buttons?: Array<{ id: string; title: string }>; // Quick reply buttons
@@ -13,7 +13,7 @@ export interface WhatsAppMessagePayload {
 
 export interface WhatsAppResult {
   messageSid: string;
-  status: 'queued' | 'sent' | 'failed';
+  status: "queued" | "sent" | "failed";
   error?: string;
 }
 
@@ -26,57 +26,53 @@ export class TwilioWhatsAppProvider {
     this.fromNumber = fromNumber;
   }
 
+  private buildBody(payload: WhatsAppMessagePayload): string {
+    if (payload.headerType === "text" && payload.headerValue) {
+      let body = `${payload.headerValue}\n\n${payload.body}`;
+      if (payload.footerText) body += `\n\n${payload.footerText}`;
+      return body;
+    }
+    let body = payload.body;
+    if (payload.footerText) body += `\n\n${payload.footerText}`;
+    return body;
+  }
+
   async send(payload: WhatsAppMessagePayload): Promise<WhatsAppResult> {
     try {
-      // Validate phone number
       if (!this.isValidE164(payload.phone)) {
         throw new Error(`Invalid phone number format: ${payload.phone}`);
       }
 
-      // Build message options
-      const messageOptions: Record<string, any> = {
+      const base = {
         from: `whatsapp:${this.fromNumber}`,
         to: `whatsapp:${payload.phone}`,
       };
 
-      // Handle different content types
-      if (payload.mediaUrl) {
-        // Media message (image, document, video, etc.)
-        messageOptions.mediaUrl = payload.mediaUrl;
-        if (payload.body) {
-          messageOptions.body = payload.body;
-        }
-      } else if (payload.headerType === 'text' && payload.headerValue) {
-        // Text header + body
-        messageOptions.body = `${payload.headerValue}\n\n${payload.body}`;
-        if (payload.footerText) {
-          messageOptions.body += `\n\n${payload.footerText}`;
-        }
-      } else {
-        // Simple text message
-        messageOptions.body = payload.body;
-        if (payload.footerText) {
-          messageOptions.body += `\n\n${payload.footerText}`;
-        }
-      }
-
-      // Send message
-      const message = await this.client.messages.create(messageOptions as any);
+      const message = payload.mediaUrl
+        ? await this.client.messages.create({
+            ...base,
+            mediaUrl: [payload.mediaUrl],
+            body: payload.body,
+          })
+        : await this.client.messages.create({
+            ...base,
+            body: this.buildBody(payload),
+          });
 
       console.log(
-        `[twilio-whatsapp] Message sent ${message.sid} to ${payload.phone}`
+        `[twilio-whatsapp] Message sent ${message.sid} to ${payload.phone}`,
       );
 
       return {
         messageSid: message.sid,
-        status: 'queued',
+        status: "queued",
       };
     } catch (err) {
       console.error(`[twilio-whatsapp] Failed to send: ${err}`);
 
       return {
-        messageSid: '',
-        status: 'failed',
+        messageSid: "",
+        status: "failed",
         error: String(err),
       };
     }
@@ -85,7 +81,7 @@ export class TwilioWhatsAppProvider {
   async sendTemplate(
     phone: string,
     templateName: string,
-    parameters?: Record<string, string>
+    parameters?: Record<string, string>,
   ): Promise<WhatsAppResult> {
     try {
       if (!this.isValidE164(phone)) {
@@ -93,37 +89,35 @@ export class TwilioWhatsAppProvider {
       }
 
       // Twilio WhatsApp templates use parameter substitution
-      const templateParams = parameters
-        ? Object.values(parameters)
-        : [];
+      const templateParams = parameters ? Object.values(parameters) : [];
 
       const message = await this.client.messages.create({
         from: `whatsapp:${this.fromNumber}`,
         to: `whatsapp:${phone}`,
         contentSid: templateName, // Twilio Content SID for template
-        contentVariables: JSON.stringify({ 1: templateParams[0] || '' }),
+        contentVariables: JSON.stringify({ 1: templateParams[0] || "" }),
       });
 
       console.log(
-        `[twilio-whatsapp] Template message sent ${message.sid} to ${phone}`
+        `[twilio-whatsapp] Template message sent ${message.sid} to ${phone}`,
       );
 
       return {
         messageSid: message.sid,
-        status: 'queued',
+        status: "queued",
       };
     } catch (err) {
       console.error(`[twilio-whatsapp] Template send failed: ${err}`);
 
       return {
-        messageSid: '',
-        status: 'failed',
+        messageSid: "",
+        status: "failed",
         error: String(err),
       };
     }
   }
 
-  renderMessage(body: string, variables: Record<string, any>): string {
+  renderMessage(body: string, variables: Record<string, unknown>): string {
     try {
       const template = Handlebars.compile(body);
       return template(variables);
@@ -134,37 +128,48 @@ export class TwilioWhatsAppProvider {
   }
 
   parseWebhook(
-    body: Record<string, any>,
-    headers: Record<string, any>
-  ): Array<{ type: string; messageSid: string; status: string; timestamp: Date }> {
-    const events: Array<{ type: string; messageSid: string; status: string; timestamp: Date }> = [];
+    body: Record<string, string>,
+    _headers: Record<string, string>,
+  ): Array<{
+    type: string;
+    messageSid: string;
+    status: string;
+    timestamp: Date;
+  }> {
+    const events: Array<{
+      type: string;
+      messageSid: string;
+      status: string;
+      timestamp: Date;
+    }> = [];
 
-    // Twilio WhatsApp webhooks for message status
-    if (body.SmsStatus && body.MessageSid) {
+    const smsStatus = body["SmsStatus"];
+    const messageSid = body["MessageSid"];
+
+    if (smsStatus && messageSid) {
       const statusMap: Record<string, string> = {
-        sent: 'sent',
-        delivered: 'delivered',
-        read: 'read',
-        failed: 'failed',
-        undelivered: 'failed',
+        sent: "sent",
+        delivered: "delivered",
+        read: "read",
+        failed: "failed",
+        undelivered: "failed",
       };
 
-      const status = statusMap[body.SmsStatus] || body.SmsStatus;
+      const status = statusMap[smsStatus] ?? smsStatus;
 
       events.push({
         type: status,
-        messageSid: body.MessageSid,
+        messageSid,
         status,
         timestamp: new Date(),
       });
     }
 
-    // Incoming messages from WhatsApp
-    if (body.Body && body.From) {
+    if (body["Body"] && body["From"]) {
       events.push({
-        type: 'reply_incoming',
-        messageSid: body.MessageSid || `reply_${Date.now()}`,
-        status: 'received',
+        type: "reply_incoming",
+        messageSid: messageSid ?? `reply_${Date.now()}`,
+        status: "received",
         timestamp: new Date(),
       });
     }
@@ -172,15 +177,18 @@ export class TwilioWhatsAppProvider {
     return events;
   }
 
-  async validateConfig(config: Record<string, any>): Promise<boolean> {
+  async validateConfig(config: Record<string, unknown>): Promise<boolean> {
     try {
-      if (!config.accountSid || !config.authToken || !config.from) {
-        console.error('[twilio-whatsapp] Missing required config fields');
+      if (!config["accountSid"] || !config["authToken"] || !config["from"]) {
+        console.error("[twilio-whatsapp] Missing required config fields");
         return false;
       }
 
       // Test credentials by creating a temporary client
-      const testClient = twilio(config.accountSid, config.authToken);
+      const testClient = twilio(
+        String(config["accountSid"]),
+        String(config["authToken"]),
+      );
       await testClient.api.accounts.list({ limit: 1 });
 
       return true;

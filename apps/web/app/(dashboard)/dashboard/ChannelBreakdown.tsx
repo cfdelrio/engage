@@ -1,7 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const API_URL = process.env['INTERNAL_API_URL'] ?? process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
-const API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
+const API_URL =
+  process.env["INTERNAL_API_URL"] ??
+  process.env["NEXT_PUBLIC_API_URL"] ??
+  "http://localhost:3001";
+const API_KEY = process.env["INTERNAL_API_KEY"] ?? "";
 
 interface ChannelData {
   channel: string;
@@ -12,7 +15,7 @@ interface ChannelData {
 async function getChannelData(): Promise<ChannelData[]> {
   try {
     const res = await fetch(`${API_URL}/v1/analytics/channels`, {
-      headers: { 'x-api-key': API_KEY },
+      headers: { "x-api-key": API_KEY },
       next: { revalidate: 60 },
     });
     if (!res.ok) return [];
@@ -23,25 +26,28 @@ async function getChannelData(): Promise<ChannelData[]> {
 }
 
 const CHANNEL_EMOJIS: Record<string, string> = {
-  email: '📧',
-  sms: '💬',
-  push: '🔔',
-  whatsapp: '💚',
-  voice: '📞',
-  in_app: '📱',
+  email: "📧",
+  sms: "💬",
+  push: "🔔",
+  whatsapp: "💚",
+  voice: "📞",
+  in_app: "📱",
 };
 
 export async function ChannelBreakdown() {
   const data = await getChannelData();
 
-  const byChannel = data.reduce<Record<string, { sent: number; delivered: number }>>((acc, item) => {
-    if (!acc[item.channel]) acc[item.channel] = { sent: 0, delivered: 0 };
-    if (item.status === 'sent' || item.status === 'delivered') {
-      acc[item.channel]!.sent += item._count;
+  const byChannel = data.reduce<
+    Record<string, { sent: number; delivered: number }>
+  >((acc, item) => {
+    const entry = acc[item.channel] ?? { sent: 0, delivered: 0 };
+    if (item.status === "sent" || item.status === "delivered") {
+      entry.sent += item._count;
     }
-    if (item.status === 'delivered') {
-      acc[item.channel]!.delivered += item._count;
+    if (item.status === "delivered") {
+      entry.delivered += item._count;
     }
+    acc[item.channel] = entry;
     return acc;
   }, {});
 
@@ -52,7 +58,9 @@ export async function ChannelBreakdown() {
       </CardHeader>
       <CardContent>
         {Object.keys(byChannel).length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Sin datos aún</p>
+          <p className="text-sm text-muted-foreground text-center py-8">
+            Sin datos aún
+          </p>
         ) : (
           <div className="space-y-4">
             {Object.entries(byChannel).map(([channel, { sent, delivered }]) => {
@@ -61,7 +69,7 @@ export async function ChannelBreakdown() {
                 <div key={channel}>
                   <div className="flex justify-between text-sm mb-1">
                     <span>
-                      {CHANNEL_EMOJIS[channel] ?? '📨'} {channel}
+                      {CHANNEL_EMOJIS[channel] ?? "📨"} {channel}
                     </span>
                     <span className="text-muted-foreground">{rate}%</span>
                   </div>
@@ -71,7 +79,9 @@ export async function ChannelBreakdown() {
                       style={{ width: `${rate}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">{sent} enviados</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {sent} enviados
+                  </p>
                 </div>
               );
             })}

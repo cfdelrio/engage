@@ -1,13 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { buildApp } from '../../src/app.js';
-import { prisma } from '@engage/database';
-import type { FastifyInstance } from 'fastify';
-import { generateApiKey, hashApiKey } from '@engage/core';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { buildApp } from "../../src/app.js";
+import { prisma } from "@engage/database";
+import type { FastifyInstance } from "fastify";
+import { generateApiKey, hashApiKey } from "@engage/core";
 
 // Skip tests if DATABASE_URL is not set (for local development)
-const skipIfNoDatabaseUrl = !process.env.DATABASE_URL ? describe.skip : describe;
+const skipIfNoDatabaseUrl = !process.env.DATABASE_URL
+  ? describe.skip
+  : describe;
 
-skipIfNoDatabaseUrl('User Preferences Routes', () => {
+skipIfNoDatabaseUrl("User Preferences Routes", () => {
   let app: FastifyInstance;
   let tenantId: string;
   let userId: string;
@@ -20,23 +22,27 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
     const tenant = await prisma.tenant.create({
       data: {
         slug: `test-pref-${Date.now()}`,
-        name: 'Test Preferences Tenant',
-        plan: 'starter',
+        name: "Test Preferences Tenant",
+        plan: "starter",
       },
     });
     tenantId = tenant.id;
 
     // Create API key
-    const { raw, hash } = generateApiKey();
+    const { raw, hash: _hash } = generateApiKey();
     apiKey = raw;
     await prisma.tenantApiKey.create({
       data: {
         tenantId,
-        name: 'Test Key',
+        name: "Test Key",
         keyHash: hashApiKey(raw),
         keyPrefix: raw.slice(0, 10),
-        permissions: JSON.stringify(['events:write', 'users:read', 'users:write']),
-        status: 'active',
+        permissions: JSON.stringify([
+          "events:write",
+          "users:read",
+          "users:write",
+        ]),
+        status: "active",
       },
     });
 
@@ -46,7 +52,7 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
         tenantId,
         email: `test-${Date.now()}@example.com`,
         externalId: `ext-${Date.now()}`,
-        timezone: 'America/Buenos_Aires',
+        timezone: "America/Buenos_Aires",
       },
     });
     userId = user.id;
@@ -66,27 +72,27 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
     await prisma.userPreference.deleteMany({ where: { tenantId } });
   });
 
-  describe('GET /v1/users/:userId/preferences', () => {
-    it('should return empty array for new user', async () => {
+  describe("GET /v1/users/:userId/preferences", () => {
+    it("should return empty array for new user", async () => {
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.body)).toEqual([]);
     });
 
-    it('should list all preferences for a user', async () => {
+    it("should list all preferences for a user", async () => {
       // Create some preferences
       await prisma.userPreference.createMany({
         data: [
           {
             userId,
             tenantId,
-            channel: 'email',
-            category: 'all',
+            channel: "email",
+            category: "all",
             enabled: true,
             quietHoursStart: null,
             quietHoursEnd: null,
@@ -94,8 +100,8 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
           {
             userId,
             tenantId,
-            channel: 'sms',
-            category: 'promotions',
+            channel: "sms",
+            category: "promotions",
             enabled: false,
             quietHoursStart: 1320,
             quietHoursEnd: 480,
@@ -103,8 +109,8 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
           {
             userId,
             tenantId,
-            channel: 'push',
-            category: 'all',
+            channel: "push",
+            category: "all",
             enabled: true,
             quietHoursStart: null,
             quietHoursEnd: null,
@@ -113,37 +119,37 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       });
 
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(200);
       const prefs = JSON.parse(res.body);
       expect(prefs).toHaveLength(3);
-      expect(prefs[0].channel).toBe('email');
-      expect(prefs[1].channel).toBe('push');
-      expect(prefs[2].channel).toBe('sms');
+      expect(prefs[0].channel).toBe("email");
+      expect(prefs[1].channel).toBe("push");
+      expect(prefs[2].channel).toBe("sms");
     });
 
-    it('should return 404 for non-existent user', async () => {
+    it("should return 404 for non-existent user", async () => {
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/nonexistent-user-id/preferences`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(404);
-      expect(JSON.parse(res.body).error).toBe('User not found');
+      expect(JSON.parse(res.body).error).toBe("User not found");
     });
 
-    it('should filter preferences by tenant', async () => {
+    it("should filter preferences by tenant", async () => {
       // Create another tenant
       const otherTenant = await prisma.tenant.create({
         data: {
           slug: `other-pref-${Date.now()}`,
-          name: 'Other Tenant',
-          plan: 'starter',
+          name: "Other Tenant",
+          plan: "starter",
         },
       });
 
@@ -152,11 +158,11 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       await prisma.tenantApiKey.create({
         data: {
           tenantId: otherTenant.id,
-          name: 'Other Key',
+          name: "Other Key",
           keyHash: hashApiKey(raw),
           keyPrefix: raw.slice(0, 10),
-          permissions: JSON.stringify(['events:write']),
-          status: 'active',
+          permissions: JSON.stringify(["events:write"]),
+          status: "active",
         },
       });
 
@@ -165,8 +171,8 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
         data: {
           userId,
           tenantId: otherTenant.id,
-          channel: 'email',
-          category: 'all',
+          channel: "email",
+          category: "all",
           enabled: true,
         },
       });
@@ -176,37 +182,39 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
         data: {
           userId,
           tenantId,
-          channel: 'sms',
-          category: 'all',
+          channel: "sms",
+          category: "all",
           enabled: true,
         },
       });
 
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(200);
       const prefs = JSON.parse(res.body);
       expect(prefs).toHaveLength(1);
-      expect(prefs[0].channel).toBe('sms');
+      expect(prefs[0].channel).toBe("sms");
 
       // Cleanup
-      await prisma.userPreference.deleteMany({ where: { tenantId: otherTenant.id } });
+      await prisma.userPreference.deleteMany({
+        where: { tenantId: otherTenant.id },
+      });
       await prisma.tenant.delete({ where: { id: otherTenant.id } });
     });
   });
 
-  describe('GET /v1/users/:userId/preferences/:channel', () => {
-    it('should get preference for specific channel', async () => {
+  describe("GET /v1/users/:userId/preferences/:channel", () => {
+    it("should get preference for specific channel", async () => {
       await prisma.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          category: 'all',
+          channel: "email",
+          category: "all",
           enabled: true,
           quietHoursStart: 1380,
           quietHoursEnd: 420,
@@ -214,39 +222,39 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       });
 
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences/email`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(200);
       const pref = JSON.parse(res.body);
-      expect(pref.channel).toBe('email');
+      expect(pref.channel).toBe("email");
       expect(pref.enabled).toBe(true);
       expect(pref.quietHoursStart).toBe(1380);
       expect(pref.quietHoursEnd).toBe(420);
     });
 
-    it('should get preference with category query param', async () => {
+    it("should get preference with category query param", async () => {
       await prisma.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'sms',
-          category: 'promotions',
+          channel: "sms",
+          category: "promotions",
           enabled: false,
         },
       });
 
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences/sms?category=promotions`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(200);
       const pref = JSON.parse(res.body);
-      expect(pref.category).toBe('promotions');
+      expect(pref.category).toBe("promotions");
       expect(pref.enabled).toBe(false);
     });
 
@@ -255,52 +263,52 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
         data: {
           userId,
           tenantId,
-          channel: 'push',
-          category: 'all',
+          channel: "push",
+          category: "all",
           enabled: true,
         },
       });
 
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences/push`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(200);
       const pref = JSON.parse(res.body);
-      expect(pref.category).toBe('all');
+      expect(pref.category).toBe("all");
     });
 
-    it('should return 404 for non-existent preference', async () => {
+    it("should return 404 for non-existent preference", async () => {
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences/email`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(404);
-      expect(JSON.parse(res.body).error).toBe('Preference not found');
+      expect(JSON.parse(res.body).error).toBe("Preference not found");
     });
   });
 
-  describe('PUT /v1/users/:userId/preferences', () => {
-    it('should create new preferences', async () => {
+  describe("PUT /v1/users/:userId/preferences", () => {
+    it("should create new preferences", async () => {
       const res = await app.inject({
-        method: 'PUT',
+        method: "PUT",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
+        headers: { "x-api-key": apiKey, "content-type": "application/json" },
         payload: {
           preferences: [
             {
-              channel: 'email',
-              category: 'alerts',
+              channel: "email",
+              category: "alerts",
               enabled: true,
               quietHoursStart: 1320,
               quietHoursEnd: 480,
             },
             {
-              channel: 'sms',
+              channel: "sms",
               enabled: false,
             },
           ],
@@ -310,22 +318,22 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       expect(res.statusCode).toBe(200);
       const prefs = JSON.parse(res.body);
       expect(prefs).toHaveLength(2);
-      expect(prefs[0].channel).toBe('email');
-      expect(prefs[0].category).toBe('alerts');
+      expect(prefs[0].channel).toBe("email");
+      expect(prefs[0].category).toBe("alerts");
       expect(prefs[0].quietHoursStart).toBe(1320);
-      expect(prefs[1].channel).toBe('sms');
-      expect(prefs[1].category).toBe('all');
+      expect(prefs[1].channel).toBe("sms");
+      expect(prefs[1].category).toBe("all");
       expect(prefs[1].enabled).toBe(false);
     });
 
-    it('should update existing preferences via upsert', async () => {
+    it("should update existing preferences via upsert", async () => {
       // Create initial preference
       await prisma.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          category: 'all',
+          channel: "email",
+          category: "all",
           enabled: true,
           quietHoursStart: null,
           quietHoursEnd: null,
@@ -334,13 +342,13 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
 
       // Update via PUT
       const res = await app.inject({
-        method: 'PUT',
+        method: "PUT",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
+        headers: { "x-api-key": apiKey, "content-type": "application/json" },
         payload: {
           preferences: [
             {
-              channel: 'email',
+              channel: "email",
               enabled: false,
               quietHoursStart: 1320,
               quietHoursEnd: 480,
@@ -355,15 +363,15 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       expect(prefs[0].quietHoursStart).toBe(1320);
     });
 
-    it('should validate quiet hours range', async () => {
+    it("should validate quiet hours range", async () => {
       const res = await app.inject({
-        method: 'PUT',
+        method: "PUT",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
+        headers: { "x-api-key": apiKey, "content-type": "application/json" },
         payload: {
           preferences: [
             {
-              channel: 'email',
+              channel: "email",
               quietHoursStart: 1500, // Invalid: > 1439
             },
           ],
@@ -373,11 +381,11 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it('should require channel field', async () => {
+    it("should require channel field", async () => {
       const res = await app.inject({
-        method: 'PUT',
+        method: "PUT",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
+        headers: { "x-api-key": apiKey, "content-type": "application/json" },
         payload: {
           preferences: [
             {
@@ -390,15 +398,15 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it('should return 404 for non-existent user', async () => {
+    it("should return 404 for non-existent user", async () => {
       const res = await app.inject({
-        method: 'PUT',
+        method: "PUT",
         url: `/v1/users/nonexistent-user-id/preferences`,
-        headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
+        headers: { "x-api-key": apiKey, "content-type": "application/json" },
         payload: {
           preferences: [
             {
-              channel: 'email',
+              channel: "email",
               enabled: true,
             },
           ],
@@ -406,18 +414,18 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       });
 
       expect(res.statusCode).toBe(404);
-      expect(JSON.parse(res.body).error).toBe('User not found');
+      expect(JSON.parse(res.body).error).toBe("User not found");
     });
 
     it('should default category to "all" and enabled to true', async () => {
       const res = await app.inject({
-        method: 'PUT',
+        method: "PUT",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
+        headers: { "x-api-key": apiKey, "content-type": "application/json" },
         payload: {
           preferences: [
             {
-              channel: 'email',
+              channel: "email",
             },
           ],
         },
@@ -425,27 +433,27 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
 
       expect(res.statusCode).toBe(200);
       const prefs = JSON.parse(res.body);
-      expect(prefs[0].category).toBe('all');
+      expect(prefs[0].category).toBe("all");
       expect(prefs[0].enabled).toBe(true);
     });
   });
 
-  describe('DELETE /v1/users/:userId/preferences/:channel', () => {
-    it('should soft delete preference by disabling', async () => {
+  describe("DELETE /v1/users/:userId/preferences/:channel", () => {
+    it("should soft delete preference by disabling", async () => {
       await prisma.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          category: 'all',
+          channel: "email",
+          category: "all",
           enabled: true,
         },
       });
 
       const res = await app.inject({
-        method: 'DELETE',
+        method: "DELETE",
         url: `/v1/users/${userId}/preferences/email`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(204);
@@ -455,8 +463,8 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
           userId_tenantId_channel_category: {
             userId,
             tenantId,
-            channel: 'email',
-            category: 'all',
+            channel: "email",
+            category: "all",
           },
         },
       });
@@ -464,21 +472,21 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       expect(pref?.enabled).toBe(false);
     });
 
-    it('should support category query param', async () => {
+    it("should support category query param", async () => {
       await prisma.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'sms',
-          category: 'promotions',
+          channel: "sms",
+          category: "promotions",
           enabled: true,
         },
       });
 
       const res = await app.inject({
-        method: 'DELETE',
+        method: "DELETE",
         url: `/v1/users/${userId}/preferences/sms?category=promotions`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(204);
@@ -488,8 +496,8 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
           userId_tenantId_channel_category: {
             userId,
             tenantId,
-            channel: 'sms',
-            category: 'promotions',
+            channel: "sms",
+            category: "promotions",
           },
         },
       });
@@ -497,51 +505,51 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       expect(pref?.enabled).toBe(false);
     });
 
-    it('should return 404 for non-existent preference', async () => {
+    it("should return 404 for non-existent preference", async () => {
       const res = await app.inject({
-        method: 'DELETE',
+        method: "DELETE",
         url: `/v1/users/${userId}/preferences/email`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(404);
-      expect(JSON.parse(res.body).error).toBe('Preference not found');
+      expect(JSON.parse(res.body).error).toBe("Preference not found");
     });
   });
 
-  describe('POST /v1/users/:userId/preferences/reset', () => {
-    it('should delete all preferences for user', async () => {
+  describe("POST /v1/users/:userId/preferences/reset", () => {
+    it("should delete all preferences for user", async () => {
       // Create some preferences
       await prisma.userPreference.createMany({
         data: [
           {
             userId,
             tenantId,
-            channel: 'email',
-            category: 'all',
+            channel: "email",
+            category: "all",
             enabled: true,
           },
           {
             userId,
             tenantId,
-            channel: 'sms',
-            category: 'all',
+            channel: "sms",
+            category: "all",
             enabled: false,
           },
           {
             userId,
             tenantId,
-            channel: 'push',
-            category: 'promotions',
+            channel: "push",
+            category: "promotions",
             enabled: true,
           },
         ],
       });
 
       const res = await app.inject({
-        method: 'POST',
+        method: "POST",
         url: `/v1/users/${userId}/preferences/reset`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(204);
@@ -553,43 +561,43 @@ skipIfNoDatabaseUrl('User Preferences Routes', () => {
       expect(remaining).toHaveLength(0);
     });
 
-    it('should return 404 for non-existent user', async () => {
+    it("should return 404 for non-existent user", async () => {
       const res = await app.inject({
-        method: 'POST',
+        method: "POST",
         url: `/v1/users/nonexistent-user-id/preferences/reset`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(404);
-      expect(JSON.parse(res.body).error).toBe('User not found');
+      expect(JSON.parse(res.body).error).toBe("User not found");
     });
 
-    it('should handle resetting empty preferences gracefully', async () => {
+    it("should handle resetting empty preferences gracefully", async () => {
       const res = await app.inject({
-        method: 'POST',
+        method: "POST",
         url: `/v1/users/${userId}/preferences/reset`,
-        headers: { 'x-api-key': apiKey },
+        headers: { "x-api-key": apiKey },
       });
 
       expect(res.statusCode).toBe(204);
     });
   });
 
-  describe('Authentication', () => {
-    it('should reject requests without API key', async () => {
+  describe("Authentication", () => {
+    it("should reject requests without API key", async () => {
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences`,
       });
 
       expect(res.statusCode).toBe(401);
     });
 
-    it('should reject requests with invalid API key', async () => {
+    it("should reject requests with invalid API key", async () => {
       const res = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/v1/users/${userId}/preferences`,
-        headers: { 'x-api-key': 'invalid-key' },
+        headers: { "x-api-key": "invalid-key" },
       });
 
       expect(res.statusCode).toBe(401);

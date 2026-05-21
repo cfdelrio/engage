@@ -1,16 +1,33 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-type ConditionOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'nin' | 'contains' | 'changed' | 'exists';
+type ConditionOperator =
+  | "eq"
+  | "neq"
+  | "gt"
+  | "lt"
+  | "gte"
+  | "lte"
+  | "in"
+  | "nin"
+  | "contains"
+  | "changed"
+  | "exists";
 
 interface Condition {
   field: string;
@@ -19,42 +36,46 @@ interface Condition {
 }
 
 interface ConditionGroup {
-  operator: 'AND' | 'OR';
+  operator: "AND" | "OR";
   conditions: Array<Condition | ConditionGroup>;
 }
 
 const AVAILABLE_FIELDS = [
-  { label: 'Event Type', value: 'event.type', type: 'string' },
-  { label: 'User Fatigue Score', value: 'user.fatigueScore', type: 'number' },
-  { label: 'User Rank', value: 'user.rank', type: 'number' },
-  { label: 'User Country', value: 'user.country', type: 'string' },
-  { label: 'User Language', value: 'user.language', type: 'string' },
-  { label: 'Days Inactive', value: 'user.daysInactive', type: 'number' },
-  { label: 'Last Seen At', value: 'user.lastSeenAt', type: 'date' },
-  { label: 'Total Engagements', value: 'user.totalEngagements', type: 'number' },
-  { label: 'Open Rate (30d)', value: 'user.openRate30d', type: 'number' },
-  { label: 'Click Rate (30d)', value: 'user.clickRate30d', type: 'number' },
+  { label: "Event Type", value: "event.type", type: "string" },
+  { label: "User Fatigue Score", value: "user.fatigueScore", type: "number" },
+  { label: "User Rank", value: "user.rank", type: "number" },
+  { label: "User Country", value: "user.country", type: "string" },
+  { label: "User Language", value: "user.language", type: "string" },
+  { label: "Days Inactive", value: "user.daysInactive", type: "number" },
+  { label: "Last Seen At", value: "user.lastSeenAt", type: "date" },
+  {
+    label: "Total Engagements",
+    value: "user.totalEngagements",
+    type: "number",
+  },
+  { label: "Open Rate (30d)", value: "user.openRate30d", type: "number" },
+  { label: "Click Rate (30d)", value: "user.clickRate30d", type: "number" },
 ];
 
 const OPERATORS_BY_TYPE: Record<string, ConditionOperator[]> = {
-  string: ['eq', 'neq', 'contains', 'in', 'nin'],
-  number: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte'],
-  date: ['eq', 'neq', 'gt', 'lt'],
-  default: ['eq', 'neq', 'exists'],
+  string: ["eq", "neq", "contains", "in", "nin"],
+  number: ["eq", "neq", "gt", "lt", "gte", "lte"],
+  date: ["eq", "neq", "gt", "lt"],
+  default: ["eq", "neq", "exists"],
 };
 
 const OPERATOR_LABELS: Record<ConditionOperator, string> = {
-  eq: 'equals',
-  neq: 'not equals',
-  gt: 'greater than',
-  lt: 'less than',
-  gte: 'greater or equal',
-  lte: 'less or equal',
-  in: 'in list',
-  nin: 'not in list',
-  contains: 'contains',
-  changed: 'changed',
-  exists: 'exists',
+  eq: "equals",
+  neq: "not equals",
+  gt: "greater than",
+  lt: "less than",
+  gte: "greater or equal",
+  lte: "less or equal",
+  in: "in list",
+  nin: "not in list",
+  contains: "contains",
+  changed: "changed",
+  exists: "exists",
 };
 
 interface ConditionRowProps {
@@ -65,14 +86,19 @@ interface ConditionRowProps {
 
 function ConditionRow({ condition, onUpdate, onRemove }: ConditionRowProps) {
   const fieldConfig = AVAILABLE_FIELDS.find((f) => f.value === condition.field);
-  const fieldType = fieldConfig?.type || 'default';
-  const operators = OPERATORS_BY_TYPE[fieldType] || OPERATORS_BY_TYPE.default;
+  const fieldType = fieldConfig?.type || "default";
+  const defaultOperators = OPERATORS_BY_TYPE["default"];
+  const operators = OPERATORS_BY_TYPE[fieldType] ??
+    defaultOperators ?? ["eq", "neq"];
 
   return (
     <div className="flex gap-2 items-end p-3 bg-slate-50 rounded-lg border border-slate-200">
       <div className="flex-1">
         <Label className="text-xs">Field</Label>
-        <Select value={condition.field} onValueChange={(field) => onUpdate({ ...condition, field })}>
+        <Select
+          value={condition.field}
+          onValueChange={(field) => onUpdate({ ...condition, field })}
+        >
           <SelectTrigger className="h-8 text-sm">
             <SelectValue />
           </SelectTrigger>
@@ -88,7 +114,12 @@ function ConditionRow({ condition, onUpdate, onRemove }: ConditionRowProps) {
 
       <div className="flex-1">
         <Label className="text-xs">Operator</Label>
-        <Select value={condition.operator} onValueChange={(op) => onUpdate({ ...condition, operator: op as ConditionOperator })}>
+        <Select
+          value={condition.operator}
+          onValueChange={(op) =>
+            onUpdate({ ...condition, operator: op as ConditionOperator })
+          }
+        >
           <SelectTrigger className="h-8 text-sm">
             <SelectValue />
           </SelectTrigger>
@@ -102,14 +133,17 @@ function ConditionRow({ condition, onUpdate, onRemove }: ConditionRowProps) {
         </Select>
       </div>
 
-      {!['exists', 'changed'].includes(condition.operator) && (
+      {!["exists", "changed"].includes(condition.operator) && (
         <div className="flex-1">
           <Label className="text-xs">Value</Label>
           <Input
-            type={fieldType === 'number' ? 'number' : 'text'}
-            value={String(condition.value || '')}
+            type={fieldType === "number" ? "number" : "text"}
+            value={String(condition.value || "")}
             onChange={(e) => {
-              const value = fieldType === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
+              const value =
+                fieldType === "number"
+                  ? parseFloat(e.target.value) || 0
+                  : e.target.value;
               onUpdate({ ...condition, value });
             }}
             className="h-8 text-sm"
@@ -132,14 +166,21 @@ interface ConditionGroupEditorProps {
   level?: number;
 }
 
-function ConditionGroupEditor({ group, onUpdate, onRemove, level = 0 }: ConditionGroupEditorProps) {
+function ConditionGroupEditor({
+  group,
+  onUpdate,
+  onRemove,
+  level = 0,
+}: ConditionGroupEditorProps) {
   const isRoot = level === 0;
 
   const handleAddCondition = () => {
+    const firstField = AVAILABLE_FIELDS[0];
+    if (!firstField) return;
     const newCondition: Condition = {
-      field: AVAILABLE_FIELDS[0].value,
-      operator: 'eq',
-      value: '',
+      field: firstField.value,
+      operator: "eq",
+      value: "",
     };
     onUpdate({
       ...group,
@@ -148,13 +189,15 @@ function ConditionGroupEditor({ group, onUpdate, onRemove, level = 0 }: Conditio
   };
 
   const handleAddGroup = () => {
+    const firstField = AVAILABLE_FIELDS[0];
+    if (!firstField) return;
     const newGroup: ConditionGroup = {
-      operator: 'AND',
+      operator: "AND",
       conditions: [
         {
-          field: AVAILABLE_FIELDS[0].value,
-          operator: 'eq',
-          value: '',
+          field: firstField.value,
+          operator: "eq",
+          value: "",
         },
       ],
     };
@@ -187,14 +230,24 @@ function ConditionGroupEditor({ group, onUpdate, onRemove, level = 0 }: Conditio
   };
 
   return (
-    <Card className={cn('border-slate-200', !isRoot && 'border-blue-200 bg-blue-50')}>
+    <Card
+      className={cn(
+        "border-slate-200",
+        !isRoot && "border-blue-200 bg-blue-50",
+      )}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <CardTitle className="text-sm">
-              {isRoot ? 'Audience Targeting' : 'Nested Group'}
+              {isRoot ? "Audience Targeting" : "Nested Group"}
             </CardTitle>
-            <Select value={group.operator} onValueChange={(op) => onUpdate({ ...group, operator: op as 'AND' | 'OR' })}>
+            <Select
+              value={group.operator}
+              onValueChange={(op) =>
+                onUpdate({ ...group, operator: op as "AND" | "OR" })
+              }
+            >
               <SelectTrigger className="w-24 h-8">
                 <SelectValue />
               </SelectTrigger>
@@ -225,7 +278,7 @@ function ConditionGroupEditor({ group, onUpdate, onRemove, level = 0 }: Conditio
                   </Badge>
                 </div>
               )}
-              {typeof cond.operator === 'string' ? (
+              {typeof cond.operator === "string" ? (
                 <ConditionRow
                   condition={cond as Condition}
                   onUpdate={(updated) => handleUpdateCondition(idx, updated)}
@@ -259,16 +312,19 @@ function ConditionGroupEditor({ group, onUpdate, onRemove, level = 0 }: Conditio
 }
 
 interface AudienceTargetingBuilderProps {
-  value?: any; // Accept any shape, we'll handle type safety inside
+  value?: Record<string, unknown>;
   onChange: (group: ConditionGroup) => void;
 }
 
-export function AudienceTargetingBuilder({ value, onChange }: AudienceTargetingBuilderProps) {
+export function AudienceTargetingBuilder({
+  value,
+  onChange,
+}: AudienceTargetingBuilderProps) {
   const [group, setGroup] = useState<ConditionGroup>(
-    (value as ConditionGroup) || {
-      operator: 'AND',
+    (value as unknown as ConditionGroup) ?? {
+      operator: "AND",
       conditions: [],
-    }
+    },
   );
 
   const handleUpdate = (updated: ConditionGroup) => {
@@ -279,9 +335,12 @@ export function AudienceTargetingBuilder({ value, onChange }: AudienceTargetingB
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold mb-2">Who should receive this campaign?</h3>
+        <h3 className="text-sm font-semibold mb-2">
+          Who should receive this campaign?
+        </h3>
         <p className="text-xs text-slate-600 mb-4">
-          Define audience segments using conditions. Combine with AND/OR logic for complex targeting.
+          Define audience segments using conditions. Combine with AND/OR logic
+          for complex targeting.
         </p>
       </div>
 

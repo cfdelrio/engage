@@ -1,7 +1,7 @@
-import type { Job } from 'bullmq';
-import { PrismaClient } from '@engage/database';
-import Handlebars from 'handlebars';
-import { TwilioWhatsAppProvider } from '@engage/channels';
+import type { Job } from "bullmq";
+import { PrismaClient } from "@engage/database";
+import Handlebars from "handlebars";
+import { TwilioWhatsAppProvider } from "@engage/channels";
 
 interface WhatsAppMessageJob {
   whatsappMessageId: string;
@@ -30,13 +30,19 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
     buttons,
   } = job.data;
 
-  console.log(`[whatsapp-messages] Processing message ${whatsappMessageId}, attempt ${job.attemptsMade + 1}`);
+  console.log(
+    `[whatsapp-messages] Processing message ${whatsappMessageId}, attempt ${job.attemptsMade + 1}`,
+  );
 
   try {
     // Fetch message, campaign, and user
-    const [message, campaign, user] = await Promise.all([
-      prisma.whatsAppMessage.findUniqueOrThrow({ where: { id: whatsappMessageId } }),
-      prisma.whatsAppCampaign.findUniqueOrThrow({ where: { id: whatsappCampaignId } }),
+    const [_message, campaign, user] = await Promise.all([
+      prisma.whatsAppMessage.findUniqueOrThrow({
+        where: { id: whatsappMessageId },
+      }),
+      prisma.whatsAppCampaign.findUniqueOrThrow({
+        where: { id: whatsappCampaignId },
+      }),
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     ]);
 
@@ -47,7 +53,7 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
       const metadata = (user.metadata as Record<string, unknown>) || {};
       renderedBody = template({
         user: {
-          firstName: user.externalId?.split('-')[0] || 'usuario',
+          firstName: user.externalId?.split("-")[0] || "usuario",
           email: user.email,
           phone: user.phone,
           ...metadata,
@@ -61,13 +67,13 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
     const provider = await prisma.channelProvider.findFirst({
       where: {
         tenantId: campaign.tenantId,
-        channel: 'whatsapp',
+        channel: "whatsapp",
         isActive: true,
       },
     });
 
     if (!provider) {
-      throw new Error('No active Twilio WhatsApp provider configured');
+      throw new Error("No active Twilio WhatsApp provider configured");
     }
 
     // Decrypt config
@@ -75,25 +81,27 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
     const whatsappProvider = new TwilioWhatsAppProvider(
       config.accountSid,
       config.authToken,
-      config.from
+      config.from,
     );
 
     // Send message
     const result = await whatsappProvider.send({
       phone,
       body: renderedBody,
-      headerType: (headerType as any) || 'text',
+      headerType:
+        (headerType as "text" | "image" | "document" | "video" | undefined) ??
+        "text",
       headerValue,
       footerText,
       buttons,
     });
 
-    if (result.status === 'queued' || result.status === 'sent') {
+    if (result.status === "queued" || result.status === "sent") {
       // Update WhatsAppMessage record
       await prisma.whatsAppMessage.update({
         where: { id: whatsappMessageId },
         data: {
-          status: 'sent',
+          status: "sent",
           body: renderedBody,
           twilioMessageSid: result.messageSid,
           sentAt: new Date(),
@@ -105,7 +113,7 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
         data: {
           whatsappMessageId,
           tenantId: campaign.tenantId,
-          type: 'sent',
+          type: "sent",
           data: { messageSid: result.messageSid },
         },
       });
@@ -126,13 +134,17 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
     console.error(`[whatsapp-messages] Error processing message: ${errMsg}`);
 
     const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1) - 1;
-    await prisma.whatsAppMessage.update({
-      where: { id: whatsappMessageId },
-      data: {
-        status: isLastAttempt ? 'failed' : 'queued',
-        ...(isLastAttempt ? { failedAt: new Date(), errorMessage: errMsg } : {}),
-      },
-    }).catch(() => {});
+    await prisma.whatsAppMessage
+      .update({
+        where: { id: whatsappMessageId },
+        data: {
+          status: isLastAttempt ? "failed" : "queued",
+          ...(isLastAttempt
+            ? { failedAt: new Date(), errorMessage: errMsg }
+            : {}),
+        },
+      })
+      .catch(() => {});
 
     throw err;
   }

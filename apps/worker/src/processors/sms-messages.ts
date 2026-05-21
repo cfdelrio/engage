@@ -1,7 +1,7 @@
-import type { Job } from 'bullmq';
-import { PrismaClient } from '@engage/database';
-import Handlebars from 'handlebars';
-import { TwilioSMSProvider } from '@engage/channels';
+import type { Job } from "bullmq";
+import { PrismaClient } from "@engage/database";
+import Handlebars from "handlebars";
+import { TwilioSMSProvider } from "@engage/channels";
 
 interface SmsMessageJob {
   deliveryId: string;
@@ -15,12 +15,15 @@ interface SmsMessageJob {
 const prisma = new PrismaClient();
 
 export async function processSmsMessage(job: Job<SmsMessageJob>) {
-  const { deliveryId, smsCampaignId, userId, phone, body, fromNumber } = job.data;
+  const { deliveryId, smsCampaignId, userId, phone, body, fromNumber } =
+    job.data;
 
-  console.log(`[sms-messages] Processing delivery ${deliveryId}, attempt ${job.attemptsMade + 1}`);
+  console.log(
+    `[sms-messages] Processing delivery ${deliveryId}, attempt ${job.attemptsMade + 1}`,
+  );
 
   try {
-    const [campaign, delivery, user] = await Promise.all([
+    const [campaign, _delivery, user] = await Promise.all([
       prisma.smsCampaign.findUniqueOrThrow({ where: { id: smsCampaignId } }),
       prisma.smsDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
@@ -35,7 +38,7 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
           externalId: user.externalId,
           email: user.email,
           phone: user.phone,
-          firstName: user.externalId?.split('-')[0] || 'usuario',
+          firstName: user.externalId?.split("-")[0] || "usuario",
           ...((user.metadata as Record<string, unknown>) ?? {}),
         },
       };
@@ -46,9 +49,9 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
 
     // Resolve provider config
     const providerRecord = await prisma.channelProvider.findFirst({
-      where: { tenantId: campaign.tenantId, channel: 'sms', isActive: true },
+      where: { tenantId: campaign.tenantId, channel: "sms", isActive: true },
     });
-    if (!providerRecord) throw new Error('No active SMS provider configured');
+    if (!providerRecord) throw new Error("No active SMS provider configured");
 
     const config = JSON.parse(providerRecord.configEncrypted) as {
       accountSid: string;
@@ -67,8 +70,8 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
       deliveryId,
       tenantId: campaign.tenantId,
       userId,
-      channel: 'sms',
-      provider: 'twilio',
+      channel: "sms",
+      provider: "twilio",
       to: phone,
       body: renderedBody,
       metadata: {},
@@ -78,7 +81,7 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
       await prisma.smsDelivery.update({
         where: { id: deliveryId },
         data: {
-          status: 'sent',
+          status: "sent",
           sentAt: new Date(),
           twilioMessageSid: result.providerMessageId ?? null,
         },
@@ -93,20 +96,24 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
 
       console.log(`[sms-messages] Sent: ${result.providerMessageId}`);
     } else {
-      throw new Error(result.error ?? 'Send failed');
+      throw new Error(result.error ?? "Send failed");
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[sms-messages] Error processing ${deliveryId}: ${message}`);
 
     const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1) - 1;
-    await prisma.smsDelivery.update({
-      where: { id: deliveryId },
-      data: {
-        status: isLastAttempt ? 'failed' : 'queued',
-        ...(isLastAttempt ? { failedAt: new Date(), errorMessage: message } : {}),
-      },
-    }).catch(() => {});
+    await prisma.smsDelivery
+      .update({
+        where: { id: deliveryId },
+        data: {
+          status: isLastAttempt ? "failed" : "queued",
+          ...(isLastAttempt
+            ? { failedAt: new Date(), errorMessage: message }
+            : {}),
+        },
+      })
+      .catch(() => {});
 
     throw err;
   }

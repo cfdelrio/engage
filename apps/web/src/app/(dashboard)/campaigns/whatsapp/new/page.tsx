@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
-import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
-import { TemplateVariables } from '@/components/campaign/TemplateVariables';
-import { Plus, Trash2 } from 'lucide-react';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { CampaignBuilderLayout } from "@/components/campaign/CampaignBuilderLayout";
+import { AudienceTargetingBuilder } from "@/components/campaign/AudienceTargetingBuilder";
+import { TemplateVariables } from "@/components/campaign/TemplateVariables";
+import { Plus, Trash2 } from "lucide-react";
 
 interface WhatsAppButton {
   id: string;
@@ -18,10 +18,10 @@ interface WhatsAppCampaignForm {
   name: string;
   description: string;
   body: string;
-  headerType: 'text' | 'image' | 'document' | 'video';
+  headerType: "text" | "image" | "document" | "video";
   headerValue: string;
   footerText: string;
-  audienceFilter: any;
+  audienceFilter: Record<string, unknown>;
 }
 
 export default function NewWhatsAppCampaignPage() {
@@ -30,14 +30,14 @@ export default function NewWhatsAppCampaignPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [buttons, setButtons] = useState<WhatsAppButton[]>([]);
   const [form, setForm] = useState<WhatsAppCampaignForm>({
-    name: '',
-    description: '',
-    body: 'Hi {{user.firstName}}, check this out!',
-    headerType: 'text' as 'text' | 'image' | 'document' | 'video',
-    headerValue: '',
-    footerText: '',
+    name: "",
+    description: "",
+    body: "Hi {{user.firstName}}, check this out!",
+    headerType: "text" as "text" | "image" | "document" | "video",
+    headerValue: "",
+    footerText: "",
     audienceFilter: {
-      operator: 'AND',
+      operator: "AND",
       conditions: [],
     },
   });
@@ -46,19 +46,19 @@ export default function NewWhatsAppCampaignPage() {
     setErrors([]);
 
     if (!form.name.trim()) {
-      setErrors(prev => [...prev, 'Campaign name is required']);
+      setErrors((prev) => [...prev, "Campaign name is required"]);
       return;
     }
     if (!form.body.trim()) {
-      setErrors(prev => [...prev, 'Message body is required']);
+      setErrors((prev) => [...prev, "Message body is required"]);
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/whatsapp-campaigns', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
+      const res = await fetch("/api/v1/whatsapp-campaigns", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...form,
           buttons,
@@ -70,24 +70,31 @@ export default function NewWhatsAppCampaignPage() {
       const campaign = await res.json();
       router.push(`/campaigns/whatsapp/${campaign.id}`);
     } catch (err) {
-      setErrors([String(err).replace('Error: ', '')]);
+      setErrors([String(err).replace("Error: ", "")]);
     } finally {
       setLoading(false);
     }
   }
 
   const addButton = () => {
-    setButtons([...buttons, { id: `btn_${Date.now()}`, title: '' }]);
+    setButtons([...buttons, { id: `btn_${Date.now()}`, title: "" }]);
   };
 
   const removeButton = (idx: number) => {
     setButtons(buttons.filter((_, i) => i !== idx));
   };
 
-  const updateButton = (idx: number, field: keyof WhatsAppButton, value: string) => {
+  const updateButton = (
+    idx: number,
+    field: keyof WhatsAppButton,
+    value: string,
+  ) => {
     const updated = [...buttons];
-    updated[idx][field] = value;
-    setButtons(updated);
+    const button = updated[idx];
+    if (button) {
+      button[field] = value;
+      setButtons(updated);
+    }
   };
 
   return (
@@ -101,10 +108,14 @@ export default function NewWhatsAppCampaignPage() {
       <div className="space-y-6">
         {/* Campaign Info */}
         <Card className="p-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Campaign Information</h2>
+          <h2 className="font-semibold text-slate-900 mb-4">
+            Campaign Information
+          </h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Campaign Name</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Campaign Name
+              </label>
               <input
                 type="text"
                 value={form.name}
@@ -114,10 +125,14 @@ export default function NewWhatsAppCampaignPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Description</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Description
+              </label>
               <textarea
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 rows={2}
                 placeholder="Optional description"
@@ -131,13 +146,19 @@ export default function NewWhatsAppCampaignPage() {
           <h2 className="font-semibold text-slate-900 mb-4">Message Header</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Header Type</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Header Type
+              </label>
               <select
                 value={form.headerType}
                 onChange={(e) =>
                   setForm({
                     ...form,
-                    headerType: e.target.value as 'text' | 'image' | 'document' | 'video',
+                    headerType: e.target.value as
+                      | "text"
+                      | "image"
+                      | "document"
+                      | "video",
                   })
                 }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
@@ -149,13 +170,17 @@ export default function NewWhatsAppCampaignPage() {
               </select>
             </div>
 
-            {form.headerType === 'text' && (
+            {form.headerType === "text" && (
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Header Text</label>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Header Text
+                </label>
                 <input
                   type="text"
                   value={form.headerValue}
-                  onChange={(e) => setForm({ ...form, headerValue: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, headerValue: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                   placeholder="Your header text here"
                   maxLength={60}
@@ -164,39 +189,51 @@ export default function NewWhatsAppCampaignPage() {
               </div>
             )}
 
-            {form.headerType === 'image' && (
+            {form.headerType === "image" && (
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Image URL</label>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Image URL
+                </label>
                 <input
                   type="url"
                   value={form.headerValue}
-                  onChange={(e) => setForm({ ...form, headerValue: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, headerValue: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
             )}
 
-            {form.headerType === 'document' && (
+            {form.headerType === "document" && (
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Document URL</label>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Document URL
+                </label>
                 <input
                   type="url"
                   value={form.headerValue}
-                  onChange={(e) => setForm({ ...form, headerValue: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, headerValue: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                   placeholder="https://example.com/document.pdf"
                 />
               </div>
             )}
 
-            {form.headerType === 'video' && (
+            {form.headerType === "video" && (
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Video URL</label>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Video URL
+                </label>
                 <input
                   type="url"
                   value={form.headerValue}
-                  onChange={(e) => setForm({ ...form, headerValue: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, headerValue: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                   placeholder="https://example.com/video.mp4"
                 />
@@ -210,7 +247,9 @@ export default function NewWhatsAppCampaignPage() {
           <h2 className="font-semibold text-slate-900 mb-4">Message Body</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Message Text</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Message Text
+              </label>
               <textarea
                 value={form.body}
                 onChange={(e) => setForm({ ...form, body: e.target.value })}
@@ -219,15 +258,21 @@ export default function NewWhatsAppCampaignPage() {
                 placeholder="Your message here..."
                 maxLength={4096}
               />
-              <p className="text-xs text-slate-500 mt-1">Max 4096 characters. Supports Handlebars variables.</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Max 4096 characters. Supports Handlebars variables.
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Footer Text (Optional)</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Footer Text (Optional)
+              </label>
               <input
                 type="text"
                 value={form.footerText}
-                onChange={(e) => setForm({ ...form, footerText: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, footerText: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 placeholder="e.g., 'Reply STOP to unsubscribe'"
                 maxLength={60}
@@ -240,7 +285,9 @@ export default function NewWhatsAppCampaignPage() {
         {/* Action Buttons */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-900">Action Buttons (Optional)</h2>
+            <h2 className="font-semibold text-slate-900">
+              Action Buttons (Optional)
+            </h2>
             <span className="text-xs text-slate-600">{buttons.length} / 3</span>
           </div>
 
@@ -249,11 +296,15 @@ export default function NewWhatsAppCampaignPage() {
               {buttons.map((btn, idx) => (
                 <div key={btn.id} className="flex gap-3 items-end">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-slate-900 mb-2">Button {idx + 1} Title</label>
+                    <label className="block text-sm font-medium text-slate-900 mb-2">
+                      Button {idx + 1} Title
+                    </label>
                     <input
                       type="text"
                       value={btn.title}
-                      onChange={(e) => updateButton(idx, 'title', e.target.value)}
+                      onChange={(e) =>
+                        updateButton(idx, "title", e.target.value)
+                      }
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                       placeholder="e.g., 'View Details'"
                       maxLength={20}
@@ -282,7 +333,8 @@ export default function NewWhatsAppCampaignPage() {
           )}
 
           <p className="text-xs text-slate-500 mt-3">
-            Add up to 3 action buttons. Each button can trigger different workflows.
+            Add up to 3 action buttons. Each button can trigger different
+            workflows.
           </p>
         </Card>
 
@@ -290,7 +342,15 @@ export default function NewWhatsAppCampaignPage() {
         <Card className="p-6">
           <AudienceTargetingBuilder
             value={form.audienceFilter}
-            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+            onChange={(audienceFilter) =>
+              setForm({
+                ...form,
+                audienceFilter: audienceFilter as unknown as Record<
+                  string,
+                  unknown
+                >,
+              })
+            }
           />
         </Card>
 

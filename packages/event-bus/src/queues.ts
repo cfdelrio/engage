@@ -1,11 +1,11 @@
-import { Queue, Worker, type Processor } from 'bullmq';
-import { QUEUES, type QueueName } from '@engage/core';
-import { getRedis } from './redis.js';
+import { Queue, Worker, type Processor } from "bullmq";
+import { QUEUES, type QueueName } from "@engage/core";
+import { getRedis } from "./redis.js";
 
 const DEFAULT_JOB_OPTIONS = {
   attempts: 5,
   backoff: {
-    type: 'exponential' as const,
+    type: "exponential" as const,
     delay: 2000,
   },
   removeOnComplete: { count: 1000 },
@@ -24,7 +24,9 @@ export function getQueue(name: QueueName): Queue {
       }),
     );
   }
-  return queues.get(name)!;
+  const queue = queues.get(name);
+  if (!queue) throw new Error(`Queue ${name} not initialized`);
+  return queue;
 }
 
 export function createWorker<T = unknown, R = unknown>(

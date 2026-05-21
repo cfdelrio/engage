@@ -12,12 +12,18 @@ COPY packages/ai/package.json packages/ai/
 COPY packages/channels/package.json packages/channels/
 COPY packages/analytics/package.json packages/analytics/
 COPY apps/api/package.json apps/api/
+COPY apps/worker/package.json apps/worker/
+COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --prod=false 2>&1
 
 FROM base AS builder
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
+# Bring over each workspace's per-package node_modules (pnpm uses isolated
+# node_modules per workspace with symlinks to root .pnpm store). Source files
+# arrive in subsequent COPYs without overwriting these directories.
+COPY --from=deps /app/packages ./packages
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY packages ./packages
 COPY apps/api ./apps/api
 RUN packages/database/node_modules/.bin/prisma generate --schema packages/database/prisma/schema.prisma
@@ -39,4 +45,6 @@ COPY --from=builder --chown=engage:nodejs /app/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=engage:nodejs /app/apps/api/package.json ./apps/api/
 USER engage
 EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3001/health || exit 1
 CMD ["node", "apps/api/dist/index.js"]

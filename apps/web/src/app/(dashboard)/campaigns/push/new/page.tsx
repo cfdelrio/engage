@@ -1,12 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
-import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
-import { TemplateVariables } from '@/components/campaign/TemplateVariables';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card } from "@/components/ui/card";
+import { CampaignBuilderLayout } from "@/components/campaign/CampaignBuilderLayout";
+import { AudienceTargetingBuilder } from "@/components/campaign/AudienceTargetingBuilder";
+import { TemplateVariables } from "@/components/campaign/TemplateVariables";
 
 interface PushCampaignForm {
   name: string;
@@ -15,8 +14,8 @@ interface PushCampaignForm {
   body: string;
   imageUrl: string;
   actionUrl: string;
-  priority: 'high' | 'normal';
-  audienceFilter: any;
+  priority: "high" | "normal";
+  audienceFilter: Record<string, unknown>;
 }
 
 export default function NewPushCampaignPage() {
@@ -24,15 +23,15 @@ export default function NewPushCampaignPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [form, setForm] = useState<PushCampaignForm>({
-    name: '',
-    description: '',
-    title: 'Hello {{user.firstName}}!',
-    body: 'Tap to learn more about our latest updates.',
-    imageUrl: '',
-    actionUrl: '',
-    priority: 'high' as 'high' | 'normal',
+    name: "",
+    description: "",
+    title: "Hello {{user.firstName}}!",
+    body: "Tap to learn more about our latest updates.",
+    imageUrl: "",
+    actionUrl: "",
+    priority: "high" as "high" | "normal",
     audienceFilter: {
-      operator: 'AND',
+      operator: "AND",
       conditions: [],
     },
   });
@@ -41,23 +40,23 @@ export default function NewPushCampaignPage() {
     setErrors([]);
 
     if (!form.name.trim()) {
-      setErrors(prev => [...prev, 'Campaign name is required']);
+      setErrors((prev) => [...prev, "Campaign name is required"]);
       return;
     }
     if (!form.title.trim()) {
-      setErrors(prev => [...prev, 'Push title is required']);
+      setErrors((prev) => [...prev, "Push title is required"]);
       return;
     }
     if (!form.body.trim()) {
-      setErrors(prev => [...prev, 'Push message body is required']);
+      setErrors((prev) => [...prev, "Push message body is required"]);
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/push-campaigns', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
+      const res = await fetch("/api/v1/push-campaigns", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(form),
       });
 
@@ -66,7 +65,7 @@ export default function NewPushCampaignPage() {
       const campaign = await res.json();
       router.push(`/campaigns/push/${campaign.id}`);
     } catch (err) {
-      setErrors([String(err).replace('Error: ', '')]);
+      setErrors([String(err).replace("Error: ", "")]);
     } finally {
       setLoading(false);
     }
@@ -83,10 +82,14 @@ export default function NewPushCampaignPage() {
       <div className="space-y-6">
         {/* Campaign Info */}
         <Card className="p-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Campaign Information</h2>
+          <h2 className="font-semibold text-slate-900 mb-4">
+            Campaign Information
+          </h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Campaign Name</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Campaign Name
+              </label>
               <input
                 type="text"
                 value={form.name}
@@ -96,10 +99,14 @@ export default function NewPushCampaignPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Description</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Description
+              </label>
               <textarea
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 rows={2}
                 placeholder="Optional description"
@@ -110,10 +117,14 @@ export default function NewPushCampaignPage() {
 
         {/* Push Content */}
         <Card className="p-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Push Notification</h2>
+          <h2 className="font-semibold text-slate-900 mb-4">
+            Push Notification
+          </h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Title</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Title
+              </label>
               <input
                 type="text"
                 value={form.title}
@@ -121,11 +132,15 @@ export default function NewPushCampaignPage() {
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 placeholder="Notification title"
               />
-              <p className="text-xs text-slate-500 mt-1">Supports Handlebars variables</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Supports Handlebars variables
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Message Body</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Message Body
+              </label>
               <textarea
                 value={form.body}
                 onChange={(e) => setForm({ ...form, body: e.target.value })}
@@ -136,7 +151,9 @@ export default function NewPushCampaignPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Image URL (Optional)</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Image URL (Optional)
+              </label>
               <input
                 type="url"
                 value={form.imageUrl}
@@ -147,22 +164,35 @@ export default function NewPushCampaignPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Action URL (Optional)</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Action URL (Optional)
+              </label>
               <input
                 type="url"
                 value={form.actionUrl}
-                onChange={(e) => setForm({ ...form, actionUrl: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, actionUrl: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 placeholder="https://example.com/promo"
               />
-              <p className="text-xs text-slate-500 mt-1">URL to open when user taps notification</p>
+              <p className="text-xs text-slate-500 mt-1">
+                URL to open when user taps notification
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Priority</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Priority
+              </label>
               <select
                 value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value as 'high' | 'normal' })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    priority: e.target.value as "high" | "normal",
+                  })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
               >
                 <option value="high">High (immediate delivery)</option>
@@ -176,7 +206,15 @@ export default function NewPushCampaignPage() {
         <Card className="p-6">
           <AudienceTargetingBuilder
             value={form.audienceFilter}
-            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+            onChange={(audienceFilter) =>
+              setForm({
+                ...form,
+                audienceFilter: audienceFilter as unknown as Record<
+                  string,
+                  unknown
+                >,
+              })
+            }
           />
         </Card>
 

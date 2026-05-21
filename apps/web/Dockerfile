@@ -10,7 +10,7 @@ RUN pnpm install --frozen-lockfile --prod=false
 FROM base AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules 2>/dev/null || true
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY apps/web ./apps/web
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 RUN pnpm --filter @engage/web build
