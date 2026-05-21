@@ -6,12 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
 import { TemplateVariables } from '@/components/campaign/TemplateVariables';
+import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
+
+interface EmailCampaignForm {
+  name: string;
+  description: string;
+  subject: string;
+  bodyHtml: string;
+  fromName: string;
+  fromEmail: string;
+  replyTo: string;
+  audienceFilter: any;
+}
 
 export default function NewEmailCampaignPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<EmailCampaignForm>({
     name: '',
     description: '',
     subject: '',
@@ -19,6 +31,10 @@ export default function NewEmailCampaignPage() {
     fromName: 'ORKESTAI',
     fromEmail: 'noreply@orkestai.com',
     replyTo: '',
+    audienceFilter: {
+      operator: 'AND',
+      conditions: [],
+    },
   });
 
   async function handleSave() {
@@ -157,6 +173,14 @@ export default function NewEmailCampaignPage() {
               />
             </div>
           </div>
+        </Card>
+
+        {/* Audience Targeting */}
+        <Card className="p-6">
+          <AudienceTargetingBuilder
+            value={form.audienceFilter}
+            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+          />
         </Card>
 
         {/* Template Variables */}
