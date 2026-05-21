@@ -5,13 +5,25 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
+import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
 import { TemplateVariables } from '@/components/campaign/TemplateVariables';
+
+interface PushCampaignForm {
+  name: string;
+  description: string;
+  title: string;
+  body: string;
+  imageUrl: string;
+  actionUrl: string;
+  priority: 'high' | 'normal';
+  audienceFilter: any;
+}
 
 export default function NewPushCampaignPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<PushCampaignForm>({
     name: '',
     description: '',
     title: 'Hello {{user.firstName}}!',
@@ -19,6 +31,10 @@ export default function NewPushCampaignPage() {
     imageUrl: '',
     actionUrl: '',
     priority: 'high' as 'high' | 'normal',
+    audienceFilter: {
+      operator: 'AND',
+      conditions: [],
+    },
   });
 
   async function handleSave() {
@@ -154,6 +170,14 @@ export default function NewPushCampaignPage() {
               </select>
             </div>
           </div>
+        </Card>
+
+        {/* Audience Targeting */}
+        <Card className="p-6">
+          <AudienceTargetingBuilder
+            value={form.audienceFilter}
+            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+          />
         </Card>
 
         {/* Template Variables */}

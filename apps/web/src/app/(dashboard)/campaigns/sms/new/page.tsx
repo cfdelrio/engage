@@ -6,16 +6,29 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
 import { TemplateVariables } from '@/components/campaign/TemplateVariables';
+import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
+
+interface SmsCampaignForm {
+  name: string;
+  description: string;
+  body: string;
+  fromNumber: string;
+  audienceFilter: any;
+}
 
 export default function NewSmsCampaignPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<SmsCampaignForm>({
     name: '',
     description: '',
     body: 'Hi {{user.firstName}}, check this out!',
     fromNumber: '',
+    audienceFilter: {
+      operator: 'AND',
+      conditions: [],
+    },
   });
 
   const charCount = form.body.length;
@@ -125,6 +138,14 @@ export default function NewSmsCampaignPage() {
               />
             </div>
           </div>
+        </Card>
+
+        {/* Audience Targeting */}
+        <Card className="p-6">
+          <AudienceTargetingBuilder
+            value={form.audienceFilter}
+            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+          />
         </Card>
 
         {/* Template Variables */}

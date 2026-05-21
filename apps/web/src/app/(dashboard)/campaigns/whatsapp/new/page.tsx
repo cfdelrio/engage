@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
+import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
 import { TemplateVariables } from '@/components/campaign/TemplateVariables';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -13,18 +14,32 @@ interface WhatsAppButton {
   title: string;
 }
 
+interface WhatsAppCampaignForm {
+  name: string;
+  description: string;
+  body: string;
+  headerType: 'text' | 'image' | 'document' | 'video';
+  headerValue: string;
+  footerText: string;
+  audienceFilter: any;
+}
+
 export default function NewWhatsAppCampaignPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [buttons, setButtons] = useState<WhatsAppButton[]>([]);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<WhatsAppCampaignForm>({
     name: '',
     description: '',
     body: 'Hi {{user.firstName}}, check this out!',
     headerType: 'text' as 'text' | 'image' | 'document' | 'video',
     headerValue: '',
     footerText: '',
+    audienceFilter: {
+      operator: 'AND',
+      conditions: [],
+    },
   });
 
   async function handleSave() {
@@ -269,6 +284,14 @@ export default function NewWhatsAppCampaignPage() {
           <p className="text-xs text-slate-500 mt-3">
             Add up to 3 action buttons. Each button can trigger different workflows.
           </p>
+        </Card>
+
+        {/* Audience Targeting */}
+        <Card className="p-6">
+          <AudienceTargetingBuilder
+            value={form.audienceFilter}
+            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+          />
         </Card>
 
         {/* Template Variables */}

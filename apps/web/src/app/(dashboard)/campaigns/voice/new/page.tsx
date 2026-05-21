@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
+import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
 import { TemplateVariables } from '@/components/campaign/TemplateVariables';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -14,13 +15,25 @@ interface DTMFOption {
   label: string;
 }
 
+interface VoiceCampaignForm {
+  name: string;
+  description: string;
+  script: string;
+  voiceConfig: {
+    language: string;
+    voice: 'male' | 'female';
+    speed: number;
+  };
+  audienceFilter: any;
+}
+
 export default function NewVoiceCampaignPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [dtmfEnabled, setDtmfEnabled] = useState(false);
   const [dtmfOptions, setDtmfOptions] = useState<DTMFOption[]>([]);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<VoiceCampaignForm>({
     name: '',
     description: '',
     script: 'Hello {{user.firstName}}, this is an important message. Please listen carefully.',
@@ -28,6 +41,10 @@ export default function NewVoiceCampaignPage() {
       language: 'es-ES',
       voice: 'female' as 'male' | 'female',
       speed: 1.0,
+    },
+    audienceFilter: {
+      operator: 'AND',
+      conditions: [],
     },
   });
 
@@ -260,6 +277,14 @@ export default function NewVoiceCampaignPage() {
               </Button>
             </div>
           )}
+        </Card>
+
+        {/* Audience Targeting */}
+        <Card className="p-6">
+          <AudienceTargetingBuilder
+            value={form.audienceFilter}
+            onChange={(audienceFilter) => setForm({ ...form, audienceFilter })}
+          />
         </Card>
 
         {/* Template Variables */}
