@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -18,27 +18,11 @@ import Link from 'next/link';
 interface VoiceCampaign {
   id: string;
   name: string;
+  description?: string;
   status: 'draft' | 'active' | 'paused' | 'completed';
   stats: { sent: number; answered: number; completed: number; failed: number };
   createdAt: string;
 }
-
-const mockCampaigns: VoiceCampaign[] = [
-  {
-    id: '1',
-    name: 'Support Follow-up',
-    status: 'paused',
-    stats: { sent: 450, answered: 380, completed: 320, failed: 70 },
-    createdAt: '2026-05-19',
-  },
-  {
-    id: '2',
-    name: 'Customer Satisfaction Survey',
-    status: 'completed',
-    stats: { sent: 200, answered: 160, completed: 140, failed: 40 },
-    createdAt: '2026-05-10',
-  },
-];
 
 const statusColors: Record<string, string> = {
   draft: 'bg-slate-100 text-slate-800',
@@ -48,7 +32,55 @@ const statusColors: Record<string, string> = {
 };
 
 export default function VoiceCampaignsPage() {
-  const [campaigns] = useState<VoiceCampaign[]>(mockCampaigns);
+  const [campaigns, setCampaigns] = useState<VoiceCampaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, []);
+
+  async function fetchCampaigns() {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch('/api/v1/voice-campaigns');
+      if (!res.ok) throw new Error('Failed to load campaigns');
+      const data = await res.json();
+      setCampaigns(data);
+    } catch (err) {
+      setError(String(err).replace('Error: ', ''));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleStartCampaign(id: string) {
+    try {
+      setActionLoading(id);
+      const res = await fetch(`/api/v1/voice-campaigns/${id}/start`, { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchCampaigns();
+    } catch (err) {
+      setError(String(err).replace('Error: ', ''));
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handlePauseCampaign(id: string) {
+    try {
+      setActionLoading(id);
+      const res = await fetch(`/api/v1/voice-campaigns/${id}/pause`, { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchCampaigns();
+    } catch (err) {
+      setError(String(err).replace('Error: ', ''));
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -57,56 +89,101 @@ export default function VoiceCampaignsPage() {
           <h1 className="text-3xl font-bold text-slate-900">Voice Campaigns</h1>
           <p className="text-slate-600 mt-2">Create and manage voice call campaigns</p>
         </div>
-        <Button className="gap-2">
-          <Plus size={20} />
-          New Campaign
-        </Button>
+        <Link href="/campaigns/voice/new">
+          <Button className="gap-2">
+            <Plus size={20} />
+            New Campaign
+          </Button>
+        </Link>
       </div>
 
+      {error && (
+        <Card className="p-4 bg-red-50 border-red-200">
+          <p className="text-red-800 text-sm">{error}</p>
+        </Card>
+      )}
+
       <Card className="p-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Campaign</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Calls</TableHead>
-              <TableHead className="text-right">Answered</TableHead>
-              <TableHead className="text-right">Completed</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {campaigns.map((campaign) => (
-              <TableRow key={campaign.id}>
-                <TableCell className="font-medium text-slate-900">{campaign.name}</TableCell>
-                <TableCell>
-                  <Badge className={statusColors[campaign.status]}>{campaign.status}</Badge>
-                </TableCell>
-                <TableCell className="text-right">{campaign.stats.sent.toLocaleString()}</TableCell>
-                <TableCell className="text-right">
-                  {((campaign.stats.answered / campaign.stats.sent) * 100).toFixed(1)}%
-                </TableCell>
-                <TableCell className="text-right">
-                  {((campaign.stats.completed / campaign.stats.sent) * 100).toFixed(1)}%
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Link href={`/campaigns/voice/${campaign.id}`}>
-                      <Button variant="outline" size="icon">
-                        <Eye size={16} />
-                      </Button>
-                    </Link>
-                    {campaign.status === 'paused' && (
-                      <Button variant="outline" size="icon">
-                        <Play size={16} />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-slate-600">Loading campaigns...</p>
+          </div>
+        ) : campaigns.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-slate-600 mb-4">No campaigns yet</p>
+            <Link href="/campaigns/voice/new">
+              <Button>Create First Campaign</Button>
+            </Link>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Campaign</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Calls</TableHead>
+                <TableHead className="text-right">Answered</TableHead>
+                <TableHead className="text-right">Completed</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {campaigns.map((campaign) => {
+                const sent = campaign.stats?.sent || 0;
+                const answered = campaign.stats?.answered || 0;
+                const completed = campaign.stats?.completed || 0;
+                const answeredRate = sent > 0 ? ((answered / sent) * 100).toFixed(1) : '0';
+                const completedRate = sent > 0 ? ((completed / sent) * 100).toFixed(1) : '0';
+
+                return (
+                  <TableRow key={campaign.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-slate-900">{campaign.name}</p>
+                        <p className="text-sm text-slate-500">{campaign.description}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusColors[campaign.status]}>{campaign.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{sent.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{answeredRate}%</TableCell>
+                    <TableCell className="text-right">{completedRate}%</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/campaigns/voice/${campaign.id}`}>
+                          <Button variant="outline" size="icon">
+                            <Eye size={16} />
+                          </Button>
+                        </Link>
+                        {campaign.status === 'draft' && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleStartCampaign(campaign.id)}
+                            disabled={actionLoading === campaign.id}
+                          >
+                            <Play size={16} />
+                          </Button>
+                        )}
+                        {campaign.status === 'active' && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handlePauseCampaign(campaign.id)}
+                            disabled={actionLoading === campaign.id}
+                          >
+                            <Pause size={16} />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </Card>
     </div>
   );
