@@ -1,8 +1,6 @@
 import React from 'react';
 
-export interface SeparatorProps extends React.HTMLAttributes<HTMLHRElement> {}
-
-export const Separator = React.forwardRef<HTMLHRElement, SeparatorProps>(
+export const Separator = React.forwardRef<HTMLHRElement, React.HTMLAttributes<HTMLHRElement>>(
   (props, ref) => (
     <hr
       ref={ref}

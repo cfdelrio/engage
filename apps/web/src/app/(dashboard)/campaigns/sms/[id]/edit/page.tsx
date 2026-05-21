@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,11 +36,7 @@ export default function EditSmsCampaignPage() {
   const charCount = form.body.length;
   const smsCount = Math.ceil(charCount / 160);
 
-  useEffect(() => {
-    fetchCampaign();
-  }, [campaignId]);
-
-  async function fetchCampaign() {
+  const fetchCampaign = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/sms-campaigns/${campaignId}`);
@@ -67,7 +63,11 @@ export default function EditSmsCampaignPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [campaignId]);
+
+  useEffect(() => {
+    fetchCampaign();
+  }, [fetchCampaign]);
 
   async function handleSave() {
     setErrors([]);

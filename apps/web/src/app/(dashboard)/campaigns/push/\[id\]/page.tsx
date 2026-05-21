@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,12 +60,7 @@ export default function PushCampaignDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [deliveryFilter, setDeliveryFilter] = useState<string>('');
 
-  useEffect(() => {
-    fetchCampaign();
-    fetchDeliveries();
-  }, [campaignId]);
-
-  async function fetchCampaign() {
+  const fetchCampaign = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/push-campaigns/${campaignId}`);
@@ -76,9 +72,9 @@ export default function PushCampaignDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [campaignId]);
 
-  async function fetchDeliveries() {
+  const fetchDeliveries = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/push-campaigns/${campaignId}/deliveries`);
       if (!res.ok) return;
@@ -87,7 +83,12 @@ export default function PushCampaignDetailPage() {
     } catch (err) {
       console.error('Failed to load deliveries:', err);
     }
-  }
+  }, [campaignId]);
+
+  useEffect(() => {
+    fetchCampaign();
+    fetchDeliveries();
+  }, [fetchCampaign, fetchDeliveries]);
 
   async function handleDelete() {
     if (!confirm('Are you sure? This action cannot be undone.')) return;
@@ -223,7 +224,7 @@ export default function PushCampaignDetailPage() {
         <h2 className="font-semibold text-slate-900 mb-4">Notification Preview</h2>
         <div className="bg-gradient-to-b from-slate-100 to-slate-50 p-6 rounded-lg max-w-sm">
           {campaign.imageUrl && (
-            <img src={campaign.imageUrl} alt="notification" className="w-full rounded mb-3 max-h-48 object-cover" />
+            <Image src={campaign.imageUrl} alt="notification" width={400} height={192} className="w-full rounded mb-3" style={{ objectFit: "cover" }} />
           )}
           <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
             <p className="font-semibold text-slate-900 mb-1">{campaign.title}</p>

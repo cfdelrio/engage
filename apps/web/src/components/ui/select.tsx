@@ -4,9 +4,6 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
   value?: string;
   onValueChange?: (value: string) => void;
 }
-export interface SelectContentProps extends React.HTMLAttributes<HTMLDivElement> {}
-export interface SelectItemProps extends React.OptionHTMLAttributes<HTMLOptionElement> {}
-export interface SelectTriggerProps extends React.HTMLAttributes<HTMLDivElement> {}
 export interface SelectValueProps extends React.HTMLAttributes<HTMLSpanElement> {
   placeholder?: string;
 }
@@ -28,17 +25,17 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 
 Select.displayName = 'Select';
 
-export const SelectContent = React.forwardRef<HTMLDivElement, SelectContentProps>(
+export const SelectContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   (props, ref) => <div ref={ref} {...props} />
 );
 SelectContent.displayName = 'SelectContent';
 
-export const SelectItem = React.forwardRef<HTMLOptionElement, SelectItemProps>(
+export const SelectItem = React.forwardRef<HTMLOptionElement, React.OptionHTMLAttributes<HTMLOptionElement>>(
   (props, ref) => <option ref={ref} {...props} />
 );
 SelectItem.displayName = 'SelectItem';
 
-export const SelectTrigger = React.forwardRef<HTMLDivElement, SelectTriggerProps>(
+export const SelectTrigger = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   (props, ref) => <div ref={ref} {...props} />
 );
 SelectTrigger.displayName = 'SelectTrigger';

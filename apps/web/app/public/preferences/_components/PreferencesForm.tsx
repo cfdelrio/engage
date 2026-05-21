@@ -262,7 +262,7 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
                 Quiet Hours - {selectedChannel.toUpperCase()}
               </CardTitle>
               <CardDescription>
-                Set a time window when you don't want to receive messages
+                Set a time window when you don&apos;t want to receive messages
               </CardDescription>
             </CardHeader>
             <CardContent>

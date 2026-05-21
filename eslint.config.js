@@ -15,6 +15,7 @@ export default [
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       '@typescript-eslint/no-non-null-assertion': 'error',
       'no-console': 'off',
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
 ];

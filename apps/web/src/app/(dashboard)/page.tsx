@@ -49,7 +49,7 @@ const mockChartData = [
 ];
 
 export default function DashboardPage() {
-  const [metrics, _setMetrics] = useState<MetricsData>(mockMetricsData);
+  const [metrics] = useState<MetricsData>(mockMetricsData);
 
   useEffect(() => {
     // TODO: Fetch real metrics from API
