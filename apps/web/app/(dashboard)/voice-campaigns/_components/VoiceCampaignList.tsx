@@ -26,20 +26,24 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Play, Pause, Trash2, Phone } from "lucide-react";
+import { MoreHorizontal, Play, Trash2, Phone } from "lucide-react";
 import { useApiKey } from "@/hooks/useApiKey";
 
 interface VoiceCampaign {
   id: string;
   name: string;
-  description?: string;
   status: string;
-  _count?: { calls: number };
   createdAt: string;
-  stats: Record<string, unknown>;
 }
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
+
+const STATUS_COLORS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-900",
+  active: "bg-green-100 text-green-900",
+  paused: "bg-yellow-100 text-yellow-900",
+  completed: "bg-blue-100 text-blue-900",
+};
 
 export function VoiceCampaignList() {
   const [campaigns, setCampaigns] = useState<VoiceCampaign[]>([]);
@@ -57,7 +61,7 @@ export function VoiceCampaignList() {
       });
       if (!response.ok) throw new Error("Failed to fetch campaigns");
       const data = await response.json();
-      setCampaigns(data.campaigns || []);
+      setCampaigns(data.campaigns || data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -103,22 +107,6 @@ export function VoiceCampaignList() {
     }
   };
 
-  const handlePause = async (id: string) => {
-    try {
-      const response = await fetch(
-        `${API_URL}/v1/voice-campaigns/${id}/pause`,
-        {
-          method: "POST",
-          headers: { "x-api-key": apiKey },
-        },
-      );
-      if (!response.ok) throw new Error("Failed to pause campaign");
-      await fetchCampaigns();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    }
-  };
-
   if (loading) return <div className="p-4">Loading campaigns...</div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
@@ -126,7 +114,7 @@ export function VoiceCampaignList() {
     <>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Voice Campaigns</h1>
+          <h2 className="text-lg font-semibold">Campaigns</h2>
           <Link href="/voice-campaigns/new">
             <Button className="gap-2">
               <Phone className="h-4 w-4" />
@@ -148,7 +136,6 @@ export function VoiceCampaignList() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Calls</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -164,15 +151,10 @@ export function VoiceCampaignList() {
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        campaign.status === "active" ? "default" : "secondary"
-                      }
-                    >
+                    <Badge className={STATUS_COLORS[campaign.status] || ""}>
                       {campaign.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{campaign._count?.calls ?? 0}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(campaign.createdAt).toLocaleDateString()}
                   </TableCell>
@@ -195,14 +177,6 @@ export function VoiceCampaignList() {
                           >
                             <Play className="h-4 w-4 mr-2" />
                             Start
-                          </DropdownMenuItem>
-                        )}
-                        {campaign.status === "active" && (
-                          <DropdownMenuItem
-                            onClick={() => handlePause(campaign.id)}
-                          >
-                            <Pause className="h-4 w-4 mr-2" />
-                            Pause
                           </DropdownMenuItem>
                         )}
                         {campaign.status === "draft" && (

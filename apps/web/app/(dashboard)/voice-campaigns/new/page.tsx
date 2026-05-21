@@ -1,12 +1,26 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft } from "lucide-react";
 import { VoiceCampaignBuilder } from "../_components/VoiceCampaignBuilder";
 
 export default function NewVoiceCampaignPage() {
   return (
-    <div className="container mx-auto py-6">
-      <div className="max-w-4xl">
-        <h1 className="text-3xl font-bold mb-6">Create Voice Campaign</h1>
-        <VoiceCampaignBuilder />
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/voice-campaigns">
+          <Button variant="ghost" size="sm">
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-4xl font-bold">Create Voice Campaign</h1>
+          <p className="text-muted-foreground mt-1">
+            Set up a new voice campaign with custom script and voice settings.
+          </p>
+        </div>
       </div>
+      <VoiceCampaignBuilder />
     </div>
   );
 }

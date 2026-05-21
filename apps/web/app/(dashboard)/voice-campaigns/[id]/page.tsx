@@ -1,43 +1,45 @@
-"use client";
-
-import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { VoiceCallLog } from "../_components/VoiceCallLog";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft } from "lucide-react";
+import { VoiceCampaignBuilder } from "../_components/VoiceCampaignBuilder";
 import { VoiceCampaignStats } from "../_components/VoiceCampaignStats";
 
-export default function VoiceCampaignDetailsPage() {
-  const params = useParams();
-  const campaignId = params.id as string;
+export const dynamic = "force-dynamic";
+
+interface VoiceCampaignDetailPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function VoiceCampaignDetailPage({
+  params,
+}: VoiceCampaignDetailPageProps) {
+  const { id } = await params;
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Campaign Details</h1>
-        <p className="text-muted-foreground">
-          Monitor and analyze your voice campaign
-        </p>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/voice-campaigns">
+          <Button variant="ghost" size="sm">
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </Link>
+        <h1 className="text-4xl font-bold">Voice Campaign</h1>
       </div>
 
-      <Tabs defaultValue="stats" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="stats">Statistics</TabsTrigger>
-          <TabsTrigger value="calls">Call Log</TabsTrigger>
+      <Tabs defaultValue="settings" className="w-full">
+        <TabsList>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="stats">
-          <VoiceCampaignStats campaignId={campaignId} />
+        <TabsContent value="settings" className="space-y-4">
+          <VoiceCampaignBuilder campaignId={id} />
         </TabsContent>
 
-        <TabsContent value="calls">
-          <Card>
-            <CardHeader>
-              <CardTitle>All Calls</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <VoiceCallLog campaignId={campaignId} />
-            </CardContent>
-          </Card>
+        <TabsContent value="metrics" className="space-y-4">
+          <VoiceCampaignStats campaignId={id} />
         </TabsContent>
       </Tabs>
     </div>
