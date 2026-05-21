@@ -73,9 +73,28 @@ jobs:
 
 ---
 
+## Testing & Infrastructure
+
+### Voice Campaigns E2E Testing Against Real Database (Medium Priority)
+
+**Estado:** Implementación completada, tests creados pero no ejecutados
+**Por qué esperar:** Feature está lista, necesita BD PostgreSQL configurada
+
+Voice Campaigns está 100% implementado (DB migration, API routes, Twilio provider, Worker, Frontend, E2E tests).
+Los tests en `apps/api/__tests__/e2e/voice-campaigns.test.ts` están listos y skippean gracefully sin DATABASE_URL.
+
+**Próximos pasos cuando hayas una BD disponible:**
+
+```bash
+export DATABASE_URL="postgresql://user:password@localhost:5432/engage"
+pnpm --filter @engage/database db:migrate:dev
+pnpm --filter @engage/api test -- voice-campaigns.test.ts
+```
+
+---
+
 ## Features Pendientes
 
-- [ ] Voice Campaigns (Twilio integration)
 - [ ] Analytics V2 (dashboard mejorado)
 - [ ] WhatsApp campaign management
 - [ ] User preference center (página pública)
