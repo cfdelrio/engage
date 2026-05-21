@@ -1,27 +1,39 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { ApiKeysList } from './ApiKeysList';
-import { CreateApiKeyDialog } from './CreateApiKeyDialog';
-import { RotateApiKeyDialog } from './RotateApiKeyDialog';
-import { DeleteApiKeyDialog } from './DeleteApiKeyDialog';
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ApiKeysList } from "./ApiKeysList";
+import { CreateApiKeyDialog } from "./CreateApiKeyDialog";
+import { RotateApiKeyDialog } from "./RotateApiKeyDialog";
+import { DeleteApiKeyDialog } from "./DeleteApiKeyDialog";
+
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface ApiKey {
   id: string;
   name: string;
   keyPrefix: string;
   permissions: string[];
+  status: string;
   lastUsedAt: string | null;
   createdAt: string;
-  enabled: boolean;
 }
 
 interface CreatedKey extends ApiKey {
-  key: string;
+  rawKey: string;
+}
+
+function getApiKey() {
+  return localStorage.getItem("engage_api_key") ?? "";
 }
 
 export function ApiKeysManager() {
@@ -29,59 +41,53 @@ export function ApiKeysManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<CreatedKey | null>(null);
-  const [rotateKeyId, setRotateKeyId] = useState<string | null>(null);
-  const [rotateKeyName, setRotateKeyName] = useState('');
-  const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
-  const [deleteKeyName, setDeleteKeyName] = useState('');
   const [copied, setCopied] = useState(false);
 
+  const [rotateKeyId, setRotateKeyId] = useState<string | null>(null);
+  const [rotateKeyName, setRotateKeyName] = useState("");
+  const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
+  const [deleteKeyName, setDeleteKeyName] = useState("");
+
+  const fetchKeys = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/admin/api-keys`, {
+        headers: { "x-api-key": getApiKey() },
+      });
+      if (!res.ok) throw new Error("Failed to fetch API keys");
+      setKeys(await res.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchKeys = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch('/admin/api-keys');
-        if (!response.ok) {
-          throw new Error('Failed to fetch API keys');
-        }
-        const data = await response.json();
-        setKeys(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchKeys();
+    void fetchKeys();
   }, []);
 
-  const handleCreateSuccess = (keyData: { id: string; name: string; key: string }) => {
-    const createdKey: CreatedKey = {
-      ...keyData,
-      keyPrefix: keyData.key.substring(0, 10),
-      permissions: [],
+  const handleCreateSuccess = (keyData: {
+    id: string;
+    name: string;
+    keyPrefix: string;
+    permissions: string[];
+    status: string;
+    createdAt: string;
+    rawKey: string;
+  }) => {
+    setCreatedKey({
+      id: keyData.id,
+      name: keyData.name,
+      keyPrefix: keyData.keyPrefix,
+      permissions: keyData.permissions,
+      status: keyData.status,
       lastUsedAt: null,
-      createdAt: new Date().toISOString(),
-      enabled: true,
-    };
-    setCreatedKey(createdKey);
-    // Refetch keys after creation
-    fetch('/admin/api-keys')
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-      })
-      .then((data) => {
-        if (data) {
-          setKeys(data);
-        }
-      })
-      .catch(() => {
-        // Silent fail on refetch
-      });
+      createdAt: keyData.createdAt,
+      rawKey: keyData.rawKey,
+    });
+    fetchKeys();
   };
 
   const handleRotate = (keyId: string) => {
@@ -93,28 +99,25 @@ export function ApiKeysManager() {
   };
 
   const handleRotateConfirm = async (keyId: string) => {
-    try {
-      const response = await fetch(`/admin/api-keys/${keyId}/rotate`, {
-        method: 'POST',
-      });
+    const res = await fetch(`${API_URL}/admin/api-keys/${keyId}/rotate`, {
+      method: "POST",
+      headers: { "x-api-key": getApiKey() },
+    });
+    if (!res.ok) throw new Error("Failed to rotate API key");
 
-      if (!response.ok) {
-        throw new Error('Failed to rotate API key');
-      }
-
-      const data = await response.json();
-      setCreatedKey(data);
-      setRotateKeyId(null);
-
-      // Refetch keys after rotation
-      const keysResponse = await fetch('/admin/api-keys');
-      if (keysResponse.ok) {
-        const keysData = await keysResponse.json();
-        setKeys(keysData);
-      }
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('An error occurred');
-    }
+    const data = await res.json();
+    setCreatedKey({
+      id: data.id,
+      name: data.name,
+      keyPrefix: data.keyPrefix,
+      permissions: data.permissions ?? [],
+      status: data.status,
+      lastUsedAt: null,
+      createdAt: data.createdAt,
+      rawKey: data.rawKey,
+    });
+    setRotateKeyId(null);
+    await fetchKeys();
   };
 
   const handleDelete = (keyId: string) => {
@@ -126,31 +129,18 @@ export function ApiKeysManager() {
   };
 
   const handleDeleteConfirm = async (keyId: string) => {
-    try {
-      const response = await fetch(`/admin/api-keys/${keyId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete API key');
-      }
-
-      setDeleteKeyId(null);
-
-      // Refetch keys after deletion
-      const keysResponse = await fetch('/admin/api-keys');
-      if (keysResponse.ok) {
-        const keysData = await keysResponse.json();
-        setKeys(keysData);
-      }
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('An error occurred');
-    }
+    const res = await fetch(`${API_URL}/admin/api-keys/${keyId}`, {
+      method: "DELETE",
+      headers: { "x-api-key": getApiKey() },
+    });
+    if (!res.ok) throw new Error("Failed to delete API key");
+    setDeleteKeyId(null);
+    await fetchKeys();
   };
 
   const handleCopyKey = () => {
     if (createdKey) {
-      navigator.clipboard.writeText(createdKey.key);
+      navigator.clipboard.writeText(createdKey.rawKey);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -161,23 +151,23 @@ export function ApiKeysManager() {
       {createdKey && (
         <Alert className="border-green-200 bg-green-50">
           <AlertDescription className="space-y-3">
-            <p className="font-medium text-green-900">✓ API Key Created</p>
+            <p className="font-medium text-green-900">API Key Created</p>
             <p className="text-sm text-green-800">
-              Store this key securely. You won&apos;t be able to see it again.
+              Store this key securely — you won&apos;t be able to see it again.
             </p>
             <div className="flex gap-2">
               <Input
                 readOnly
-                value={createdKey.key}
+                value={createdKey.rawKey}
                 className="font-mono text-xs bg-white border-green-200"
               />
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleCopyKey}
-                className="text-green-700 border-green-200 hover:bg-green-50"
+                className="shrink-0 text-green-700 border-green-200 hover:bg-green-50"
               >
-                {copied ? '✓ Copied' : 'Copy'}
+                {copied ? "Copied" : "Copy"}
               </Button>
             </div>
             <Button
@@ -197,7 +187,9 @@ export function ApiKeysManager() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>API Keys</CardTitle>
-              <CardDescription>Manage API keys for authenticating requests to our API</CardDescription>
+              <CardDescription>
+                Manage API keys for authenticating requests to your tenant
+              </CardDescription>
             </div>
             <CreateApiKeyDialog onSuccess={handleCreateSuccess} />
           </div>
@@ -208,9 +200,10 @@ export function ApiKeysManager() {
               {error}
             </div>
           )}
-
           {loading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            <div className="text-center py-8 text-muted-foreground">
+              Loading...
+            </div>
           ) : (
             <ApiKeysList
               keys={keys}
@@ -225,7 +218,7 @@ export function ApiKeysManager() {
       <RotateApiKeyDialog
         open={rotateKeyId !== null}
         onOpenChange={(open) => !open && setRotateKeyId(null)}
-        keyId={rotateKeyId || ''}
+        keyId={rotateKeyId ?? ""}
         keyName={rotateKeyName}
         onConfirm={handleRotateConfirm}
       />
@@ -233,7 +226,7 @@ export function ApiKeysManager() {
       <DeleteApiKeyDialog
         open={deleteKeyId !== null}
         onOpenChange={(open) => !open && setDeleteKeyId(null)}
-        keyId={deleteKeyId || ''}
+        keyId={deleteKeyId ?? ""}
         keyName={deleteKeyName}
         onConfirm={handleDeleteConfirm}
       />

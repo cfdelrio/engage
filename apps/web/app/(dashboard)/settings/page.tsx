@@ -1,69 +1,39 @@
-export const dynamic = 'force-dynamic';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { ApiKeysManager } from './_components/ApiKeysManager';
+export const dynamic = "force-dynamic";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TenantCard } from "./_components/TenantCard";
+import { ApiKeysManager } from "./_components/ApiKeysManager";
+import { FeatureFlagsCard } from "./_components/FeatureFlagsCard";
 
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Configuración</h1>
-        <p className="text-muted-foreground text-sm mt-1">Tenant, API keys y configuración de AI</p>
+        <h1 className="text-4xl font-bold">Settings</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage tenant configuration, API keys, and feature flags
+        </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Tenant</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Slug</span>
-            <code className="text-sm bg-muted px-2 py-0.5 rounded">prodecaballito</code>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Plan</span>
-            <Badge>Enterprise</Badge>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Timezone</span>
-            <code className="text-sm bg-muted px-2 py-0.5 rounded">America/Argentina/Buenos_Aires</code>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="general">
+        <TabsList>
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+          <TabsTrigger value="feature-flags">Feature Flags</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">AI Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Provider</span>
-            <Badge variant="outline">Anthropic Claude (default)</Badge>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Providers disponibles</span>
-            <div className="flex gap-1">
-              {['Anthropic', 'OpenAI', 'Gemini', 'Mistral', 'Ollama'].map((p) => (
-                <Badge key={p} variant="outline" className="text-xs">{p}</Badge>
-              ))}
-            </div>
-          </div>
-          <Separator />
-          <div>
-            <p className="text-sm font-medium mb-1">Tone instructions</p>
-            <p className="text-sm text-muted-foreground bg-muted rounded p-3">
-              Tono futbolero argentino, apasionado, cercano, sin faltas de respeto. Usá lunfardo moderado.
-              Celebrá los logros del usuario.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="general" className="mt-6">
+          <TenantCard />
+        </TabsContent>
 
-      <ApiKeysManager />
+        <TabsContent value="api-keys" className="mt-6">
+          <ApiKeysManager />
+        </TabsContent>
+
+        <TabsContent value="feature-flags" className="mt-6">
+          <FeatureFlagsCard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
