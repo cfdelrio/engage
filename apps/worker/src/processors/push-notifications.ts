@@ -1,7 +1,7 @@
-import type { Job } from 'bullmq';
-import { PrismaClient } from '@engage/database';
-import Handlebars from 'handlebars';
-import { FirebasePushProvider } from '@engage/channels';
+import type { Job } from "bullmq";
+import { PrismaClient } from "@engage/database";
+import Handlebars from "handlebars";
+import { FirebasePushProvider } from "@engage/channels";
 
 interface PushNotificationJob {
   notificationId: string;
@@ -31,14 +31,16 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
   } = job.data;
 
   console.log(
-    `[push-notifications] Processing notification ${notificationId}, attempt ${job.attemptsMade + 1}`
+    `[push-notifications] Processing notification ${notificationId}, attempt ${job.attemptsMade + 1}`,
   );
 
   try {
     // Fetch campaign, notification, and user
-    const [campaign, notification, user] = await Promise.all([
+    const [campaign, _notification, user] = await Promise.all([
       prisma.pushCampaign.findUniqueOrThrow({ where: { id: pushCampaignId } }),
-      prisma.pushNotification.findUniqueOrThrow({ where: { id: notificationId } }),
+      prisma.pushNotification.findUniqueOrThrow({
+        where: { id: notificationId },
+      }),
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     ]);
 
@@ -53,7 +55,7 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
         user: {
           id: user.id,
           externalId: user.externalId,
-          firstName: user.externalId?.split('-')[0] || 'usuario',
+          firstName: user.externalId?.split("-")[0] || "usuario",
           email: user.email,
           phone: user.phone,
           ...metadata,
@@ -63,7 +65,7 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
         user: {
           id: user.id,
           externalId: user.externalId,
-          firstName: user.externalId?.split('-')[0] || 'usuario',
+          firstName: user.externalId?.split("-")[0] || "usuario",
           email: user.email,
           phone: user.phone,
           ...metadata,
@@ -77,13 +79,13 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
     const provider = await prisma.channelProvider.findFirst({
       where: {
         tenantId: campaign.tenantId,
-        channel: 'push',
+        channel: "push",
         isActive: true,
       },
     });
 
     if (!provider) {
-      throw new Error('No active Firebase provider configured');
+      throw new Error("No active Firebase provider configured");
     }
 
     // Decrypt config
@@ -96,8 +98,8 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
       tenantId: campaign.tenantId,
       userId,
       to: deviceToken,
-      channel: 'push',
-      provider: 'firebase_fcm',
+      channel: "push",
+      provider: "firebase_fcm",
       subject: renderedTitle,
       body: renderedBody,
       metadata: {
@@ -112,7 +114,7 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
       await prisma.pushNotification.update({
         where: { id: notificationId },
         data: {
-          status: 'sent',
+          status: "sent",
           title: renderedTitle,
           body: renderedBody,
           sentAt: new Date(),
@@ -132,18 +134,23 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[push-notifications] Error processing ${notificationId}: ${message}`);
+    console.error(
+      `[push-notifications] Error processing ${notificationId}: ${message}`,
+    );
 
     const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1) - 1;
-    await prisma.pushNotification.update({
-      where: { id: notificationId },
-      data: {
-        status: isLastAttempt ? 'failed' : 'queued',
-        ...(isLastAttempt ? { failedAt: new Date(), errorMessage: message } : {}),
-      },
-    }).catch(() => {});
+    await prisma.pushNotification
+      .update({
+        where: { id: notificationId },
+        data: {
+          status: isLastAttempt ? "failed" : "queued",
+          ...(isLastAttempt
+            ? { failedAt: new Date(), errorMessage: message }
+            : {}),
+        },
+      })
+      .catch(() => {});
 
     throw err;
   }
 }
-

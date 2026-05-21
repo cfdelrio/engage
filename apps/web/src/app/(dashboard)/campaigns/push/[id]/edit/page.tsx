@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
-import { TemplateVariables } from '@/components/campaign/TemplateVariables';
-import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { CampaignBuilderLayout } from "@/components/campaign/CampaignBuilderLayout";
+import { TemplateVariables } from "@/components/campaign/TemplateVariables";
+import { AudienceTargetingBuilder } from "@/components/campaign/AudienceTargetingBuilder";
 
 interface PushCampaignForm {
   name: string;
@@ -15,8 +15,8 @@ interface PushCampaignForm {
   body: string;
   imageUrl: string;
   actionUrl: string;
-  priority: 'high' | 'normal';
-  audienceFilter: any;
+  priority: "high" | "normal";
+  audienceFilter: Record<string, unknown>;
 }
 
 export default function EditPushCampaignPage() {
@@ -29,14 +29,14 @@ export default function EditPushCampaignPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [campaign, setCampaign] = useState<PushCampaignForm | null>(null);
   const [form, setForm] = useState<PushCampaignForm>({
-    name: '',
-    description: '',
-    title: '',
-    body: '',
-    imageUrl: '',
-    actionUrl: '',
-    priority: 'high',
-    audienceFilter: { operator: 'AND', conditions: [] },
+    name: "",
+    description: "",
+    title: "",
+    body: "",
+    imageUrl: "",
+    actionUrl: "",
+    priority: "high",
+    audienceFilter: { operator: "AND", conditions: [] },
   });
 
   useEffect(() => {
@@ -47,26 +47,29 @@ export default function EditPushCampaignPage() {
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/push-campaigns/${campaignId}`);
-      if (!res.ok) throw new Error('Failed to load campaign');
+      if (!res.ok) throw new Error("Failed to load campaign");
       const data = await res.json();
 
-      if (data.status !== 'draft') {
-        throw new Error('Only draft campaigns can be edited');
+      if (data.status !== "draft") {
+        throw new Error("Only draft campaigns can be edited");
       }
 
       setCampaign(data);
       setForm({
-        name: data.name || '',
-        description: data.description || '',
-        title: data.title || '',
-        body: data.body || '',
-        imageUrl: data.imageUrl || '',
-        actionUrl: data.actionUrl || '',
-        priority: data.priority || 'high',
-        audienceFilter: data.audienceFilter || { operator: 'AND', conditions: [] },
+        name: data.name || "",
+        description: data.description || "",
+        title: data.title || "",
+        body: data.body || "",
+        imageUrl: data.imageUrl || "",
+        actionUrl: data.actionUrl || "",
+        priority: data.priority || "high",
+        audienceFilter: data.audienceFilter || {
+          operator: "AND",
+          conditions: [],
+        },
       });
     } catch (err) {
-      setErrors([String(err).replace('Error: ', '')]);
+      setErrors([String(err).replace("Error: ", "")]);
     } finally {
       setLoading(false);
     }
@@ -76,23 +79,23 @@ export default function EditPushCampaignPage() {
     setErrors([]);
 
     if (!form.name.trim()) {
-      setErrors(prev => [...prev, 'Campaign name is required']);
+      setErrors((prev) => [...prev, "Campaign name is required"]);
       return;
     }
     if (!form.title.trim()) {
-      setErrors(prev => [...prev, 'Push title is required']);
+      setErrors((prev) => [...prev, "Push title is required"]);
       return;
     }
     if (!form.body.trim()) {
-      setErrors(prev => [...prev, 'Push message body is required']);
+      setErrors((prev) => [...prev, "Push message body is required"]);
       return;
     }
 
     setSaving(true);
     try {
       const res = await fetch(`/api/v1/push-campaigns/${campaignId}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
+        method: "PUT",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(form),
       });
 
@@ -100,7 +103,7 @@ export default function EditPushCampaignPage() {
 
       router.push(`/campaigns/push/${campaignId}`);
     } catch (err) {
-      setErrors([String(err).replace('Error: ', '')]);
+      setErrors([String(err).replace("Error: ", "")]);
     } finally {
       setSaving(false);
     }
@@ -117,7 +120,9 @@ export default function EditPushCampaignPage() {
   if (!campaign) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600 mb-4">Campaign not found or cannot be edited</p>
+        <p className="text-red-600 mb-4">
+          Campaign not found or cannot be edited
+        </p>
         <Button onClick={() => router.back()} variant="outline">
           Go Back
         </Button>
@@ -136,10 +141,14 @@ export default function EditPushCampaignPage() {
       <div className="space-y-6">
         {/* Campaign Info */}
         <Card className="p-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Campaign Information</h2>
+          <h2 className="font-semibold text-slate-900 mb-4">
+            Campaign Information
+          </h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Campaign Name</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Campaign Name
+              </label>
               <input
                 type="text"
                 value={form.name}
@@ -149,10 +158,14 @@ export default function EditPushCampaignPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Description</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Description
+              </label>
               <textarea
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 rows={2}
                 placeholder="Optional description"
@@ -163,10 +176,14 @@ export default function EditPushCampaignPage() {
 
         {/* Push Content */}
         <Card className="p-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Push Notification</h2>
+          <h2 className="font-semibold text-slate-900 mb-4">
+            Push Notification
+          </h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Title</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Title
+              </label>
               <input
                 type="text"
                 value={form.title}
@@ -174,11 +191,15 @@ export default function EditPushCampaignPage() {
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 placeholder="Notification title"
               />
-              <p className="text-xs text-slate-500 mt-1">Supports Handlebars variables</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Supports Handlebars variables
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Message Body</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Message Body
+              </label>
               <textarea
                 value={form.body}
                 onChange={(e) => setForm({ ...form, body: e.target.value })}
@@ -189,7 +210,9 @@ export default function EditPushCampaignPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Image URL (Optional)</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Image URL (Optional)
+              </label>
               <input
                 type="url"
                 value={form.imageUrl}
@@ -200,22 +223,35 @@ export default function EditPushCampaignPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Action URL (Optional)</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Action URL (Optional)
+              </label>
               <input
                 type="url"
                 value={form.actionUrl}
-                onChange={(e) => setForm({ ...form, actionUrl: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, actionUrl: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 placeholder="https://example.com/promo"
               />
-              <p className="text-xs text-slate-500 mt-1">URL to open when user taps notification</p>
+              <p className="text-xs text-slate-500 mt-1">
+                URL to open when user taps notification
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Priority</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Priority
+              </label>
               <select
                 value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value as 'high' | 'normal' })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    priority: e.target.value as "high" | "normal",
+                  })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
               >
                 <option value="high">High (immediate delivery)</option>

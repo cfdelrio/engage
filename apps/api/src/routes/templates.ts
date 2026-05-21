@@ -1,10 +1,10 @@
-import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
-import { asJson } from '../utils/prisma.js';
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import { asJson } from "../utils/prisma.js";
 
 const createTemplateSchema = z.object({
   name: z.string().min(1),
-  channel: z.enum(['email', 'sms', 'push', 'whatsapp', 'voice']),
+  channel: z.enum(["email", "sms", "push", "whatsapp", "voice"]),
   subject: z.string().optional(),
   body: z.string().min(1),
   bodyHtml: z.string().optional(),
@@ -13,7 +13,7 @@ const createTemplateSchema = z.object({
 const updateTemplateSchema = createTemplateSchema.partial();
 
 const templatesRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.addHook('onRequest', fastify.authenticateApiKey);
+  fastify.addHook("onRequest", fastify.authenticateApiKey);
 
   // Extract variables from Handlebars template
   function extractVariables(template: string): string[] {
@@ -27,14 +27,18 @@ const templatesRoutes: FastifyPluginAsync = async (fastify) => {
   }
 
   // GET /v1/templates
-  fastify.get('/', async (request, reply) => {
-    const { channel, limit = 50, offset = 0 } = request.query as {
+  fastify.get("/", async (request, _reply) => {
+    const {
+      channel,
+      limit = 50,
+      offset = 0,
+    } = request.query as {
       channel?: string;
       limit?: number;
       offset?: number;
     };
 
-    const where: Record<string, any> = { tenantId: request.tenantId };
+    const where: Record<string, unknown> = { tenantId: request.tenantId };
     if (channel) where.channel = channel;
 
     const [templates, total] = await Promise.all([
@@ -42,7 +46,7 @@ const templatesRoutes: FastifyPluginAsync = async (fastify) => {
         where,
         skip: offset,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       fastify.prisma.template.count({ where }),
     ]);
@@ -51,7 +55,7 @@ const templatesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /v1/templates
-  fastify.post('/', async (request, reply) => {
+  fastify.post("/", async (request, reply) => {
     const body = createTemplateSchema.parse(request.body);
     const variables = extractVariables(body.body);
 
@@ -72,20 +76,21 @@ const templatesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // GET /v1/templates/:id
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const template = await fastify.prisma.template.findFirst({
       where: { id, tenantId: request.tenantId },
     });
 
-    if (!template) return reply.status(404).send({ error: 'Template not found' });
+    if (!template)
+      return reply.status(404).send({ error: "Template not found" });
 
     return template;
   });
 
   // PUT /v1/templates/:id
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = updateTemplateSchema.parse(request.body);
 
@@ -93,10 +98,15 @@ const templatesRoutes: FastifyPluginAsync = async (fastify) => {
       where: { id, tenantId: request.tenantId },
     });
 
-    if (!template) return reply.status(404).send({ error: 'Template not found' });
+    if (!template)
+      return reply.status(404).send({ error: "Template not found" });
 
-    const currentVariables = Array.isArray(template.variables) ? template.variables : [];
-    const variables = body.body ? extractVariables(body.body) : currentVariables;
+    const currentVariables = Array.isArray(template.variables)
+      ? template.variables
+      : [];
+    const variables = body.body
+      ? extractVariables(body.body)
+      : currentVariables;
 
     const updated = await fastify.prisma.template.update({
       where: { id },
@@ -115,14 +125,15 @@ const templatesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // DELETE /v1/templates/:id
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const template = await fastify.prisma.template.findFirst({
       where: { id, tenantId: request.tenantId },
     });
 
-    if (!template) return reply.status(404).send({ error: 'Template not found' });
+    if (!template)
+      return reply.status(404).send({ error: "Template not found" });
 
     await fastify.prisma.template.delete({ where: { id } });
 

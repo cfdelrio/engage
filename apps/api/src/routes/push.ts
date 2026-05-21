@@ -1,11 +1,11 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
-import { Queue } from 'bullmq';
-import { asJson } from '../utils/prisma.js';
-import { QUEUES } from '@engage/core';
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
+import { Queue } from "bullmq";
+import { asJson } from "../utils/prisma.js";
+import { QUEUES } from "@engage/core";
 
 const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.addHook('onRequest', fastify.authenticateApiKey);
+  fastify.addHook("onRequest", fastify.authenticateApiKey);
 
   // Schemas
   const createPushCampaignSchema = z.object({
@@ -15,7 +15,7 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     body: z.string().min(1),
     imageUrl: z.string().optional(),
     actionUrl: z.string().optional(),
-    priority: z.enum(['high', 'normal']).default('high'),
+    priority: z.enum(["high", "normal"]).default("high"),
     audienceFilter: z.record(z.unknown()).optional(),
     maxRetries: z.number().int().default(2),
   });
@@ -23,14 +23,18 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   const updatePushCampaignSchema = createPushCampaignSchema.partial();
 
   // GET /v1/push-campaigns
-  fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { status, limit = 50, offset = 0 } = request.query as {
+  fastify.get("/", async (request: FastifyRequest, _reply: FastifyReply) => {
+    const {
+      status,
+      limit = 50,
+      offset = 0,
+    } = request.query as {
       status?: string;
       limit?: number;
       offset?: number;
     };
 
-    const where: Record<string, any> = { tenantId: request.tenantId };
+    const where: Record<string, unknown> = { tenantId: request.tenantId };
     if (status) where.status = status;
 
     const [campaigns, total] = await Promise.all([
@@ -38,7 +42,7 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         where,
         skip: offset,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       fastify.prisma.pushCampaign.count({ where }),
     ]);
@@ -47,7 +51,7 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /v1/push-campaigns
-  fastify.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post("/", async (request: FastifyRequest, reply: FastifyReply) => {
     const body = createPushCampaignSchema.parse(request.body);
 
     const campaign = await fastify.prisma.pushCampaign.create({
@@ -69,20 +73,21 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // GET /v1/push-campaigns/:id
-  fastify.get('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
 
     const campaign = await fastify.prisma.pushCampaign.findFirst({
       where: { id, tenantId: request.tenantId },
     });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
+    if (!campaign)
+      return reply.status(404).send({ error: "Campaign not found" });
 
     return campaign;
   });
 
   // PUT /v1/push-campaigns/:id
-  fastify.put('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.put("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const body = updatePushCampaignSchema.parse(request.body);
 
@@ -90,11 +95,12 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       where: { id, tenantId: request.tenantId },
     });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'draft' && campaign.status !== 'paused') {
+    if (!campaign)
+      return reply.status(404).send({ error: "Campaign not found" });
+    if (campaign.status !== "draft" && campaign.status !== "paused") {
       return reply
         .status(400)
-        .send({ error: 'Can only update draft or paused campaigns' });
+        .send({ error: "Can only update draft or paused campaigns" });
     }
 
     const updated = await fastify.prisma.pushCampaign.update({
@@ -107,7 +113,9 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         imageUrl: body.imageUrl,
         actionUrl: body.actionUrl,
         priority: body.priority,
-        audienceFilter: body.audienceFilter ? asJson(body.audienceFilter) : undefined,
+        audienceFilter: body.audienceFilter
+          ? asJson(body.audienceFilter)
+          : undefined,
         maxRetries: body.maxRetries,
       },
     });
@@ -116,196 +124,236 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // DELETE /v1/push-campaigns/:id
-  fastify.delete('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
+  fastify.delete(
+    "/:id",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
 
-    const campaign = await fastify.prisma.pushCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
+      const campaign = await fastify.prisma.pushCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'draft') {
-      return reply.status(400).send({ error: 'Can only delete draft campaigns' });
-    }
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
+      if (campaign.status !== "draft") {
+        return reply
+          .status(400)
+          .send({ error: "Can only delete draft campaigns" });
+      }
 
-    await fastify.prisma.pushCampaign.delete({ where: { id } });
+      await fastify.prisma.pushCampaign.delete({ where: { id } });
 
-    return reply.status(204).send();
-  });
+      return reply.status(204).send();
+    },
+  );
 
   // POST /v1/push-campaigns/:id/start
-  fastify.post('/:id/start', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
+  fastify.post(
+    "/:id/start",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
 
-    const campaign = await fastify.prisma.pushCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
+      const campaign = await fastify.prisma.pushCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'draft' && campaign.status !== 'paused') {
-      return reply.status(400).send({ error: 'Can only start draft or paused campaigns' });
-    }
-
-    // Update campaign status
-    const updated = await fastify.prisma.pushCampaign.update({
-      where: { id },
-      data: { status: 'active', startAt: new Date() },
-    });
-
-    // Find users with device tokens
-    const users = await fastify.prisma.user.findMany({
-      where: { tenantId: request.tenantId },
-      take: 10000,
-    });
-
-    // Create PushNotification records and enqueue jobs
-    const pushQueue = new Queue(QUEUES.DELIVERIES_PUSH, { connection: fastify.redis });
-
-    let enqueuedCount = 0;
-    for (const user of users) {
-      const deviceTokens = (Array.isArray(user.deviceTokens) ? user.deviceTokens : []) as string[];
-
-      for (const token of deviceTokens) {
-        const notification = await fastify.prisma.pushNotification.create({
-          data: {
-            campaignId: id,
-            tenantId: request.tenantId,
-            userId: user.id,
-            status: 'queued',
-            title: campaign.title,
-            body: campaign.body,
-            imageUrl: campaign.imageUrl,
-            actionUrl: campaign.actionUrl,
-            priority: campaign.priority,
-          },
-        });
-
-        await pushQueue.add(
-          'send-push',
-          {
-            notificationId: notification.id,
-            pushCampaignId: id,
-            userId: user.id,
-            deviceToken: token,
-            title: campaign.title,
-            body: campaign.body,
-            imageUrl: campaign.imageUrl,
-            actionUrl: campaign.actionUrl,
-            priority: campaign.priority,
-          },
-          {
-            attempts: campaign.maxRetries + 1,
-            backoff: {
-              type: 'exponential',
-              delay: 2000,
-            },
-          },
-        );
-
-        enqueuedCount++;
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
+      if (campaign.status !== "draft" && campaign.status !== "paused") {
+        return reply
+          .status(400)
+          .send({ error: "Can only start draft or paused campaigns" });
       }
-    }
 
-    await pushQueue.close();
+      // Update campaign status
+      const updated = await fastify.prisma.pushCampaign.update({
+        where: { id },
+        data: { status: "active", startAt: new Date() },
+      });
 
-    return {
-      ...updated,
-      enqueuedCount,
-      message: `${enqueuedCount} push notifications enqueued for sending`,
-    };
-  });
+      // Find users with device tokens
+      const users = await fastify.prisma.user.findMany({
+        where: { tenantId: request.tenantId },
+        take: 10000,
+      });
+
+      // Create PushNotification records and enqueue jobs
+      const pushQueue = new Queue(QUEUES.DELIVERIES_PUSH, {
+        connection: fastify.redis,
+      });
+
+      let enqueuedCount = 0;
+      for (const user of users) {
+        const deviceTokens = (
+          Array.isArray(user.deviceTokens) ? user.deviceTokens : []
+        ) as string[];
+
+        for (const token of deviceTokens) {
+          const notification = await fastify.prisma.pushNotification.create({
+            data: {
+              campaignId: id,
+              tenantId: request.tenantId,
+              userId: user.id,
+              status: "queued",
+              title: campaign.title,
+              body: campaign.body,
+              imageUrl: campaign.imageUrl,
+              actionUrl: campaign.actionUrl,
+              priority: campaign.priority,
+            },
+          });
+
+          await pushQueue.add(
+            "send-push",
+            {
+              notificationId: notification.id,
+              pushCampaignId: id,
+              userId: user.id,
+              deviceToken: token,
+              title: campaign.title,
+              body: campaign.body,
+              imageUrl: campaign.imageUrl,
+              actionUrl: campaign.actionUrl,
+              priority: campaign.priority,
+            },
+            {
+              attempts: campaign.maxRetries + 1,
+              backoff: {
+                type: "exponential",
+                delay: 2000,
+              },
+            },
+          );
+
+          enqueuedCount++;
+        }
+      }
+
+      await pushQueue.close();
+
+      return {
+        ...updated,
+        enqueuedCount,
+        message: `${enqueuedCount} push notifications enqueued for sending`,
+      };
+    },
+  );
 
   // POST /v1/push-campaigns/:id/pause
-  fastify.post('/:id/pause', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
+  fastify.post(
+    "/:id/pause",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
 
-    const campaign = await fastify.prisma.pushCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
+      const campaign = await fastify.prisma.pushCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'active') {
-      return reply.status(400).send({ error: 'Can only pause active campaigns' });
-    }
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
+      if (campaign.status !== "active") {
+        return reply
+          .status(400)
+          .send({ error: "Can only pause active campaigns" });
+      }
 
-    const updated = await fastify.prisma.pushCampaign.update({
-      where: { id },
-      data: { status: 'paused' },
-    });
+      const updated = await fastify.prisma.pushCampaign.update({
+        where: { id },
+        data: { status: "paused" },
+      });
 
-    return updated;
-  });
+      return updated;
+    },
+  );
 
   // GET /v1/push-campaigns/:id/notifications
-  fastify.get('/:id/notifications', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const { limit = 50, offset = 0, status } = request.query as {
-      limit?: number;
-      offset?: number;
-      status?: string;
-    };
+  fastify.get(
+    "/:id/notifications",
+    async (request: FastifyRequest, _reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const {
+        limit = 50,
+        offset = 0,
+        status,
+      } = request.query as {
+        limit?: number;
+        offset?: number;
+        status?: string;
+      };
 
-    const where: Record<string, any> = { campaignId: id, tenantId: request.tenantId };
-    if (status) where.status = status;
+      const where: Record<string, unknown> = {
+        campaignId: id,
+        tenantId: request.tenantId,
+      };
+      if (status) where.status = status;
 
-    const [notifications, total] = await Promise.all([
-      fastify.prisma.pushNotification.findMany({
-        where,
-        skip: offset,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      fastify.prisma.pushNotification.count({ where }),
-    ]);
+      const [notifications, total] = await Promise.all([
+        fastify.prisma.pushNotification.findMany({
+          where,
+          skip: offset,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+        }),
+        fastify.prisma.pushNotification.count({ where }),
+      ]);
 
-    return { notifications, total };
-  });
+      return { notifications, total };
+    },
+  );
 
   // GET /v1/push-campaigns/:id/metrics
-  fastify.get('/:id/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const { granularity = 'hour', since } = request.query as {
-      granularity?: 'hour' | 'day' | 'week';
-      since?: string;
-    };
+  fastify.get(
+    "/:id/metrics",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const { granularity: _granularity = "hour", since } = request.query as {
+        granularity?: "hour" | "day" | "week";
+        since?: string;
+      };
 
-    const campaign = await fastify.prisma.pushCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
+      const campaign = await fastify.prisma.pushCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
 
-    const sinceDate = since ? new Date(since) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const sinceDate = since
+        ? new Date(since)
+        : new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    const notifications = await fastify.prisma.pushNotification.findMany({
-      where: { campaignId: id, createdAt: { gte: sinceDate } },
-    });
+      const notifications = await fastify.prisma.pushNotification.findMany({
+        where: { campaignId: id, createdAt: { gte: sinceDate } },
+      });
 
-    const stats = {
-      sent: notifications.length,
-      delivered: notifications.filter((n) => n.deliveredAt).length,
-      opened: notifications.filter((n) => n.openedAt).length,
-      failed: notifications.filter((n) => n.failedAt).length,
-    };
+      const stats = {
+        sent: notifications.length,
+        delivered: notifications.filter((n) => n.deliveredAt).length,
+        opened: notifications.filter((n) => n.openedAt).length,
+        failed: notifications.filter((n) => n.failedAt).length,
+      };
 
-    const deliveryRate =
-      stats.sent > 0 ? Math.round((stats.delivered / stats.sent) * 100) : 0;
-    const openRate =
-      stats.delivered > 0 ? Math.round((stats.opened / stats.delivered) * 100) : 0;
+      const deliveryRate =
+        stats.sent > 0 ? Math.round((stats.delivered / stats.sent) * 100) : 0;
+      const openRate =
+        stats.delivered > 0
+          ? Math.round((stats.opened / stats.delivered) * 100)
+          : 0;
 
-    return {
-      campaignId: id,
-      stats: {
-        ...stats,
-        deliveryRate,
-        openRate,
-      },
-      timeline: await fastify.prisma.pushMetric.findMany({
-        where: { campaignId: id },
-        orderBy: { date: 'asc' },
-      }),
-    };
-  });
+      return {
+        campaignId: id,
+        stats: {
+          ...stats,
+          deliveryRate,
+          openRate,
+        },
+        timeline: await fastify.prisma.pushMetric.findMany({
+          where: { campaignId: id },
+          orderBy: { date: "asc" },
+        }),
+      };
+    },
+  );
 };
 
 export default pushCampaignsRoutes;

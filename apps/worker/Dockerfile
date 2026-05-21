@@ -15,11 +15,11 @@ COPY apps/worker/package.json apps/worker/
 RUN pnpm install --frozen-lockfile --prod=false
 
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages ./packages
-COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
+COPY packages ./packages
+COPY apps/worker ./apps/worker
 RUN packages/database/node_modules/.bin/prisma generate --schema packages/database/prisma/schema.prisma
 RUN pnpm --filter @engage/core build
 RUN pnpm --filter @engage/database build
@@ -38,4 +38,6 @@ COPY --from=builder --chown=engage:nodejs /app/packages ./packages
 COPY --from=builder --chown=engage:nodejs /app/apps/worker/dist ./apps/worker/dist
 COPY --from=builder --chown=engage:nodejs /app/apps/worker/package.json ./apps/worker/
 USER engage
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "require('node:process').exit(0)" || exit 1
 CMD ["node", "apps/worker/dist/index.js"]

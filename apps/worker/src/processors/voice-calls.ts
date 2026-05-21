@@ -1,7 +1,17 @@
-import type { Job } from 'bullmq';
-import { PrismaClient } from '@engage/database';
-import twilio from 'twilio';
-import Handlebars from 'handlebars';
+import type { Job } from "bullmq";
+import { PrismaClient } from "@engage/database";
+import twilio from "twilio";
+import Handlebars from "handlebars";
+
+interface DtmfOption {
+  key: string;
+  label: string;
+}
+
+interface DtmfConfig {
+  enabled: boolean;
+  options?: DtmfOption[];
+}
 
 interface VoiceCallJob {
   voiceCallId: string;
@@ -10,17 +20,29 @@ interface VoiceCallJob {
   phone: string;
   script: string;
   languageCode: string;
-  voiceGender: 'male' | 'female';
-  dtmfConfig?: Record<string, unknown>;
+  voiceGender: "male" | "female";
+  dtmfConfig?: DtmfConfig;
   attempt: number;
 }
 
 const prisma = new PrismaClient();
 
 export async function processVoiceCall(job: Job<VoiceCallJob>) {
-  const { voiceCallId, voiceCampaignId, userId, phone, script, languageCode, voiceGender, dtmfConfig, attempt } = job.data;
+  const {
+    voiceCallId,
+    voiceCampaignId: _voiceCampaignId,
+    userId,
+    phone,
+    script,
+    languageCode,
+    voiceGender,
+    dtmfConfig,
+    attempt,
+  } = job.data;
 
-  console.log(`[voice-calls] Processing call ${voiceCallId}, attempt ${attempt + 1}`);
+  console.log(
+    `[voice-calls] Processing call ${voiceCallId}, attempt ${attempt + 1}`,
+  );
 
   try {
     // Fetch call and user
@@ -36,7 +58,7 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
       const metadata = (user.metadata as Record<string, unknown>) || {};
       renderedScript = template({
         user: {
-          firstName: user.externalId?.split('-')[0] || 'usuario',
+          firstName: user.externalId?.split("-")[0] || "usuario",
           email: user.email,
           phone: user.phone,
           ...metadata,
@@ -50,13 +72,13 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
     const provider = await prisma.channelProvider.findFirst({
       where: {
         tenantId: voiceCall.tenantId,
-        channel: 'voice',
+        channel: "voice",
         isActive: true,
       },
     });
 
     if (!provider) {
-      throw new Error('No active Twilio voice provider configured');
+      throw new Error("No active Twilio voice provider configured");
     }
 
     // Decrypt config (simplified - in production use proper decryption)
@@ -64,19 +86,32 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
     const client = twilio(config.accountSid, config.authToken);
 
     // Generate TwiML
-    const twiml = generateTwiML(renderedScript, languageCode, voiceGender, dtmfConfig);
+    const twiml = generateTwiML(
+      renderedScript,
+      languageCode,
+      voiceGender,
+      dtmfConfig,
+    );
 
     // Make the call
     const call = await client.calls.create({
       from: config.from,
       to: phone,
       twiml,
-      statusCallback: `${process.env['INTERNAL_API_URL'] || 'http://localhost:3001'}/webhooks/twilio/voice`,
-      statusCallbackMethod: 'POST',
-      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed', 'no-answer', 'busy', 'failed'],
+      statusCallback: `${process.env["INTERNAL_API_URL"] || "http://localhost:3001"}/webhooks/twilio/voice`,
+      statusCallbackMethod: "POST",
+      statusCallbackEvent: [
+        "initiated",
+        "ringing",
+        "answered",
+        "completed",
+        "no-answer",
+        "busy",
+        "failed",
+      ],
       record: true,
-      recordingStatusCallback: `${process.env['INTERNAL_API_URL'] || 'http://localhost:3001'}/webhooks/twilio/recording`,
-      recordingStatusCallbackMethod: 'POST',
+      recordingStatusCallback: `${process.env["INTERNAL_API_URL"] || "http://localhost:3001"}/webhooks/twilio/recording`,
+      recordingStatusCallbackMethod: "POST",
     });
 
     // Update voice call with Twilio SID
@@ -84,7 +119,7 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
       where: { id: voiceCallId },
       data: {
         twilioCallSid: call.sid,
-        status: 'ringing',
+        status: "ringing",
         startedAt: new Date(),
       },
     });
@@ -101,8 +136,8 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
       await prisma.voiceCall.update({
         where: { id: voiceCallId },
         data: {
-          status: 'failed',
-          terminationReason: 'max_retries',
+          status: "failed",
+          terminationReason: "max_retries",
           errorMessage: String(err),
         },
       });
@@ -113,30 +148,33 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
 function generateTwiML(
   script: string,
   languageCode: string,
-  voiceGender: 'male' | 'female',
-  dtmfConfig?: Record<string, unknown>
+  voiceGender: "male" | "female",
+  dtmfConfig?: DtmfConfig,
 ): string {
-  const voice = voiceGender === 'male' ? 'man' : 'woman';
+  const voice = voiceGender === "male" ? "man" : "woman";
   const escaped = script
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 
   let twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say language="${languageCode}" voice="${voice}">${escaped}</Say>`;
 
-  if (dtmfConfig && (dtmfConfig as any).enabled) {
-    const options = (dtmfConfig as any).options || [];
-    twiml += '\n  <Gather numDigits="1" action="' + (process.env['INTERNAL_API_URL'] || 'http://localhost:3001') + '/webhooks/twilio/gather" method="POST">';
+  if (dtmfConfig?.enabled) {
+    const options = dtmfConfig.options ?? [];
+    twiml +=
+      '\n  <Gather numDigits="1" action="' +
+      (process.env["INTERNAL_API_URL"] || "http://localhost:3001") +
+      '/webhooks/twilio/gather" method="POST">';
     for (const opt of options) {
       twiml += `\n    <Say language="${languageCode}" voice="${voice}">Presione ${opt.key} para ${opt.label}</Say>`;
     }
-    twiml += '\n  </Gather>';
+    twiml += "\n  </Gather>";
   }
 
-  twiml += '\n</Response>';
+  twiml += "\n</Response>";
   return twiml;
 }

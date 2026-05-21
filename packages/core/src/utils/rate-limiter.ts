@@ -1,10 +1,8 @@
-import { createHash } from 'crypto';
-import type { RateLimitRule } from '../constants/rate-limits.js';
-
-// Note: hashApiKey is also exported from hash.js, using it from there instead
-// This function would be: createHash('sha256').update(apiKey).digest('hex')
-
-export function getRateLimitCounterKey(apiKeyHash: string, endpoint: string, windowStart: number): string {
+export function getRateLimitCounterKey(
+  apiKeyHash: string,
+  endpoint: string,
+  windowStart: number,
+): string {
   return `ratelimit:counter:${apiKeyHash}:${endpoint}:${windowStart}`;
 }
 
@@ -20,7 +18,10 @@ export function getWindowStart(now: number, windowSeconds: number): number {
   return Math.floor(now / 1000 / windowSeconds) * windowSeconds;
 }
 
-export function getResetTimestamp(windowStart: number, windowSeconds: number): number {
+export function getResetTimestamp(
+  windowStart: number,
+  windowSeconds: number,
+): number {
   return (windowStart + windowSeconds) * 1000;
 }
 
@@ -28,8 +29,10 @@ export function normalizeEndpoint(method: string, path: string): string {
   // Normalize path by removing dynamic segments
   // /v1/events/123 → /v1/events
   // /v1/users/abc/preferences → /v1/users/preferences
-  const pathParts = path.split('/').filter(p => p && !p.match(/^[a-f0-9-]+$/i));
-  return `${method} ${pathParts.join('/')}`;
+  const pathParts = path
+    .split("/")
+    .filter((p) => p && !p.match(/^[a-f0-9-]+$/i));
+  return `${method} ${pathParts.join("/")}`;
 }
 
 export interface RateLimitCheckResult {
@@ -44,7 +47,7 @@ export function calculateRateLimitResponse(
   currentCount: number,
   limit: number,
   resetAt: number,
-  now: number
+  now: number,
 ): RateLimitCheckResult {
   const remaining = Math.max(0, limit - currentCount);
   const retryAfterSeconds = Math.ceil((resetAt - now) / 1000);

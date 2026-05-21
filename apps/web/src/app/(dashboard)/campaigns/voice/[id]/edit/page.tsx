@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { CampaignBuilderLayout } from '@/components/campaign/CampaignBuilderLayout';
-import { TemplateVariables } from '@/components/campaign/TemplateVariables';
-import { AudienceTargetingBuilder } from '@/components/campaign/AudienceTargetingBuilder';
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { CampaignBuilderLayout } from "@/components/campaign/CampaignBuilderLayout";
+import { TemplateVariables } from "@/components/campaign/TemplateVariables";
+import { AudienceTargetingBuilder } from "@/components/campaign/AudienceTargetingBuilder";
 
 interface VoiceCampaignForm {
   name: string;
@@ -14,10 +14,10 @@ interface VoiceCampaignForm {
   script: string;
   voiceConfig: {
     language: string;
-    voice: 'male' | 'female';
+    voice: "male" | "female";
     speed: number;
   };
-  audienceFilter: any;
+  audienceFilter: Record<string, unknown>;
 }
 
 export default function EditVoiceCampaignPage() {
@@ -30,15 +30,15 @@ export default function EditVoiceCampaignPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [campaign, setCampaign] = useState<VoiceCampaignForm | null>(null);
   const [form, setForm] = useState<VoiceCampaignForm>({
-    name: '',
-    description: '',
-    script: '',
+    name: "",
+    description: "",
+    script: "",
     voiceConfig: {
-      language: 'es-ES',
-      voice: 'female',
+      language: "es-ES",
+      voice: "female",
       speed: 1.0,
     },
-    audienceFilter: { operator: 'AND', conditions: [] },
+    audienceFilter: { operator: "AND", conditions: [] },
   });
 
   useEffect(() => {
@@ -49,27 +49,30 @@ export default function EditVoiceCampaignPage() {
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/voice-campaigns/${campaignId}`);
-      if (!res.ok) throw new Error('Failed to load campaign');
+      if (!res.ok) throw new Error("Failed to load campaign");
       const data = await res.json();
 
-      if (data.status !== 'draft') {
-        throw new Error('Only draft campaigns can be edited');
+      if (data.status !== "draft") {
+        throw new Error("Only draft campaigns can be edited");
       }
 
       setCampaign(data);
       setForm({
-        name: data.name || '',
-        description: data.description || '',
-        script: data.script || '',
+        name: data.name || "",
+        description: data.description || "",
+        script: data.script || "",
         voiceConfig: data.voiceConfig || {
-          language: 'es-ES',
-          voice: 'female',
+          language: "es-ES",
+          voice: "female",
           speed: 1.0,
         },
-        audienceFilter: data.audienceFilter || { operator: 'AND', conditions: [] },
+        audienceFilter: data.audienceFilter || {
+          operator: "AND",
+          conditions: [],
+        },
       });
     } catch (err) {
-      setErrors([String(err).replace('Error: ', '')]);
+      setErrors([String(err).replace("Error: ", "")]);
     } finally {
       setLoading(false);
     }
@@ -79,19 +82,19 @@ export default function EditVoiceCampaignPage() {
     setErrors([]);
 
     if (!form.name.trim()) {
-      setErrors(prev => [...prev, 'Campaign name is required']);
+      setErrors((prev) => [...prev, "Campaign name is required"]);
       return;
     }
     if (!form.script.trim()) {
-      setErrors(prev => [...prev, 'Voice script is required']);
+      setErrors((prev) => [...prev, "Voice script is required"]);
       return;
     }
 
     setSaving(true);
     try {
       const res = await fetch(`/api/v1/voice-campaigns/${campaignId}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
+        method: "PUT",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(form),
       });
 
@@ -99,7 +102,7 @@ export default function EditVoiceCampaignPage() {
 
       router.push(`/campaigns/voice/${campaignId}`);
     } catch (err) {
-      setErrors([String(err).replace('Error: ', '')]);
+      setErrors([String(err).replace("Error: ", "")]);
     } finally {
       setSaving(false);
     }
@@ -116,7 +119,9 @@ export default function EditVoiceCampaignPage() {
   if (!campaign) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600 mb-4">Campaign not found or cannot be edited</p>
+        <p className="text-red-600 mb-4">
+          Campaign not found or cannot be edited
+        </p>
         <Button onClick={() => router.back()} variant="outline">
           Go Back
         </Button>
@@ -135,10 +140,14 @@ export default function EditVoiceCampaignPage() {
       <div className="space-y-6">
         {/* Campaign Info */}
         <Card className="p-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Campaign Information</h2>
+          <h2 className="font-semibold text-slate-900 mb-4">
+            Campaign Information
+          </h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Campaign Name</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Campaign Name
+              </label>
               <input
                 type="text"
                 value={form.name}
@@ -148,10 +157,14 @@ export default function EditVoiceCampaignPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Description</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Description
+              </label>
               <textarea
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                 rows={2}
                 placeholder="Optional description"
@@ -165,7 +178,9 @@ export default function EditVoiceCampaignPage() {
           <h2 className="font-semibold text-slate-900 mb-4">Voice Script</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Script Text</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Script Text
+              </label>
               <textarea
                 value={form.script}
                 onChange={(e) => setForm({ ...form, script: e.target.value })}
@@ -173,18 +188,25 @@ export default function EditVoiceCampaignPage() {
                 rows={8}
                 placeholder="Hello {{user.firstName}}, this is an important message..."
               />
-              <p className="text-xs text-slate-500 mt-1">Supports Handlebars variables</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Supports Handlebars variables
+              </p>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Language</label>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Language
+                </label>
                 <select
                   value={form.voiceConfig.language}
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      voiceConfig: { ...form.voiceConfig, language: e.target.value },
+                      voiceConfig: {
+                        ...form.voiceConfig,
+                        language: e.target.value,
+                      },
                     })
                   }
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"
@@ -198,13 +220,18 @@ export default function EditVoiceCampaignPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Voice Gender</label>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Voice Gender
+                </label>
                 <select
                   value={form.voiceConfig.voice}
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      voiceConfig: { ...form.voiceConfig, voice: e.target.value as 'male' | 'female' },
+                      voiceConfig: {
+                        ...form.voiceConfig,
+                        voice: e.target.value as "male" | "female",
+                      },
                     })
                   }
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"
@@ -215,7 +242,9 @@ export default function EditVoiceCampaignPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Speed</label>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Speed
+                </label>
                 <input
                   type="number"
                   min="0.5"
@@ -225,7 +254,10 @@ export default function EditVoiceCampaignPage() {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      voiceConfig: { ...form.voiceConfig, speed: parseFloat(e.target.value) },
+                      voiceConfig: {
+                        ...form.voiceConfig,
+                        speed: parseFloat(e.target.value),
+                      },
                     })
                   }
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"

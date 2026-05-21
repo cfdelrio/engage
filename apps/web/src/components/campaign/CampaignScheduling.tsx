@@ -1,17 +1,16 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Clock, Calendar, RotateCw, X } from 'lucide-react';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Clock, Calendar, RotateCw, X } from "lucide-react";
 
-type ScheduleType = 'manual' | 'scheduled' | 'recurring';
-type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly';
+type ScheduleType = "manual" | "scheduled" | "recurring";
+type RecurrenceFrequency = "daily" | "weekly" | "monthly";
 
 interface CampaignSchedulingProps {
   campaignId: string;
-  currentStatus: 'draft' | 'active' | 'paused' | 'completed';
+  currentStatus: "draft" | "active" | "paused" | "completed";
   startAt?: string;
   endAt?: string;
   onUpdate?: () => void;
@@ -24,86 +23,105 @@ export function CampaignScheduling({
   endAt,
   onUpdate,
 }: CampaignSchedulingProps) {
-  const [scheduleType, setScheduleType] = useState<ScheduleType>(startAt ? 'scheduled' : 'manual');
+  const [scheduleType, setScheduleType] = useState<ScheduleType>(
+    startAt ? "scheduled" : "manual",
+  );
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Scheduled
-  const [scheduledDateTime, setScheduledDateTime] = useState(startAt ? new Date(startAt).toISOString().slice(0, 16) : '');
-  const [timezone, setTimezone] = useState('UTC');
-  const [endDateTime, setEndDateTime] = useState(endAt ? new Date(endAt).toISOString().slice(0, 16) : '');
+  const [scheduledDateTime, setScheduledDateTime] = useState(
+    startAt ? new Date(startAt).toISOString().slice(0, 16) : "",
+  );
+  const [timezone, setTimezone] = useState("UTC");
+  const [endDateTime, setEndDateTime] = useState(
+    endAt ? new Date(endAt).toISOString().slice(0, 16) : "",
+  );
 
   // Recurring
-  const [frequency, setFrequency] = useState<RecurrenceFrequency>('daily');
-  const [recurringStartDate, setRecurringStartDate] = useState(startAt ? new Date(startAt).toISOString().slice(0, 10) : '');
-  const [recurringEndDate, setRecurringEndDate] = useState(endAt ? new Date(endAt).toISOString().slice(0, 10) : '');
-  const [daysOfWeek, setDaysOfWeek] = useState<string[]>(['Monday', 'Wednesday', 'Friday']);
-  const [sendTime, setSendTime] = useState('09:00');
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>("daily");
+  const [recurringStartDate, setRecurringStartDate] = useState(
+    startAt ? new Date(startAt).toISOString().slice(0, 10) : "",
+  );
+  const [recurringEndDate, setRecurringEndDate] = useState(
+    endAt ? new Date(endAt).toISOString().slice(0, 10) : "",
+  );
+  const [daysOfWeek, setDaysOfWeek] = useState<string[]>([
+    "Monday",
+    "Wednesday",
+    "Friday",
+  ]);
+  const [sendTime, setSendTime] = useState("09:00");
 
   async function handleSaveSchedule() {
     setError(null);
 
     try {
-      if (scheduleType === 'scheduled') {
+      if (scheduleType === "scheduled") {
         if (!scheduledDateTime) {
-          setError('Please select a date and time');
+          setError("Please select a date and time");
           return;
         }
 
         const scheduledDate = new Date(scheduledDateTime);
         if (scheduledDate <= new Date()) {
-          setError('Schedule must be in the future');
+          setError("Schedule must be in the future");
           return;
         }
       }
 
-      if (scheduleType === 'recurring') {
+      if (scheduleType === "recurring") {
         if (!recurringStartDate) {
-          setError('Please select a start date');
+          setError("Please select a start date");
           return;
         }
-        if (frequency === 'weekly' && daysOfWeek.length === 0) {
-          setError('Please select at least one day of week');
+        if (frequency === "weekly" && daysOfWeek.length === 0) {
+          setError("Please select at least one day of week");
           return;
         }
       }
 
       setLoading(true);
 
-      let payload: Record<string, any> = {};
+      let payload: Record<string, unknown> = {};
 
-      if (scheduleType === 'manual') {
+      if (scheduleType === "manual") {
         payload = { startAt: null, endAt: null };
-      } else if (scheduleType === 'scheduled') {
+      } else if (scheduleType === "scheduled") {
         payload = {
           startAt: new Date(scheduledDateTime).toISOString(),
           endAt: endDateTime ? new Date(endDateTime).toISOString() : null,
         };
-      } else if (scheduleType === 'recurring') {
+      } else if (scheduleType === "recurring") {
         payload = {
-          schedulingType: 'recurring',
+          schedulingType: "recurring",
           frequency,
           startAt: new Date(`${recurringStartDate}T${sendTime}`).toISOString(),
-          endAt: recurringEndDate ? new Date(`${recurringEndDate}T23:59:59`).toISOString() : null,
-          daysOfWeek: frequency === 'weekly' ? daysOfWeek : undefined,
+          endAt: recurringEndDate
+            ? new Date(`${recurringEndDate}T23:59:59`).toISOString()
+            : null,
+          daysOfWeek: frequency === "weekly" ? daysOfWeek : undefined,
         };
       }
 
       // Get the API endpoint based on campaign type (inferred from campaignId pattern or passed prop)
       // For now, try to detect from URL or use a generic endpoint
-      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-      let endpoint = '/api/v1/campaigns';
+      const pathname =
+        typeof window !== "undefined" ? window.location.pathname : "";
+      let endpoint = "/api/v1/campaigns";
 
-      if (pathname.includes('/email/')) endpoint = '/api/v1/email-campaigns';
-      else if (pathname.includes('/sms/')) endpoint = '/api/v1/sms-campaigns';
-      else if (pathname.includes('/push/')) endpoint = '/api/v1/push-campaigns';
-      else if (pathname.includes('/voice/')) endpoint = '/api/v1/voice-campaigns';
-      else if (pathname.includes('/whatsapp/')) endpoint = '/api/v1/whatsapp-campaigns';
+      if (pathname.includes("/email/")) endpoint = "/api/v1/email-campaigns";
+      else if (pathname.includes("/sms/")) endpoint = "/api/v1/sms-campaigns";
+      else if (pathname.includes("/push/")) endpoint = "/api/v1/push-campaigns";
+      else if (pathname.includes("/voice/"))
+        endpoint = "/api/v1/voice-campaigns";
+      else if (pathname.includes("/whatsapp/"))
+        endpoint = "/api/v1/whatsapp-campaigns";
 
       const res = await fetch(`${endpoint}/${campaignId}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
+        method: "PUT",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -112,22 +130,22 @@ export function CampaignScheduling({
       setEditing(false);
       onUpdate?.();
     } catch (err) {
-      setError(String(err).replace('Error: ', ''));
+      setError(String(err).replace("Error: ", ""));
     } finally {
       setLoading(false);
     }
   }
 
-  if (currentStatus !== 'draft') {
+  if (currentStatus !== "draft") {
     return null;
   }
 
   const displaySchedule = () => {
-    if (!startAt) return 'Manual (send now)';
-    if (scheduleType === 'scheduled') {
+    if (!startAt) return "Manual (send now)";
+    if (scheduleType === "scheduled") {
       return `Scheduled: ${new Date(startAt).toLocaleString()}`;
     }
-    return 'Recurring schedule';
+    return "Recurring schedule";
   };
 
   if (!editing) {
@@ -138,7 +156,11 @@ export function CampaignScheduling({
             <h2 className="font-semibold text-slate-900 mb-2">Scheduling</h2>
             <p className="text-sm text-slate-600">{displaySchedule()}</p>
           </div>
-          <Button variant="outline" className="gap-2" onClick={() => setEditing(true)}>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setEditing(true)}
+          >
             <Calendar size={18} />
             Edit Schedule
           </Button>
@@ -151,7 +173,10 @@ export function CampaignScheduling({
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-slate-900">Scheduling</h2>
-        <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600">
+        <button
+          onClick={() => setEditing(false)}
+          className="text-slate-400 hover:text-slate-600"
+        >
           <X size={20} />
         </button>
       </div>
@@ -164,28 +189,30 @@ export function CampaignScheduling({
 
       {/* Schedule Type Selection */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-slate-900 mb-3">Schedule Type</label>
+        <label className="block text-sm font-medium text-slate-900 mb-3">
+          Schedule Type
+        </label>
         <div className="grid grid-cols-3 gap-3">
-          {(['manual', 'scheduled', 'recurring'] as const).map(type => (
+          {(["manual", "scheduled", "recurring"] as const).map((type) => (
             <button
               key={type}
               onClick={() => setScheduleType(type)}
               className={`p-3 rounded-lg border-2 transition text-left ${
                 scheduleType === type
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-slate-200 bg-white hover:border-slate-300"
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
-                {type === 'manual' && <Clock size={16} />}
-                {type === 'scheduled' && <Calendar size={16} />}
-                {type === 'recurring' && <RotateCw size={16} />}
+                {type === "manual" && <Clock size={16} />}
+                {type === "scheduled" && <Calendar size={16} />}
+                {type === "recurring" && <RotateCw size={16} />}
                 <span className="font-medium text-sm capitalize">{type}</span>
               </div>
               <p className="text-xs text-slate-600">
-                {type === 'manual' && 'Send immediately'}
-                {type === 'scheduled' && 'Send at specific time'}
-                {type === 'recurring' && 'Repeat on schedule'}
+                {type === "manual" && "Send immediately"}
+                {type === "scheduled" && "Send at specific time"}
+                {type === "recurring" && "Repeat on schedule"}
               </p>
             </button>
           ))}
@@ -193,21 +220,27 @@ export function CampaignScheduling({
       </div>
 
       {/* Scheduled Options */}
-      {scheduleType === 'scheduled' && (
+      {scheduleType === "scheduled" && (
         <div className="space-y-4 mb-6 p-4 bg-slate-50 rounded-lg">
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">Send Date & Time</label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              Send Date & Time
+            </label>
             <input
               type="datetime-local"
               value={scheduledDateTime}
               onChange={(e) => setScheduledDateTime(e.target.value)}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg"
             />
-            <p className="text-xs text-slate-600 mt-1">Campaign will send at this exact time</p>
+            <p className="text-xs text-slate-600 mt-1">
+              Campaign will send at this exact time
+            </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">Timezone</label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              Timezone
+            </label>
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
@@ -227,26 +260,34 @@ export function CampaignScheduling({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">End Date (Optional)</label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              End Date (Optional)
+            </label>
             <input
               type="datetime-local"
               value={endDateTime}
               onChange={(e) => setEndDateTime(e.target.value)}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg"
             />
-            <p className="text-xs text-slate-600 mt-1">Campaign will stop sending after this time</p>
+            <p className="text-xs text-slate-600 mt-1">
+              Campaign will stop sending after this time
+            </p>
           </div>
         </div>
       )}
 
       {/* Recurring Options */}
-      {scheduleType === 'recurring' && (
+      {scheduleType === "recurring" && (
         <div className="space-y-4 mb-6 p-4 bg-slate-50 rounded-lg">
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">Frequency</label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              Frequency
+            </label>
             <select
               value={frequency}
-              onChange={(e) => setFrequency(e.target.value as RecurrenceFrequency)}
+              onChange={(e) =>
+                setFrequency(e.target.value as RecurrenceFrequency)
+              }
               className="w-full px-4 py-2 border border-slate-300 rounded-lg"
             >
               <option value="daily">Daily</option>
@@ -255,22 +296,34 @@ export function CampaignScheduling({
             </select>
           </div>
 
-          {frequency === 'weekly' && (
+          {frequency === "weekly" && (
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Days of Week</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Days of Week
+              </label>
               <div className="grid grid-cols-7 gap-2">
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                {[
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                  "Sunday",
+                ].map((day) => (
                   <button
                     key={day}
                     onClick={() =>
-                      setDaysOfWeek(prev =>
-                        prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+                      setDaysOfWeek((prev) =>
+                        prev.includes(day)
+                          ? prev.filter((d) => d !== day)
+                          : [...prev, day],
                       )
                     }
                     className={`py-2 rounded text-sm font-medium transition ${
                       daysOfWeek.includes(day)
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:border-slate-300'
+                        ? "bg-blue-500 text-white"
+                        : "bg-white border border-slate-200 text-slate-700 hover:border-slate-300"
                     }`}
                   >
                     {day.slice(0, 3)}
@@ -281,7 +334,9 @@ export function CampaignScheduling({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">Send Time</label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              Send Time
+            </label>
             <input
               type="time"
               value={sendTime}
@@ -291,7 +346,9 @@ export function CampaignScheduling({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">Start Date</label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              Start Date
+            </label>
             <input
               type="date"
               value={recurringStartDate}
@@ -301,7 +358,9 @@ export function CampaignScheduling({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">End Date (Optional)</label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              End Date (Optional)
+            </label>
             <input
               type="date"
               value={recurringEndDate}
@@ -314,11 +373,15 @@ export function CampaignScheduling({
 
       {/* Actions */}
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => setEditing(false)} disabled={loading}>
+        <Button
+          variant="outline"
+          onClick={() => setEditing(false)}
+          disabled={loading}
+        >
           Cancel
         </Button>
         <Button onClick={handleSaveSchedule} disabled={loading}>
-          {loading ? 'Saving...' : 'Save Schedule'}
+          {loading ? "Saving..." : "Save Schedule"}
         </Button>
       </div>
     </Card>

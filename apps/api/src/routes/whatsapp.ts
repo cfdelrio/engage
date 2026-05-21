@@ -1,17 +1,17 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
-import { Queue } from 'bullmq';
-import { asJson } from '../utils/prisma.js';
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
+import { Queue } from "bullmq";
+import { asJson } from "../utils/prisma.js";
 
 const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.addHook('onRequest', fastify.authenticateApiKey);
+  fastify.addHook("onRequest", fastify.authenticateApiKey);
 
   // Schemas
   const createWhatsAppCampaignSchema = z.object({
     name: z.string().min(1),
     description: z.string().optional(),
     body: z.string().min(1),
-    headerType: z.enum(['text', 'image', 'document', 'video']).default('text'),
+    headerType: z.enum(["text", "image", "document", "video"]).default("text"),
     headerValue: z.string().optional(),
     footerText: z.string().optional(),
     buttons: z
@@ -19,7 +19,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         z.object({
           id: z.string(),
           title: z.string(),
-        })
+        }),
       )
       .optional(),
     aiGenerated: z.boolean().default(false),
@@ -31,14 +31,18 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   const updateWhatsAppCampaignSchema = createWhatsAppCampaignSchema.partial();
 
   // GET /v1/whatsapp-campaigns
-  fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { status, limit = 50, offset = 0 } = request.query as {
+  fastify.get("/", async (request: FastifyRequest, _reply: FastifyReply) => {
+    const {
+      status,
+      limit = 50,
+      offset = 0,
+    } = request.query as {
       status?: string;
       limit?: number;
       offset?: number;
     };
 
-    const where: Record<string, any> = { tenantId: request.tenantId };
+    const where: Record<string, unknown> = { tenantId: request.tenantId };
     if (status) where.status = status;
 
     const [campaigns, total] = await Promise.all([
@@ -46,7 +50,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         where,
         skip: offset,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       fastify.prisma.whatsAppCampaign.count({ where }),
     ]);
@@ -55,7 +59,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /v1/whatsapp-campaigns
-  fastify.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post("/", async (request: FastifyRequest, reply: FastifyReply) => {
     const body = createWhatsAppCampaignSchema.parse(request.body);
 
     const campaign = await fastify.prisma.whatsAppCampaign.create({
@@ -79,20 +83,21 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // GET /v1/whatsapp-campaigns/:id
-  fastify.get('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
 
     const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
       where: { id, tenantId: request.tenantId },
     });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
+    if (!campaign)
+      return reply.status(404).send({ error: "Campaign not found" });
 
     return campaign;
   });
 
   // PUT /v1/whatsapp-campaigns/:id
-  fastify.put('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.put("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const body = updateWhatsAppCampaignSchema.parse(request.body);
 
@@ -100,11 +105,12 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       where: { id, tenantId: request.tenantId },
     });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'draft' && campaign.status !== 'paused') {
+    if (!campaign)
+      return reply.status(404).send({ error: "Campaign not found" });
+    if (campaign.status !== "draft" && campaign.status !== "paused") {
       return reply
         .status(400)
-        .send({ error: 'Can only update draft or paused campaigns' });
+        .send({ error: "Can only update draft or paused campaigns" });
     }
 
     const updated = await fastify.prisma.whatsAppCampaign.update({
@@ -119,7 +125,9 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         buttons: body.buttons ? asJson(body.buttons) : undefined,
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
-        audienceFilter: body.audienceFilter ? asJson(body.audienceFilter) : undefined,
+        audienceFilter: body.audienceFilter
+          ? asJson(body.audienceFilter)
+          : undefined,
         maxRetries: body.maxRetries,
       },
     });
@@ -128,192 +136,236 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // DELETE /v1/whatsapp-campaigns/:id
-  fastify.delete('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
+  fastify.delete(
+    "/:id",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
 
-    const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
+      const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'draft') {
-      return reply.status(400).send({ error: 'Can only delete draft campaigns' });
-    }
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
+      if (campaign.status !== "draft") {
+        return reply
+          .status(400)
+          .send({ error: "Can only delete draft campaigns" });
+      }
 
-    await fastify.prisma.whatsAppCampaign.delete({ where: { id } });
+      await fastify.prisma.whatsAppCampaign.delete({ where: { id } });
 
-    return reply.status(204).send();
-  });
+      return reply.status(204).send();
+    },
+  );
 
   // POST /v1/whatsapp-campaigns/:id/start
-  fastify.post('/:id/start', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
+  fastify.post(
+    "/:id/start",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
 
-    const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
+      const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'draft') {
-      return reply.status(400).send({ error: 'Can only start draft campaigns' });
-    }
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
+      if (campaign.status !== "draft") {
+        return reply
+          .status(400)
+          .send({ error: "Can only start draft campaigns" });
+      }
 
-    const updated = await fastify.prisma.whatsAppCampaign.update({
-      where: { id },
-      data: {
-        status: 'active',
-        startAt: new Date(),
-      },
-    });
-
-    // Find users with phone numbers
-    const users = await fastify.prisma.user.findMany({
-      where: { tenantId: request.tenantId, phone: { not: null } },
-      take: 10000,
-    });
-
-    // Create WhatsAppMessage records and enqueue jobs
-    const whatsappQueue = new Queue('whatsapp.messages', { connection: fastify.redis });
-
-    let enqueuedCount = 0;
-    for (const user of users) {
-      if (!user.phone) continue;
-
-      const message = await fastify.prisma.whatsAppMessage.create({
+      const updated = await fastify.prisma.whatsAppCampaign.update({
+        where: { id },
         data: {
-          whatsappCampaignId: id,
-          tenantId: request.tenantId,
-          userId: user.id,
-          phone: user.phone,
-          body: campaign.body,
-          headerType: campaign.headerType,
-          headerValue: campaign.headerValue,
-          footerText: campaign.footerText,
-          buttons: campaign.buttons as any,
-          status: 'queued',
+          status: "active",
+          startAt: new Date(),
         },
       });
 
-      await whatsappQueue.add(
-        'send-whatsapp',
-        {
-          whatsappMessageId: message.id,
-          whatsappCampaignId: id,
-          userId: user.id,
-          phone: user.phone,
-          body: campaign.body,
-          headerType: campaign.headerType,
-          headerValue: campaign.headerValue,
-          footerText: campaign.footerText,
-          buttons: campaign.buttons,
-        },
-        {
-          attempts: campaign.maxRetries + 1,
-          backoff: {
-            type: 'exponential',
-            delay: 2000,
+      // Find users with phone numbers
+      const users = await fastify.prisma.user.findMany({
+        where: { tenantId: request.tenantId, phone: { not: null } },
+        take: 10000,
+      });
+
+      // Create WhatsAppMessage records and enqueue jobs
+      const whatsappQueue = new Queue("whatsapp.messages", {
+        connection: fastify.redis,
+      });
+
+      let enqueuedCount = 0;
+      for (const user of users) {
+        if (!user.phone) continue;
+
+        const message = await fastify.prisma.whatsAppMessage.create({
+          data: {
+            whatsappCampaignId: id,
+            tenantId: request.tenantId,
+            userId: user.id,
+            phone: user.phone,
+            body: campaign.body,
+            headerType: campaign.headerType,
+            headerValue: campaign.headerValue,
+            footerText: campaign.footerText,
+            buttons: campaign.buttons as Array<{ id: string; title: string }>,
+            status: "queued",
           },
-        },
-      );
+        });
 
-      enqueuedCount++;
-    }
+        await whatsappQueue.add(
+          "send-whatsapp",
+          {
+            whatsappMessageId: message.id,
+            whatsappCampaignId: id,
+            userId: user.id,
+            phone: user.phone,
+            body: campaign.body,
+            headerType: campaign.headerType,
+            headerValue: campaign.headerValue,
+            footerText: campaign.footerText,
+            buttons: campaign.buttons,
+          },
+          {
+            attempts: campaign.maxRetries + 1,
+            backoff: {
+              type: "exponential",
+              delay: 2000,
+            },
+          },
+        );
 
-    await whatsappQueue.close();
+        enqueuedCount++;
+      }
 
-    return reply.send({ ...updated, enqueuedCount, message: `${enqueuedCount} WhatsApp messages enqueued for sending` });
-  });
+      await whatsappQueue.close();
+
+      return reply.send({
+        ...updated,
+        enqueuedCount,
+        message: `${enqueuedCount} WhatsApp messages enqueued for sending`,
+      });
+    },
+  );
 
   // POST /v1/whatsapp-campaigns/:id/pause
-  fastify.post('/:id/pause', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
+  fastify.post(
+    "/:id/pause",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
 
-    const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
+      const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'active') {
-      return reply.status(400).send({ error: 'Can only pause active campaigns' });
-    }
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
+      if (campaign.status !== "active") {
+        return reply
+          .status(400)
+          .send({ error: "Can only pause active campaigns" });
+      }
 
-    const updated = await fastify.prisma.whatsAppCampaign.update({
-      where: { id },
-      data: { status: 'paused' },
-    });
+      const updated = await fastify.prisma.whatsAppCampaign.update({
+        where: { id },
+        data: { status: "paused" },
+      });
 
-    return updated;
-  });
+      return updated;
+    },
+  );
 
   // GET /v1/whatsapp-campaigns/:id/messages
-  fastify.get('/:id/messages', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const { limit = 50, offset = 0, status } = request.query as {
-      limit?: number;
-      offset?: number;
-      status?: string;
-    };
+  fastify.get(
+    "/:id/messages",
+    async (request: FastifyRequest, _reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const {
+        limit = 50,
+        offset = 0,
+        status,
+      } = request.query as {
+        limit?: number;
+        offset?: number;
+        status?: string;
+      };
 
-    const where: Record<string, any> = { whatsappCampaignId: id, tenantId: request.tenantId };
-    if (status) where.status = status;
+      const where: Record<string, unknown> = {
+        whatsappCampaignId: id,
+        tenantId: request.tenantId,
+      };
+      if (status) where.status = status;
 
-    const [messages, total] = await Promise.all([
-      fastify.prisma.whatsAppMessage.findMany({
-        where,
-        skip: offset,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: { interactions: true },
-      }),
-      fastify.prisma.whatsAppMessage.count({ where }),
-    ]);
+      const [messages, total] = await Promise.all([
+        fastify.prisma.whatsAppMessage.findMany({
+          where,
+          skip: offset,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          include: { interactions: true },
+        }),
+        fastify.prisma.whatsAppMessage.count({ where }),
+      ]);
 
-    return { messages, total };
-  });
+      return { messages, total };
+    },
+  );
 
   // GET /v1/whatsapp-campaigns/:id/metrics
-  fastify.get('/:id/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const { granularity = 'hour', since } = request.query as {
-      granularity?: 'hour' | 'day' | 'week';
-      since?: string;
-    };
+  fastify.get(
+    "/:id/metrics",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const { granularity: _granularity = "hour", since } = request.query as {
+        granularity?: "hour" | "day" | "week";
+        since?: string;
+      };
 
-    const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
-    });
+      const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
 
-    if (!campaign) return reply.status(404).send({ error: 'Campaign not found' });
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
 
-    const sinceDate = since ? new Date(since) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const sinceDate = since
+        ? new Date(since)
+        : new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    const messages = await fastify.prisma.whatsAppMessage.findMany({
-      where: { whatsappCampaignId: id, createdAt: { gte: sinceDate } },
-    });
+      const messages = await fastify.prisma.whatsAppMessage.findMany({
+        where: { whatsappCampaignId: id, createdAt: { gte: sinceDate } },
+      });
 
-    const stats = {
-      sent: messages.length,
-      delivered: messages.filter((m) => m.deliveredAt).length,
-      read: messages.filter((m) => m.readAt).length,
-      failed: messages.filter((m) => m.failedAt).length,
-    };
+      const stats = {
+        sent: messages.length,
+        delivered: messages.filter((m) => m.deliveredAt).length,
+        read: messages.filter((m) => m.readAt).length,
+        failed: messages.filter((m) => m.failedAt).length,
+      };
 
-    const deliveryRate = stats.sent > 0 ? Math.round((stats.delivered / stats.sent) * 100) : 0;
-    const readRate = stats.delivered > 0 ? Math.round((stats.read / stats.delivered) * 100) : 0;
+      const deliveryRate =
+        stats.sent > 0 ? Math.round((stats.delivered / stats.sent) * 100) : 0;
+      const readRate =
+        stats.delivered > 0
+          ? Math.round((stats.read / stats.delivered) * 100)
+          : 0;
 
-    return {
-      campaignId: id,
-      stats: {
-        ...stats,
-        deliveryRate,
-        readRate,
-      },
-      timeline: await fastify.prisma.whatsAppMetric.findMany({
-        where: { campaignId: id },
-        orderBy: { date: 'asc' },
-      }),
-    };
-  });
+      return {
+        campaignId: id,
+        stats: {
+          ...stats,
+          deliveryRate,
+          readRate,
+        },
+        timeline: await fastify.prisma.whatsAppMetric.findMany({
+          where: { campaignId: id },
+          orderBy: { date: "asc" },
+        }),
+      };
+    },
+  );
 };
 
 export default whatsappCampaignsRoutes;

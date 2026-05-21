@@ -1,19 +1,21 @@
-import type { FastifyPluginAsync } from 'fastify';
-import { createHash } from 'crypto';
-import { z } from 'zod';
-import { prisma } from '@engage/database';
+import type { FastifyPluginAsync } from "fastify";
+import { createHash } from "crypto";
+import { z } from "zod";
+import { prisma } from "@engage/database";
 import type {
   UserPreferenceResponse,
-  UpdateUserPreferenceRequest,
   BulkUpdateUserPreferenceRequest,
   ApiErrorResponse,
-} from '@engage/core';
-import { generatePreferenceToken, getTokenPrefix } from '../plugins/preference-token-auth.js';
+} from "@engage/core";
+import {
+  generatePreferenceToken,
+  getTokenPrefix,
+} from "../plugins/preference-token-auth.js";
 
 const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.addHook('onRequest', fastify.authenticateApiKey);
+  fastify.addHook("onRequest", fastify.authenticateApiKey);
 
-  const VALID_CHANNELS = ['email', 'sms', 'push', 'whatsapp', 'voice'];
+  const _VALID_CHANNELS = ["email", "sms", "push", "whatsapp", "voice"];
 
   const updatePreferenceSchema = z.object({
     channel: z.string().min(1),
@@ -27,87 +29,108 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /v1/users/:userId/preferences
    * List all preferences for a user
    */
-  fastify.get<{ Params: { userId: string }; Reply: UserPreferenceResponse[] | ApiErrorResponse }>(
-    '/users/:userId/preferences',
-    async (request, reply) => {
-      try {
-        const { userId } = request.params;
+  fastify.get<{
+    Params: { userId: string };
+    Reply: UserPreferenceResponse[] | ApiErrorResponse;
+  }>("/users/:userId/preferences", async (request, reply) => {
+    try {
+      const { userId } = request.params;
 
-        // Verify user exists in tenant
-        const user = await prisma.user.findFirst({
-          where: { id: userId, tenantId: request.tenantId },
-        });
+      // Verify user exists in tenant
+      const user = await prisma.user.findFirst({
+        where: { id: userId, tenantId: request.tenantId },
+      });
 
-        if (!user) {
-          return reply.status(404).send({ error: 'User not found', code: 'NOT_FOUND' } as ApiErrorResponse);
-        }
-
-        const preferences = await prisma.userPreference.findMany({
-          where: { userId, tenantId: request.tenantId },
-          orderBy: [{ channel: 'asc' }, { category: 'asc' }],
-        });
-
-        return reply.status(200).send(
-          preferences.map((p) => ({
-            userId: p.userId,
-            tenantId: p.tenantId,
-            channel: p.channel,
-            category: p.category,
-            enabled: p.enabled,
-            quietHoursStart: p.quietHoursStart,
-            quietHoursEnd: p.quietHoursEnd,
-            updatedAt: p.updatedAt.toISOString(),
-          })) as UserPreferenceResponse[],
-        );
-      } catch (err) {
-        request.log.error(err);
-        return reply.status(500).send({ error: 'Failed to fetch preferences', code: 'INTERNAL_ERROR' } as ApiErrorResponse);
+      if (!user) {
+        return reply
+          .status(404)
+          .send({
+            error: "User not found",
+            code: "NOT_FOUND",
+          } as ApiErrorResponse);
       }
-    },
-  );
+
+      const preferences = await prisma.userPreference.findMany({
+        where: { userId, tenantId: request.tenantId },
+        orderBy: [{ channel: "asc" }, { category: "asc" }],
+      });
+
+      return reply.status(200).send(
+        preferences.map((p) => ({
+          userId: p.userId,
+          tenantId: p.tenantId,
+          channel: p.channel,
+          category: p.category,
+          enabled: p.enabled,
+          quietHoursStart: p.quietHoursStart,
+          quietHoursEnd: p.quietHoursEnd,
+          updatedAt: p.updatedAt.toISOString(),
+        })) as UserPreferenceResponse[],
+      );
+    } catch (err) {
+      request.log.error(err);
+      return reply
+        .status(500)
+        .send({
+          error: "Failed to fetch preferences",
+          code: "INTERNAL_ERROR",
+        } as ApiErrorResponse);
+    }
+  });
 
   /**
    * GET /v1/users/:userId/preferences/:channel
    * Get preference for a specific channel
    */
-  fastify.get<{ Params: { userId: string; channel: string }; Reply: UserPreferenceResponse | ApiErrorResponse }>(
-    '/users/:userId/preferences/:channel',
-    async (request, reply) => {
-      try {
-        const { userId, channel } = request.params;
-        const category = (request.query as any).category || 'all';
+  fastify.get<{
+    Params: { userId: string; channel: string };
+    Reply: UserPreferenceResponse | ApiErrorResponse;
+  }>("/users/:userId/preferences/:channel", async (request, reply) => {
+    try {
+      const { userId, channel } = request.params;
+      const category =
+        (request.query as Record<string, string | undefined>).category ?? "all";
 
-        const preference = await prisma.userPreference.findUnique({
-          where: {
-            userId_tenantId_channel_category: {
-              userId,
-              tenantId: request.tenantId,
-              channel,
-              category,
-            },
+      const preference = await prisma.userPreference.findUnique({
+        where: {
+          userId_tenantId_channel_category: {
+            userId,
+            tenantId: request.tenantId,
+            channel,
+            category,
           },
-        });
+        },
+      });
 
-        if (!preference) {
-          return reply.status(404).send({ error: 'Preference not found', code: 'NOT_FOUND' } as ApiErrorResponse);
-        }
-
-        return reply.status(200).send({
-          userId: preference.userId,
-          tenantId: preference.tenantId,
-          channel: preference.channel,
-          category: preference.category,
-          enabled: preference.enabled,
-          quietHoursStart: preference.quietHoursStart,
-          quietHoursEnd: preference.quietHoursEnd,
-          updatedAt: preference.updatedAt.toISOString(),
-        } as UserPreferenceResponse);
-      } catch (err) {
-        request.log.error(err);
-        return reply.status(500).send({ error: 'Failed to fetch preference', code: 'INTERNAL_ERROR' } as ApiErrorResponse);
+      if (!preference) {
+        return reply
+          .status(404)
+          .send({
+            error: "Preference not found",
+            code: "NOT_FOUND",
+          } as ApiErrorResponse);
       }
-    },
-  );
+
+      return reply.status(200).send({
+        userId: preference.userId,
+        tenantId: preference.tenantId,
+        channel: preference.channel,
+        category: preference.category,
+        enabled: preference.enabled,
+        quietHoursStart: preference.quietHoursStart,
+        quietHoursEnd: preference.quietHoursEnd,
+        updatedAt: preference.updatedAt.toISOString(),
+      } as UserPreferenceResponse);
+    } catch (err) {
+      request.log.error(err);
+      return reply
+        .status(500)
+        .send({
+          error: "Failed to fetch preference",
+          code: "INTERNAL_ERROR",
+        } as ApiErrorResponse);
+    }
+  });
 
   /**
    * PUT /v1/users/:userId/preferences
@@ -117,7 +140,7 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
     Params: { userId: string };
     Body: BulkUpdateUserPreferenceRequest;
     Reply: UserPreferenceResponse[] | ApiErrorResponse;
-  }>('/users/:userId/preferences', async (request, reply) => {
+  }>("/users/:userId/preferences", async (request, reply) => {
     try {
       const { userId } = request.params;
       const { preferences } = z
@@ -132,7 +155,12 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!user) {
-        return reply.status(404).send({ error: 'User not found', code: 'NOT_FOUND' } as ApiErrorResponse);
+        return reply
+          .status(404)
+          .send({
+            error: "User not found",
+            code: "NOT_FOUND",
+          } as ApiErrorResponse);
       }
 
       // Update all preferences
@@ -144,22 +172,26 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
                 userId,
                 tenantId: request.tenantId,
                 channel: pref.channel,
-                category: pref.category || 'all',
+                category: pref.category || "all",
               },
             },
             create: {
               userId,
               tenantId: request.tenantId,
               channel: pref.channel,
-              category: pref.category || 'all',
+              category: pref.category || "all",
               enabled: pref.enabled ?? true,
               quietHoursStart: pref.quietHoursStart ?? null,
               quietHoursEnd: pref.quietHoursEnd ?? null,
             },
             update: {
               ...(pref.enabled !== undefined ? { enabled: pref.enabled } : {}),
-              ...(pref.quietHoursStart !== undefined ? { quietHoursStart: pref.quietHoursStart } : {}),
-              ...(pref.quietHoursEnd !== undefined ? { quietHoursEnd: pref.quietHoursEnd } : {}),
+              ...(pref.quietHoursStart !== undefined
+                ? { quietHoursStart: pref.quietHoursStart }
+                : {}),
+              ...(pref.quietHoursEnd !== undefined
+                ? { quietHoursEnd: pref.quietHoursEnd }
+                : {}),
             },
           }),
         ),
@@ -179,7 +211,12 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
       );
     } catch (err) {
       request.log.error(err);
-      return reply.status(500).send({ error: 'Failed to update preferences', code: 'INTERNAL_ERROR' } as ApiErrorResponse);
+      return reply
+        .status(500)
+        .send({
+          error: "Failed to update preferences",
+          code: "INTERNAL_ERROR",
+        } as ApiErrorResponse);
     }
   });
 
@@ -187,54 +224,65 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
    * DELETE /v1/users/:userId/preferences/:channel
    * Disable a channel (soft delete)
    */
-  fastify.delete<{ Params: { userId: string; channel: string }; Reply: void | ApiErrorResponse }>(
-    '/users/:userId/preferences/:channel',
-    async (request, reply) => {
-      try {
-        const { userId, channel } = request.params;
-        const category = (request.query as any).category || 'all';
+  fastify.delete<{
+    Params: { userId: string; channel: string };
+    Reply: void | ApiErrorResponse;
+  }>("/users/:userId/preferences/:channel", async (request, reply) => {
+    try {
+      const { userId, channel } = request.params;
+      const category =
+        (request.query as Record<string, string | undefined>).category ?? "all";
 
-        const preference = await prisma.userPreference.findUnique({
-          where: {
-            userId_tenantId_channel_category: {
-              userId,
-              tenantId: request.tenantId,
-              channel,
-              category,
-            },
+      const preference = await prisma.userPreference.findUnique({
+        where: {
+          userId_tenantId_channel_category: {
+            userId,
+            tenantId: request.tenantId,
+            channel,
+            category,
           },
-        });
+        },
+      });
 
-        if (!preference) {
-          return reply.status(404).send({ error: 'Preference not found', code: 'NOT_FOUND' } as ApiErrorResponse);
-        }
-
-        await prisma.userPreference.update({
-          where: {
-            userId_tenantId_channel_category: {
-              userId,
-              tenantId: request.tenantId,
-              channel,
-              category,
-            },
-          },
-          data: { enabled: false },
-        });
-
-        return reply.status(204);
-      } catch (err) {
-        request.log.error(err);
-        return reply.status(500).send({ error: 'Failed to disable preference', code: 'INTERNAL_ERROR' } as ApiErrorResponse);
+      if (!preference) {
+        return reply
+          .status(404)
+          .send({
+            error: "Preference not found",
+            code: "NOT_FOUND",
+          } as ApiErrorResponse);
       }
-    },
-  );
+
+      await prisma.userPreference.update({
+        where: {
+          userId_tenantId_channel_category: {
+            userId,
+            tenantId: request.tenantId,
+            channel,
+            category,
+          },
+        },
+        data: { enabled: false },
+      });
+
+      return reply.status(204);
+    } catch (err) {
+      request.log.error(err);
+      return reply
+        .status(500)
+        .send({
+          error: "Failed to disable preference",
+          code: "INTERNAL_ERROR",
+        } as ApiErrorResponse);
+    }
+  });
 
   /**
    * POST /v1/users/:userId/preferences/reset
    * Reset preferences to defaults (all channels enabled, no quiet hours)
    */
   fastify.post<{ Params: { userId: string }; Reply: void | ApiErrorResponse }>(
-    '/users/:userId/preferences/reset',
+    "/users/:userId/preferences/reset",
     async (request, reply) => {
       try {
         const { userId } = request.params;
@@ -245,7 +293,12 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         if (!user) {
-          return reply.status(404).send({ error: 'User not found', code: 'NOT_FOUND' } as ApiErrorResponse);
+          return reply
+            .status(404)
+            .send({
+              error: "User not found",
+              code: "NOT_FOUND",
+            } as ApiErrorResponse);
         }
 
         // Delete all preferences (will revert to defaults on next query)
@@ -256,7 +309,12 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(204);
       } catch (err) {
         request.log.error(err);
-        return reply.status(500).send({ error: 'Failed to reset preferences', code: 'INTERNAL_ERROR' } as ApiErrorResponse);
+        return reply
+          .status(500)
+          .send({
+            error: "Failed to reset preferences",
+            code: "INTERNAL_ERROR",
+          } as ApiErrorResponse);
       }
     },
   );
@@ -267,58 +325,86 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.post<{
     Params: { userId: string };
-    Reply: { token: string; tokenPrefix: string; expiresAt: string | null; url: string } | ApiErrorResponse;
-  }>(
-    '/users/:userId/preferences/token',
-    async (request, reply) => {
-      try {
-        const { userId } = request.params;
-
-        // Verify user exists in tenant
-        const user = await prisma.user.findFirst({
-          where: { id: userId, tenantId: request.tenantId },
-        });
-
-        if (!user) {
-          return reply.status(404).send({ error: 'User not found', code: 'NOT_FOUND' } as ApiErrorResponse);
+    Reply:
+      | {
+          token: string;
+          tokenPrefix: string;
+          expiresAt: string | null;
+          url: string;
         }
+      | ApiErrorResponse;
+  }>("/users/:userId/preferences/token", async (request, reply) => {
+    try {
+      const { userId } = request.params;
 
-        // Generate new token
-        const token = generatePreferenceToken();
-        const tokenHash = createHash('sha256').update(token).digest('hex');
-        const tokenPrefix = getTokenPrefix(token);
+      // Verify user exists in tenant
+      const user = await prisma.user.findFirst({
+        where: { id: userId, tenantId: request.tenantId },
+      });
 
-        // Calculate expiry (30 days from now)
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
-
-        // Store in database
-        const preferenceToken = await (prisma as any).preferenceToken.create({
-          data: {
-            userId,
-            tenantId: request.tenantId,
-            tokenHash,
-            tokenPrefix,
-            expiresAt,
-          },
-        });
-
-        // Build public preferences URL
-        const baseUrl = process.env['PUBLIC_URL'] || 'https://app.example.com';
-        const preferencesUrl = `${baseUrl}/public/preferences/${token}`;
-
-        return reply.status(201).send({
-          token,
-          tokenPrefix: preferenceToken.tokenPrefix,
-          expiresAt: preferenceToken.expiresAt?.toISOString() || null,
-          url: preferencesUrl,
-        });
-      } catch (err) {
-        request.log.error(err);
-        return reply.status(500).send({ error: 'Failed to generate preference token', code: 'INTERNAL_ERROR' } as ApiErrorResponse);
+      if (!user) {
+        return reply
+          .status(404)
+          .send({
+            error: "User not found",
+            code: "NOT_FOUND",
+          } as ApiErrorResponse);
       }
-    },
-  );
+
+      // Generate new token
+      const token = generatePreferenceToken();
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      const tokenPrefix = getTokenPrefix(token);
+
+      // Calculate expiry (30 days from now)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      // Store in database
+      type PrismaWithPreferenceToken = {
+        preferenceToken: {
+          create(args: {
+            data: {
+              userId: string;
+              tenantId: string;
+              tokenHash: string;
+              tokenPrefix: string;
+              expiresAt: Date;
+            };
+          }): Promise<{ tokenPrefix: string; expiresAt: Date | null }>;
+        };
+      };
+      const prismaExt = prisma as unknown as PrismaWithPreferenceToken;
+      const preferenceToken = await prismaExt.preferenceToken.create({
+        data: {
+          userId,
+          tenantId: request.tenantId,
+          tokenHash,
+          tokenPrefix,
+          expiresAt,
+        },
+      });
+
+      // Build public preferences URL
+      const baseUrl = process.env["PUBLIC_URL"] || "https://app.example.com";
+      const preferencesUrl = `${baseUrl}/public/preferences/${token}`;
+
+      return reply.status(201).send({
+        token,
+        tokenPrefix: preferenceToken.tokenPrefix,
+        expiresAt: preferenceToken.expiresAt?.toISOString() || null,
+        url: preferencesUrl,
+      });
+    } catch (err) {
+      request.log.error(err);
+      return reply
+        .status(500)
+        .send({
+          error: "Failed to generate preference token",
+          code: "INTERNAL_ERROR",
+        } as ApiErrorResponse);
+    }
+  });
 };
 
 export default userPreferencesRoutes;

@@ -1,19 +1,9 @@
-import { FastifyInstance } from 'fastify';
-import { z } from 'zod';
-import { authenticatePreferenceToken } from '../plugins/preference-token-auth.js';
-
-const UserPreferenceResponseSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
-  channel: z.enum(['email', 'sms', 'push', 'whatsapp', 'voice']),
-  category: z.string().optional(),
-  enabled: z.boolean(),
-  quietHoursStart: z.number().int().min(0).max(1439).nullable(),
-  quietHoursEnd: z.number().int().min(0).max(1439).nullable(),
-});
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import { authenticatePreferenceToken } from "../plugins/preference-token-auth.js";
 
 const UpdatePreferenceSchema = z.object({
-  channel: z.enum(['email', 'sms', 'push', 'whatsapp', 'voice']),
+  channel: z.enum(["email", "sms", "push", "whatsapp", "voice"]),
   category: z.string().optional(),
   enabled: z.boolean().optional(),
   quietHoursStart: z.number().int().min(0).max(1439).nullable().optional(),
@@ -21,13 +11,22 @@ const UpdatePreferenceSchema = z.object({
 });
 
 const UpdateMultiplePreferencesSchema = z.object({
-  preferences: z.array(UpdatePreferenceSchema.required({
-    channel: true,
-  })),
+  preferences: z.array(
+    UpdatePreferenceSchema.required({
+      channel: true,
+    }),
+  ),
 });
 
-type UserPreferenceResponse = z.infer<typeof UserPreferenceResponseSchema>;
-type UpdatePreferenceRequest = z.infer<typeof UpdatePreferenceSchema>;
+type UserPreferenceResponse = {
+  id: string;
+  userId: string;
+  channel: "email" | "sms" | "push" | "whatsapp" | "voice";
+  category?: string;
+  enabled: boolean;
+  quietHoursStart: number | null;
+  quietHoursEnd: number | null;
+};
 
 export interface PublicPreferencesResponse {
   preferences: UserPreferenceResponse[];
@@ -41,10 +40,13 @@ export interface PublicPreferencesResponse {
 export async function publicPreferencesRoutes(app: FastifyInstance) {
   // GET /v1/public/preferences - Fetch user preferences
   app.get(
-    '/v1/public/preferences',
+    "/v1/public/preferences",
     { onRequest: authenticatePreferenceToken },
     async (request, reply) => {
-      const { userId, tenantId } = request.preferenceToken!;
+      if (!request.preferenceToken) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+      const { userId, tenantId } = request.preferenceToken;
       const query = request.query as { category?: string; channel?: string };
       const { category, channel } = query;
 
@@ -59,10 +61,10 @@ export async function publicPreferencesRoutes(app: FastifyInstance) {
         });
 
         if (!user) {
-          return reply.status(404).send({ error: 'User not found' });
+          return reply.status(404).send({ error: "User not found" });
         }
 
-        const filter: any = { userId, tenantId };
+        const filter: Record<string, string> = { userId, tenantId };
         if (channel) filter.channel = channel;
         if (category) {
           filter.category = category;
@@ -70,19 +72,32 @@ export async function publicPreferencesRoutes(app: FastifyInstance) {
 
         const preferences = await app.prisma.userPreference.findMany({
           where: filter,
-          orderBy: [{ channel: 'asc' }, { category: 'asc' }],
+          orderBy: [{ channel: "asc" }, { category: "asc" }],
         });
 
+        const validChannels = [
+          "email",
+          "sms",
+          "push",
+          "whatsapp",
+          "voice",
+        ] as const;
+        type ValidChannel = (typeof validChannels)[number];
+        const isValidChannel = (c: string): c is ValidChannel =>
+          validChannels.includes(c as ValidChannel);
+
         const response: PublicPreferencesResponse = {
-          preferences: preferences.map(p => ({
-            id: p.id,
-            userId: p.userId,
-            channel: p.channel as any,
-            category: p.category || undefined,
-            enabled: p.enabled,
-            quietHoursStart: p.quietHoursStart,
-            quietHoursEnd: p.quietHoursEnd,
-          })),
+          preferences: preferences
+            .filter((p) => isValidChannel(p.channel))
+            .map((p) => ({
+              id: p.id,
+              userId: p.userId,
+              channel: p.channel as ValidChannel,
+              category: p.category || undefined,
+              enabled: p.enabled,
+              quietHoursStart: p.quietHoursStart,
+              quietHoursEnd: p.quietHoursEnd,
+            })),
           user: {
             email: user.email || undefined,
             phone: user.phone || undefined,
@@ -92,18 +107,21 @@ export async function publicPreferencesRoutes(app: FastifyInstance) {
 
         return reply.send(response);
       } catch (error) {
-        app.log.error(error, 'Failed to fetch preferences');
-        return reply.status(500).send({ error: 'Internal server error' });
+        app.log.error(error, "Failed to fetch preferences");
+        return reply.status(500).send({ error: "Internal server error" });
       }
     },
   );
 
   // PUT /v1/public/preferences - Update preferences
-  app.put<{ Body: any }>(
-    '/v1/public/preferences',
+  app.put(
+    "/v1/public/preferences",
     { onRequest: authenticatePreferenceToken },
     async (request, reply) => {
-      const { userId, tenantId } = request.preferenceToken!;
+      if (!request.preferenceToken) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+      const { userId, tenantId } = request.preferenceToken;
 
       try {
         const parsed = UpdateMultiplePreferencesSchema.parse(request.body);
@@ -122,12 +140,30 @@ export async function publicPreferencesRoutes(app: FastifyInstance) {
             },
           });
 
+          const validChannels = [
+            "email",
+            "sms",
+            "push",
+            "whatsapp",
+            "voice",
+          ] as const;
+          type ValidChannel = (typeof validChannels)[number];
+          const isValidChannel = (c: string): c is ValidChannel =>
+            validChannels.includes(c as ValidChannel);
+
           if (preference) {
             // Update existing
-            const updateData: any = {};
-            if (update.enabled !== undefined) updateData.enabled = update.enabled;
-            if ('quietHoursStart' in update) updateData.quietHoursStart = update.quietHoursStart;
-            if ('quietHoursEnd' in update) updateData.quietHoursEnd = update.quietHoursEnd;
+            const updateData: {
+              enabled?: boolean;
+              quietHoursStart?: number | null;
+              quietHoursEnd?: number | null;
+            } = {};
+            if (update.enabled !== undefined)
+              updateData.enabled = update.enabled;
+            if ("quietHoursStart" in update)
+              updateData.quietHoursStart = update.quietHoursStart;
+            if ("quietHoursEnd" in update)
+              updateData.quietHoursEnd = update.quietHoursEnd;
 
             preference = await app.prisma.userPreference.update({
               where: { id: preference.id },
@@ -135,26 +171,25 @@ export async function publicPreferencesRoutes(app: FastifyInstance) {
             });
           } else {
             // Create new
-            const createData: any = {
-              userId,
-              tenantId,
-              channel: update.channel,
-              enabled: update.enabled !== false,
-              quietHoursStart: update.quietHoursStart ?? null,
-              quietHoursEnd: update.quietHoursEnd ?? null,
-            };
-            if (update.category) {
-              createData.category = update.category;
-            }
             preference = await app.prisma.userPreference.create({
-              data: createData,
+              data: {
+                userId,
+                tenantId,
+                channel: update.channel,
+                category: update.category,
+                enabled: update.enabled !== false,
+                quietHoursStart: update.quietHoursStart ?? null,
+                quietHoursEnd: update.quietHoursEnd ?? null,
+              },
             });
           }
 
           updated.push({
             id: preference.id,
             userId: preference.userId,
-            channel: preference.channel as any,
+            channel: isValidChannel(preference.channel)
+              ? preference.channel
+              : "email",
             category: preference.category || undefined,
             enabled: preference.enabled,
             quietHoursStart: preference.quietHoursStart,
@@ -166,23 +201,26 @@ export async function publicPreferencesRoutes(app: FastifyInstance) {
       } catch (error) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({
-            error: 'Validation error',
+            error: "Validation error",
             details: error.errors,
           });
         }
 
-        app.log.error(error, 'Failed to update preferences');
-        return reply.status(500).send({ error: 'Internal server error' });
+        app.log.error(error, "Failed to update preferences");
+        return reply.status(500).send({ error: "Internal server error" });
       }
     },
   );
 
   // POST /v1/public/preferences/opt-out - Global unsubscribe
   app.post(
-    '/v1/public/preferences/opt-out',
+    "/v1/public/preferences/opt-out",
     { onRequest: authenticatePreferenceToken },
     async (request, reply) => {
-      const { userId, tenantId } = request.preferenceToken!;
+      if (!request.preferenceToken) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+      const { userId, tenantId } = request.preferenceToken;
 
       try {
         // Disable all channels
@@ -196,15 +234,15 @@ export async function publicPreferencesRoutes(app: FastifyInstance) {
           data: {
             userId,
             tenantId,
-            channel: 'all' as any,
-            reason: 'user_request',
+            channel: "all",
+            reason: "user_request",
           },
         });
 
-        return reply.send({ success: true, message: 'Successfully opted out' });
+        return reply.send({ success: true, message: "Successfully opted out" });
       } catch (error) {
-        app.log.error(error, 'Failed to opt out');
-        return reply.status(500).send({ error: 'Internal server error' });
+        app.log.error(error, "Failed to opt out");
+        return reply.status(500).send({ error: "Internal server error" });
       }
     },
   );

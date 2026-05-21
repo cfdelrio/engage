@@ -39,4 +39,6 @@ COPY --from=builder --chown=engage:nodejs /app/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=engage:nodejs /app/apps/api/package.json ./apps/api/
 USER engage
 EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3001/health || exit 1
 CMD ["node", "apps/api/dist/index.js"]

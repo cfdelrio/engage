@@ -1,10 +1,11 @@
-import type { Job } from 'bullmq';
-import type { PrismaClient } from '@engage/database';
-import type { Redis } from 'ioredis';
-import { QUEUES, isQuietHours, REDIS_KEYS } from '@engage/core';
-import { getQueue } from '@engage/event-bus';
-import type { DeliveryJobPayload } from './event-processor.js';
-import Handlebars from 'handlebars';
+import type { Job } from "bullmq";
+import type { PrismaClient } from "@engage/database";
+import type { Redis } from "ioredis";
+import { QUEUES, isQuietHours, REDIS_KEYS } from "@engage/core";
+import type { QueueName } from "@engage/core";
+import { getQueue } from "@engage/event-bus";
+import type { DeliveryJobPayload } from "./event-processor.js";
+import Handlebars from "handlebars";
 
 export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
   return async (job: Job<DeliveryJobPayload>) => {
@@ -12,7 +13,9 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
 
     try {
       const [decision, user, preferences, unsubscribes] = await Promise.all([
-        db.engagementDecision.findUniqueOrThrow({ where: { id: engagementDecisionId } }),
+        db.engagementDecision.findUniqueOrThrow({
+          where: { id: engagementDecisionId },
+        }),
         db.user.findUniqueOrThrow({ where: { id: userId } }),
         db.userPreference.findMany({ where: { userId, tenantId, channel } }),
         db.globalUnsubscribe.findMany({ where: { userId, tenantId, channel } }),
@@ -21,61 +24,92 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       const suppress = async (reason: string) => {
         await db.delivery.create({
           data: {
-            tenantId, engagementDecisionId, userId, channel,
-            provider: 'none', status: 'suppressed', payload: {},
+            tenantId,
+            engagementDecisionId,
+            userId,
+            channel,
+            provider: "none",
+            status: "suppressed",
+            payload: {},
             metadata: { reason },
           },
         });
       };
 
       // ─── Suppression checks ───────────────────────────────────────────────
-      if (unsubscribes.length > 0) { await suppress('global_unsubscribe'); return; }
+      if (unsubscribes.length > 0) {
+        await suppress("global_unsubscribe");
+        return;
+      }
 
-      const pref = preferences.find((p) => p.category === 'all');
-      if (pref?.enabled === false) { await suppress('user_preference_disabled'); return; }
+      const pref = preferences.find((p) => p.category === "all");
+      if (pref?.enabled === false) {
+        await suppress("user_preference_disabled");
+        return;
+      }
 
       if (pref?.quietHoursStart != null && pref?.quietHoursEnd != null) {
-        if (isQuietHours(user.timezone, pref.quietHoursStart, pref.quietHoursEnd)) {
-          await suppress('quiet_hours');
+        if (
+          isQuietHours(user.timezone, pref.quietHoursStart, pref.quietHoursEnd)
+        ) {
+          await suppress("quiet_hours");
           return;
         }
       }
 
       // ─── Category-specific preferences ────────────────────────────────────
-      const decisionCategory = (decision.reasoning as Record<string, unknown> | null)?.['category'] as string | undefined ?? 'all';
-      const categoryPref = preferences.find((p) => p.category === decisionCategory);
+      const decisionCategory =
+        ((decision.reasoning as Record<string, unknown> | null)?.[
+          "category"
+        ] as string | undefined) ?? "all";
+      const categoryPref = preferences.find(
+        (p) => p.category === decisionCategory,
+      );
       if (categoryPref?.enabled === false) {
-        await suppress('category_preference_disabled');
+        await suppress("category_preference_disabled");
         return;
       }
 
       // ─── Frequency cap ────────────────────────────────────────────────────
       const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, channel);
-      const currentCount = parseInt(await redis.get(capKey) ?? '0', 10);
-      const tenant = await db.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+      const currentCount = parseInt((await redis.get(capKey)) ?? "0", 10);
+      const tenant = await db.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+      });
       const settings = tenant.settings as Record<string, unknown>;
-      const maxPerHour = (settings['maxFrequencyPerHour'] as number | undefined) ?? 2;
+      const maxPerHour =
+        (settings["maxFrequencyPerHour"] as number | undefined) ?? 2;
 
       if (currentCount >= maxPerHour) {
-        await suppress('frequency_cap');
+        await suppress("frequency_cap");
         return;
       }
 
       const ttl = await redis.ttl(capKey);
       if (ttl < 0) {
-        await redis.setex(capKey, 3600, '1');
+        await redis.setex(capKey, 3600, "1");
       } else {
         await redis.incr(capKey);
       }
 
       // ─── Validate recipient ───────────────────────────────────────────────
-      if (channel === 'email' && !user.email) { await suppress('no_email'); return; }
-      if ((channel === 'sms' || channel === 'whatsapp' || channel === 'voice') && !user.phone) {
-        await suppress('no_phone'); return;
+      if (channel === "email" && !user.email) {
+        await suppress("no_email");
+        return;
       }
-      if (channel === 'push') {
+      if (
+        (channel === "sms" || channel === "whatsapp" || channel === "voice") &&
+        !user.phone
+      ) {
+        await suppress("no_phone");
+        return;
+      }
+      if (channel === "push") {
         const tokens = user.deviceTokens as string[] | null;
-        if (!tokens || tokens.length === 0) { await suppress('no_device_token'); return; }
+        if (!tokens || tokens.length === 0) {
+          await suppress("no_device_token");
+          return;
+        }
       }
 
       // ─── Resolve provider ─────────────────────────────────────────────────
@@ -83,28 +117,42 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         where: { tenantId, channel, isActive: true, isDefault: true },
       });
 
-      if (!providerRecord) { await suppress('no_provider_configured'); return; }
+      if (!providerRecord) {
+        await suppress("no_provider_configured");
+        return;
+      }
 
       // ─── Build payload ────────────────────────────────────────────────────
-      const event = await db.event.findUniqueOrThrow({ where: { id: decision.eventId } });
+      const event = await db.event.findUniqueOrThrow({
+        where: { id: decision.eventId },
+      });
       const eventPayload = event.payload as Record<string, unknown>;
-      const userPayload = { ...eventPayload, user: { id: user.id, email: user.email, phone: user.phone, ...(user.metadata as object) } };
+      const userPayload = {
+        ...eventPayload,
+        user: {
+          id: user.id,
+          email: user.email,
+          phone: user.phone,
+          ...(user.metadata as object),
+        },
+      };
 
       // Resolve template — prefer templateId stored in reasoning, then by channel
       const reasoning = decision.reasoning as Record<string, unknown> | null;
-      const templateId = reasoning?.['templateId'] as string | undefined;
+      const templateId = reasoning?.["templateId"] as string | undefined;
 
       const template = await (templateId
         ? db.template.findFirst({ where: { id: templateId, tenantId } })
-        : db.template.findFirst({ where: { tenantId, channel } })
-      );
+        : db.template.findFirst({ where: { tenantId, channel } }));
 
-      let renderedSubject = '';
+      let renderedSubject = "";
       let renderedBody = event.type;
 
       if (template) {
         try {
-          renderedSubject = template.subject ? Handlebars.compile(template.subject)(userPayload) : '';
+          renderedSubject = template.subject
+            ? Handlebars.compile(template.subject)(userPayload)
+            : "";
           renderedBody = Handlebars.compile(template.body)(userPayload);
         } catch {
           renderedBody = template.body;
@@ -113,9 +161,9 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
 
       // ─── Determine recipient ──────────────────────────────────────────────
       let to: string;
-      if (channel === 'email') {
+      if (channel === "email") {
         to = user.email as string;
-      } else if (channel === 'push') {
+      } else if (channel === "push") {
         const tokens = user.deviceTokens as string[];
         to = tokens[0] as string;
       } else {
@@ -125,9 +173,12 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       // ─── Create delivery record ───────────────────────────────────────────
       const delivery = await db.delivery.create({
         data: {
-          tenantId, engagementDecisionId, userId, channel,
+          tenantId,
+          engagementDecisionId,
+          userId,
+          channel,
           provider: providerRecord.provider,
-          status: 'queued',
+          status: "queued",
           payload: { subject: renderedSubject, body: renderedBody, to },
           metadata: { templateId: template?.id ?? null },
         },
@@ -145,14 +196,17 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       const channelQueue = queueMap[channel];
       if (!channelQueue) return;
 
-      await getQueue(channelQueue as import('@engage/core').QueueName).add('deliver', {
+      await getQueue(channelQueue as QueueName).add("deliver", {
         deliveryId: delivery.id,
         tenantId,
         userId,
         channel,
         providerName: providerRecord.provider,
         payload: {
-          deliveryId: delivery.id, tenantId, userId, channel,
+          deliveryId: delivery.id,
+          tenantId,
+          userId,
+          channel,
           provider: providerRecord.provider,
           to,
           subject: renderedSubject,
@@ -162,7 +216,10 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[delivery-scheduler] engagementDecisionId=${engagementDecisionId} failed:`, message);
+      console.error(
+        `[delivery-scheduler] engagementDecisionId=${engagementDecisionId} failed:`,
+        message,
+      );
       throw err;
     }
   };

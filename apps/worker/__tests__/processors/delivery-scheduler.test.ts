@@ -1,14 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createDeliveryScheduler } from '../../src/processors/delivery-scheduler.js';
-import { prisma } from '@engage/database';
-import type { Job } from 'bullmq';
-import Redis from 'ioredis';
-import { REDIS_KEYS } from '@engage/core';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { createDeliveryScheduler } from "../../src/processors/delivery-scheduler.js";
+import { prisma } from "@engage/database";
+import type { Job } from "bullmq";
+import Redis from "ioredis";
+import { REDIS_KEYS } from "@engage/core";
 
 // Skip if DATABASE_URL is not set
-const skipIfNoDatabaseUrl = !process.env.DATABASE_URL ? describe.skip : describe;
+const skipIfNoDatabaseUrl = !process.env.DATABASE_URL
+  ? describe.skip
+  : describe;
 
-skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
+skipIfNoDatabaseUrl("Delivery Scheduler with User Preferences", () => {
   let db: typeof prisma;
   let redis: Redis;
   let scheduler: (job: Job) => Promise<void>;
@@ -18,15 +20,15 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
 
   beforeEach(async () => {
     db = prisma;
-    redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
+    redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
     scheduler = createDeliveryScheduler(db, redis);
 
     // Create test tenant
     const tenant = await db.tenant.create({
       data: {
         slug: `test-delivery-${Date.now()}`,
-        name: 'Test Delivery Tenant',
-        plan: 'starter',
+        name: "Test Delivery Tenant",
+        plan: "starter",
       },
     });
     tenantId = tenant.id;
@@ -36,9 +38,9 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       data: {
         tenantId,
         email: `test-${Date.now()}@example.com`,
-        phone: '+1234567890',
+        phone: "+1234567890",
         externalId: `ext-${Date.now()}`,
-        timezone: 'America/New_York',
+        timezone: "America/New_York",
       },
     });
     userId = user.id;
@@ -47,7 +49,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
     const event = await db.event.create({
       data: {
         tenantId,
-        type: 'test.event',
+        type: "test.event",
         userId,
         payload: JSON.stringify({ test: true }),
         receivedAt: new Date(),
@@ -60,8 +62,8 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
         tenantId,
         eventId: event.id,
         userId,
-        channel: 'email',
-        decisionType: 'send',
+        channel: "email",
+        decisionType: "send",
         reasoning: JSON.stringify({}),
         confidence: 0.95,
       },
@@ -72,8 +74,8 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
     await db.channelProvider.create({
       data: {
         tenantId,
-        channel: 'email',
-        provider: 'resend',
+        channel: "email",
+        provider: "resend",
         configEncrypted: JSON.stringify({}),
         isActive: true,
         isDefault: true,
@@ -84,10 +86,10 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
     await db.template.create({
       data: {
         tenantId,
-        name: 'Test Template',
-        channel: 'email',
-        subject: 'Test Subject',
-        body: 'Test Body',
+        name: "Test Template",
+        channel: "email",
+        subject: "Test Subject",
+        body: "Test Body",
       },
     });
   });
@@ -107,15 +109,15 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
     redis.disconnect();
   });
 
-  describe('Quiet Hours Enforcement', () => {
-    it('should suppress delivery if user is in quiet hours', async () => {
+  describe("Quiet Hours Enforcement", () => {
+    it("should suppress delivery if user is in quiet hours", async () => {
       // Set user preference: quiet hours 22:00-08:00 (1320-480 minutes)
       await db.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          category: 'all',
+          channel: "email",
+          category: "all",
           enabled: true,
           quietHoursStart: 1320,
           quietHoursEnd: 480,
@@ -123,7 +125,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       // Mock current time to 23:00 EST (within quiet hours 22:00-08:00)
-      const fakeNow = new Date('2024-01-15T23:00:00-05:00');
+      const fakeNow = new Date("2024-01-15T23:00:00-05:00");
       vi.useFakeTimers();
       vi.setSystemTime(fakeNow);
 
@@ -132,7 +134,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -143,20 +145,20 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('suppressed');
-      expect(delivery?.metadata).toEqual({ reason: 'quiet_hours' });
+      expect(delivery?.status).toBe("suppressed");
+      expect(delivery?.metadata).toEqual({ reason: "quiet_hours" });
 
       vi.useRealTimers();
     });
 
-    it('should allow delivery if user is outside quiet hours', async () => {
+    it("should allow delivery if user is outside quiet hours", async () => {
       // Set user preference: quiet hours 22:00-08:00
       await db.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          category: 'all',
+          channel: "email",
+          category: "all",
           enabled: true,
           quietHoursStart: 1320,
           quietHoursEnd: 480,
@@ -164,7 +166,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       // Mock current time to 14:00 EST (outside quiet hours)
-      const fakeNow = new Date('2024-01-15T14:00:00-05:00');
+      const fakeNow = new Date("2024-01-15T14:00:00-05:00");
       vi.useFakeTimers();
       vi.setSystemTime(fakeNow);
 
@@ -173,7 +175,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -184,21 +186,21 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('queued');
+      expect(delivery?.status).toBe("queued");
 
       vi.useRealTimers();
     });
   });
 
-  describe('Channel Preference Enforcement', () => {
-    it('should suppress delivery if channel is disabled', async () => {
+  describe("Channel Preference Enforcement", () => {
+    it("should suppress delivery if channel is disabled", async () => {
       // Create preference with channel disabled
       await db.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          category: 'all',
+          channel: "email",
+          category: "all",
           enabled: false,
         },
       });
@@ -208,7 +210,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -219,18 +221,20 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('suppressed');
-      expect(delivery?.metadata).toEqual({ reason: 'user_preference_disabled' });
+      expect(delivery?.status).toBe("suppressed");
+      expect(delivery?.metadata).toEqual({
+        reason: "user_preference_disabled",
+      });
     });
 
-    it('should allow delivery if channel is enabled', async () => {
+    it("should allow delivery if channel is enabled", async () => {
       // Create preference with channel enabled
       await db.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          category: 'all',
+          channel: "email",
+          category: "all",
           enabled: true,
         },
       });
@@ -240,7 +244,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -251,32 +255,32 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('queued');
+      expect(delivery?.status).toBe("queued");
     });
   });
 
-  describe('Category-Specific Preferences', () => {
-    it('should suppress delivery if category-specific preference is disabled', async () => {
+  describe("Category-Specific Preferences", () => {
+    it("should suppress delivery if category-specific preference is disabled", async () => {
       // Create category-specific preference (disabled)
       await db.userPreference.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          category: 'promotions',
+          channel: "email",
+          category: "promotions",
           enabled: false,
         },
       });
 
       // Create decision with category
-      const decision = await db.engagementDecision.findUnique({
+      const _decision = await db.engagementDecision.findUnique({
         where: { id: engagementDecisionId },
       });
 
       await db.engagementDecision.update({
         where: { id: engagementDecisionId },
         data: {
-          reasoning: JSON.stringify({ category: 'promotions' }),
+          reasoning: JSON.stringify({ category: "promotions" }),
         },
       });
 
@@ -285,7 +289,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -296,20 +300,22 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('suppressed');
-      expect(delivery?.metadata).toEqual({ reason: 'category_preference_disabled' });
+      expect(delivery?.status).toBe("suppressed");
+      expect(delivery?.metadata).toEqual({
+        reason: "category_preference_disabled",
+      });
     });
   });
 
-  describe('Global Unsubscribe', () => {
-    it('should suppress delivery if user globally unsubscribed', async () => {
+  describe("Global Unsubscribe", () => {
+    it("should suppress delivery if user globally unsubscribed", async () => {
       // Create global unsubscribe
       await db.globalUnsubscribe.create({
         data: {
           userId,
           tenantId,
-          channel: 'email',
-          reason: 'manual',
+          channel: "email",
+          reason: "manual",
         },
       });
 
@@ -318,7 +324,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -329,13 +335,13 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('suppressed');
-      expect(delivery?.metadata).toEqual({ reason: 'global_unsubscribe' });
+      expect(delivery?.status).toBe("suppressed");
+      expect(delivery?.metadata).toEqual({ reason: "global_unsubscribe" });
     });
   });
 
-  describe('Frequency Cap', () => {
-    it('should suppress delivery if frequency cap exceeded', async () => {
+  describe("Frequency Cap", () => {
+    it("should suppress delivery if frequency cap exceeded", async () => {
       // Set frequency cap to 1 per hour
       await db.tenant.update({
         where: { id: tenantId },
@@ -345,15 +351,15 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       // Simulate one message already sent
-      const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, 'email');
-      await redis.setex(capKey, 3600, '1');
+      const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, "email");
+      await redis.setex(capKey, 3600, "1");
 
       const mockJob = {
         data: {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -364,17 +370,17 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('suppressed');
-      expect(delivery?.metadata).toEqual({ reason: 'frequency_cap' });
+      expect(delivery?.status).toBe("suppressed");
+      expect(delivery?.metadata).toEqual({ reason: "frequency_cap" });
     });
 
-    it('should allow delivery and increment cap if under limit', async () => {
+    it("should allow delivery and increment cap if under limit", async () => {
       const mockJob = {
         data: {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -385,17 +391,17 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('queued');
+      expect(delivery?.status).toBe("queued");
 
       // Verify cap was incremented
-      const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, 'email');
+      const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, "email");
       const count = await redis.get(capKey);
-      expect(count).toBe('1');
+      expect(count).toBe("1");
     });
   });
 
-  describe('Missing Recipient Data', () => {
-    it('should suppress if email is missing', async () => {
+  describe("Missing Recipient Data", () => {
+    it("should suppress if email is missing", async () => {
       // Update user to remove email
       await db.user.update({
         where: { id: userId },
@@ -407,7 +413,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
           engagementDecisionId,
           tenantId,
           userId,
-          channel: 'email',
+          channel: "email",
         },
       } as unknown as Job;
 
@@ -418,11 +424,11 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('suppressed');
-      expect(delivery?.metadata).toEqual({ reason: 'no_email' });
+      expect(delivery?.status).toBe("suppressed");
+      expect(delivery?.metadata).toEqual({ reason: "no_email" });
     });
 
-    it('should suppress if phone is missing for SMS', async () => {
+    it("should suppress if phone is missing for SMS", async () => {
       // Update user to remove phone
       await db.user.update({
         where: { id: userId },
@@ -431,13 +437,14 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
 
       // Create new decision for SMS
       const event = await db.event.findFirst({ where: { tenantId } });
+      if (!event) throw new Error("Test setup error: event not found");
       const smsDecision = await db.engagementDecision.create({
         data: {
           tenantId,
-          eventId: event!.id,
+          eventId: event.id,
           userId,
-          channel: 'sms',
-          decisionType: 'send',
+          channel: "sms",
+          decisionType: "send",
           reasoning: JSON.stringify({}),
           confidence: 0.95,
         },
@@ -448,7 +455,7 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
           engagementDecisionId: smsDecision.id,
           tenantId,
           userId,
-          channel: 'sms',
+          channel: "sms",
         },
       } as unknown as Job;
 
@@ -459,8 +466,8 @@ skipIfNoDatabaseUrl('Delivery Scheduler with User Preferences', () => {
       });
 
       expect(delivery).toBeDefined();
-      expect(delivery?.status).toBe('suppressed');
-      expect(delivery?.metadata).toEqual({ reason: 'no_phone' });
+      expect(delivery?.status).toBe("suppressed");
+      expect(delivery?.metadata).toEqual({ reason: "no_phone" });
     });
   });
 });

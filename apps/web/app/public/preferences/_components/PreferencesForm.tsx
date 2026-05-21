@@ -1,13 +1,18 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { ChannelPreferences } from './ChannelPreferences';
-import { QuietHoursForm } from './QuietHoursForm';
-import { CategoryPreferences } from './CategoryPreferences';
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { ChannelPreferences } from "./ChannelPreferences";
+import { QuietHoursForm } from "./QuietHoursForm";
+import { CategoryPreferences } from "./CategoryPreferences";
 
 interface PublicPreferencesResponse {
   preferences: Array<{
@@ -33,8 +38,14 @@ interface PreferencesFormProps {
   token: string;
 }
 
-const CHANNELS = ['email', 'sms', 'push', 'whatsapp', 'voice'] as const;
-const CATEGORIES = ['promotions', 'updates', 'alerts', 'news', 'announcements'] as const;
+const CHANNELS = ["email", "sms", "push", "whatsapp", "voice"] as const;
+const CATEGORIES = [
+  "promotions",
+  "updates",
+  "alerts",
+  "news",
+  "announcements",
+] as const;
 
 export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
   const [preferences, setPreferences] = useState(initialData.preferences);
@@ -46,27 +57,37 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
   const handleChannelToggle = (channel: string, enabled: boolean) => {
     setPreferences((prev) =>
       prev.map((p) =>
-        p.channel === channel && !p.category ? { ...p, enabled } : p
-      )
+        p.channel === channel && !p.category ? { ...p, enabled } : p,
+      ),
     );
     setSuccess(false);
   };
 
-  const handleQuietHoursSave = (channel: string, start: number | null, end: number | null) => {
+  const handleQuietHoursSave = (
+    channel: string,
+    start: number | null,
+    end: number | null,
+  ) => {
     setPreferences((prev) =>
       prev.map((p) =>
         p.channel === channel && !p.category
           ? { ...p, quietHoursStart: start, quietHoursEnd: end }
-          : p
-      )
+          : p,
+      ),
     );
     setSelectedChannel(null);
     setSuccess(false);
   };
 
-  const handleCategoryToggle = (channel: string, category: string, enabled: boolean) => {
+  const handleCategoryToggle = (
+    channel: string,
+    category: string,
+    enabled: boolean,
+  ) => {
     setPreferences((prev) => {
-      const existing = prev.find((p) => p.channel === channel && p.category === category);
+      const existing = prev.find(
+        (p) => p.channel === channel && p.category === category,
+      );
       if (existing) {
         return prev.map((p) => (p.id === existing.id ? { ...p, enabled } : p));
       }
@@ -102,30 +123,30 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
         quietHoursEnd: p.quietHoursEnd,
       }));
 
-      const response = await fetch('/api/public/preferences', {
-        method: 'PUT',
+      const response = await fetch("/api/public/preferences", {
+        method: "PUT",
         headers: {
-          'X-Preference-Token': token,
-          'Content-Type': 'application/json',
+          "X-Preference-Token": token,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ preferences: updates }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save preferences');
+        throw new Error("Failed to save preferences");
       }
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
   const handleOptOut = async () => {
-    if (!confirm('Are you sure you want to opt out of all communications?')) {
+    if (!confirm("Are you sure you want to opt out of all communications?")) {
       return;
     }
 
@@ -133,13 +154,13 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
     setError(null);
 
     try {
-      const response = await fetch('/api/public/preferences/opt-out', {
-        method: 'POST',
-        headers: { 'X-Preference-Token': token },
+      const response = await fetch("/api/public/preferences/opt-out", {
+        method: "POST",
+        headers: { "X-Preference-Token": token },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to opt out');
+        throw new Error("Failed to opt out");
       }
 
       // Disable all preferences
@@ -147,7 +168,7 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -158,8 +179,12 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Communication Preferences</h1>
-          <p className="text-gray-600 mt-2">Manage how and when you receive messages</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Communication Preferences
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Manage how and when you receive messages
+          </p>
         </div>
 
         {/* User Info */}
@@ -169,18 +194,24 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
               {initialData.user.email && (
                 <div>
                   <span className="text-muted-foreground">Email:</span>
-                  <span className="ml-2 font-medium">{initialData.user.email}</span>
+                  <span className="ml-2 font-medium">
+                    {initialData.user.email}
+                  </span>
                 </div>
               )}
               {initialData.user.phone && (
                 <div>
                   <span className="text-muted-foreground">Phone:</span>
-                  <span className="ml-2 font-medium">{initialData.user.phone}</span>
+                  <span className="ml-2 font-medium">
+                    {initialData.user.phone}
+                  </span>
                 </div>
               )}
               <div>
                 <span className="text-muted-foreground">Timezone:</span>
-                <span className="ml-2 font-medium">{initialData.user.timezone}</span>
+                <span className="ml-2 font-medium">
+                  {initialData.user.timezone}
+                </span>
               </div>
             </div>
           </CardContent>
@@ -189,13 +220,17 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
         {/* Alerts */}
         {error && (
           <Alert className="border-red-200 bg-red-50">
-            <AlertDescription className="text-red-800">{error}</AlertDescription>
+            <AlertDescription className="text-red-800">
+              {error}
+            </AlertDescription>
           </Alert>
         )}
 
         {success && (
           <Alert className="border-green-200 bg-green-50">
-            <AlertDescription className="text-green-800">✓ Preferences updated successfully</AlertDescription>
+            <AlertDescription className="text-green-800">
+              ✓ Preferences updated successfully
+            </AlertDescription>
           </Alert>
         )}
 
@@ -203,7 +238,9 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
         <Card className="bg-white shadow-sm">
           <CardHeader>
             <CardTitle>Communication Channels</CardTitle>
-            <CardDescription>Choose which channels you want to receive messages through</CardDescription>
+            <CardDescription>
+              Choose which channels you want to receive messages through
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ChannelPreferences
@@ -221,8 +258,12 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
         {selectedChannel && (
           <Card className="bg-white shadow-sm border-blue-200 bg-blue-50">
             <CardHeader>
-              <CardTitle className="text-lg">Quiet Hours - {selectedChannel.toUpperCase()}</CardTitle>
-              <CardDescription>Set a time window when you don't want to receive messages</CardDescription>
+              <CardTitle className="text-lg">
+                Quiet Hours - {selectedChannel.toUpperCase()}
+              </CardTitle>
+              <CardDescription>
+                Set a time window when you don't want to receive messages
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <QuietHoursForm
@@ -240,7 +281,9 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
         <Card className="bg-white shadow-sm">
           <CardHeader>
             <CardTitle>Message Types</CardTitle>
-            <CardDescription>Choose which types of messages you want to receive</CardDescription>
+            <CardDescription>
+              Choose which types of messages you want to receive
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <CategoryPreferences
@@ -256,9 +299,14 @@ export function PreferencesForm({ initialData, token }: PreferencesFormProps) {
         {/* Actions */}
         <div className="flex gap-3">
           <Button onClick={handleSave} disabled={loading} className="flex-1">
-            {loading ? 'Saving...' : 'Save Preferences'}
+            {loading ? "Saving..." : "Save Preferences"}
           </Button>
-          <Button onClick={handleOptOut} disabled={loading} variant="outline" className="text-red-600 hover:text-red-700">
+          <Button
+            onClick={handleOptOut}
+            disabled={loading}
+            variant="outline"
+            className="text-red-600 hover:text-red-700"
+          >
             Unsubscribe All
           </Button>
         </div>
