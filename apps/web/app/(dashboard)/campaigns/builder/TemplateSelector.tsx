@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -39,15 +40,16 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
     null,
   );
+  const apiKey = useApiKey();
 
   useEffect(() => {
     if (channels.length === 0) {
       setTemplates([]);
       return;
     }
+    if (!apiKey) return;
 
     setLoading(true);
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
 
     Promise.all(
       channels.map((ch) =>
@@ -67,15 +69,15 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
         }
       })
       .finally(() => setLoading(false));
-  }, [channels, value]);
+  }, [channels, value, apiKey]);
 
   if (channels.length === 0) {
     return (
       <div className="border rounded-lg p-4 bg-amber-50 flex gap-3 items-start">
         <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
         <p className="text-sm text-amber-800">
-          Selecciona al menos un canal en el paso anterior para ver templates
-          disponibles
+          Select at least one channel in the previous step to see available
+          templates
         </p>
       </div>
     );
@@ -95,8 +97,8 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
     return (
       <div className="border rounded-lg p-4 bg-muted/30">
         <p className="text-sm text-muted-foreground">
-          No hay templates para los canales seleccionados. Crea uno en la
-          sección Templates.
+          No templates for the selected channels. Create one in the Templates
+          section.
         </p>
       </div>
     );
@@ -154,7 +156,7 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
             {selectedTemplate.subject && (
               <div>
                 <div className="text-xs font-medium text-muted-foreground mb-1">
-                  Asunto
+                  Subject
                 </div>
                 <div className="text-sm p-2 bg-background rounded border">
                   {selectedTemplate.subject}
@@ -163,7 +165,7 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
             )}
             <div>
               <div className="text-xs font-medium text-muted-foreground mb-1">
-                Contenido
+                Content
               </div>
               <div className="text-sm p-2 bg-background rounded border whitespace-pre-wrap break-words max-h-40 overflow-auto">
                 {selectedTemplate.body}
@@ -198,7 +200,7 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
         size="sm"
         disabled={!value}
       >
-        Limpiar selección
+        Clear selection
       </Button>
     </div>
   );

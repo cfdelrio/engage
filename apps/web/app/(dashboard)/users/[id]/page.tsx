@@ -23,6 +23,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -121,9 +122,9 @@ export default function UserDetailPage(props: {
 
   const [prefSaving, setPrefSaving] = useState<string | null>(null);
   const [prefError, setPrefError] = useState<string | null>(null);
+  const apiKey = useApiKey();
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
     let cancelled = false;
 
     Promise.all([
@@ -157,7 +158,7 @@ export default function UserDetailPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, apiKey]);
 
   const handleTogglePreference = useCallback(
     async (channel: string, currentEnabled: boolean) => {
@@ -167,7 +168,6 @@ export default function UserDetailPage(props: {
       setPrefError(null);
 
       try {
-        const apiKey = localStorage.getItem("engage_api_key") ?? "";
         const res = await fetch(`${API_URL}/v1/users/${userId}/preferences`, {
           method: "PUT",
           headers: { "x-api-key": apiKey, "content-type": "application/json" },

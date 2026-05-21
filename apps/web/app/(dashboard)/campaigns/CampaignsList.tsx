@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Trash2, Edit, Play } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -37,9 +38,10 @@ export function CampaignsList() {
   const [loading, setLoading] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const apiKey = useApiKey();
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!apiKey) return;
     let cancelled = false;
 
     fetch(`${API_URL}/v1/campaigns?limit=20`, {
@@ -66,11 +68,10 @@ export function CampaignsList() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiKey]);
 
   const loadMore = async () => {
-    if (!nextCursor) return;
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!nextCursor || !apiKey) return;
     try {
       const res = await fetch(
         `${API_URL}/v1/campaigns?limit=20&cursor=${nextCursor}`,
@@ -89,8 +90,7 @@ export function CampaignsList() {
   };
 
   const onDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta campaña?")) return;
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!confirm("Delete this campaign?")) return;
     try {
       const res = await fetch(`${API_URL}/v1/campaigns/${id}`, {
         method: "DELETE",
@@ -108,7 +108,7 @@ export function CampaignsList() {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          Campañas ({campaigns.length})
+          Campaigns ({campaigns.length})
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -120,7 +120,7 @@ export function CampaignsList() {
           </div>
         ) : campaigns.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            No hay campañas todavía
+            No campaigns yet
           </p>
         ) : (
           <>
@@ -158,7 +158,7 @@ export function CampaignsList() {
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {new Date(campaign.createdAt).toLocaleString("es-AR", {
+                    {new Date(campaign.createdAt).toLocaleString(undefined, {
                       month: "short",
                       day: "numeric",
                       hour: "2-digit",
@@ -171,9 +171,6 @@ export function CampaignsList() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          // Trigger campaign
-                          const apiKey =
-                            localStorage.getItem("engage_api_key") ?? "";
                           fetch(
                             `${API_URL}/v1/campaigns/${campaign.id}/trigger`,
                             {
@@ -207,7 +204,7 @@ export function CampaignsList() {
             {hasMore && (
               <div className="pt-4 flex justify-center">
                 <Button variant="outline" size="sm" onClick={loadMore}>
-                  Cargar más
+                  Load more
                 </Button>
               </div>
             )}

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mail, Phone, Search } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -34,6 +35,7 @@ export function UsersList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const apiKey = useApiKey();
 
   useEffect(() => {
     const handler = setTimeout(() => setSearchTerm(search), 250);
@@ -41,7 +43,7 @@ export function UsersList() {
   }, [search]);
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!apiKey) return;
     const params = new URLSearchParams({ limit: "50" });
     if (searchTerm) params.set("externalId", searchTerm);
 
@@ -73,11 +75,10 @@ export function UsersList() {
     return () => {
       cancelled = true;
     };
-  }, [searchTerm]);
+  }, [searchTerm, apiKey]);
 
   const loadMore = async () => {
-    if (!nextCursor) return;
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!nextCursor || !apiKey) return;
     const params = new URLSearchParams({ limit: "50", cursor: nextCursor });
     if (searchTerm) params.set("externalId", searchTerm);
     try {
@@ -98,14 +99,14 @@ export function UsersList() {
     <Card>
       <CardHeader>
         <CardTitle className="text-base flex items-center justify-between gap-4">
-          <span>Usuarios</span>
+          <span>Users</span>
           <div className="relative w-72 max-w-full">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por externalId..."
+              placeholder="Search by externalId..."
               className="pl-8 h-8 text-sm"
             />
           </div>
@@ -120,7 +121,7 @@ export function UsersList() {
           </div>
         ) : users.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            {searchTerm ? "Sin resultados" : "No hay usuarios todavía"}
+            {searchTerm ? "No results" : "No users yet"}
           </p>
         ) : (
           <>
@@ -180,7 +181,7 @@ export function UsersList() {
                   onClick={loadMore}
                   disabled={loading}
                 >
-                  Cargar más
+                  Load more
                 </Button>
               </div>
             )}
