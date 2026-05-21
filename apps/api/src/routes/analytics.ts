@@ -132,6 +132,208 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
       aiAdoptionRate: total > 0 ? aiGenerated / total : 0,
     };
   });
+
+  // Enhanced overview with KPI metrics
+  fastify.get("/overview-v2", async (request) => {
+    const tenantId = request.tenantId;
+    const query = request.query as { from?: string; to?: string };
+    const from = query.from
+      ? new Date(query.from)
+      : new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const to = query.to ? new Date(query.to) : new Date();
+
+    // Previous period for comparison
+    const periodLength = to.getTime() - from.getTime();
+    const prevFrom = new Date(from.getTime() - periodLength);
+
+    const [currentDeliveries, prevDeliveries] = await Promise.all([
+      fastify.prisma.delivery.findMany({
+        where: { tenantId, createdAt: { gte: from, lte: to } },
+        select: { status: true },
+      }),
+      fastify.prisma.delivery.findMany({
+        where: { tenantId, createdAt: { gte: prevFrom, lte: from } },
+        select: { status: true },
+      }),
+    ]);
+
+    const calcMetrics = (deliveries: typeof currentDeliveries) => {
+      const totalSent = deliveries.length;
+      const delivered = deliveries.filter(
+        (d) => d.status === "delivered",
+      ).length;
+      const opened = deliveries.filter((d) => d.status === "opened").length;
+      const clicked = deliveries.filter((d) => d.status === "clicked").length;
+
+      return {
+        totalSent,
+        totalDelivered: delivered,
+        deliveryRate: totalSent > 0 ? delivered / totalSent : 0,
+        openRate: delivered > 0 ? opened / delivered : 0,
+        clickRate: opened > 0 ? clicked / opened : 0,
+        conversionRate: opened > 0 ? clicked / opened : 0,
+      };
+    };
+
+    const current = calcMetrics(currentDeliveries);
+    const prev = calcMetrics(prevDeliveries);
+
+    return {
+      ...current,
+      previousPeriod: prev,
+    };
+  });
+
+  // Detailed channel metrics
+  fastify.get("/channels-detailed", async (request) => {
+    const tenantId = request.tenantId;
+    const query = request.query as { from?: string; to?: string };
+    const from = query.from
+      ? new Date(query.from)
+      : new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const to = query.to ? new Date(query.to) : new Date();
+
+    const channels = ["email", "sms", "push", "whatsapp", "voice"] as const;
+    const metrics = [];
+
+    for (const channel of channels) {
+      const deliveries = await fastify.prisma.delivery.findMany({
+        where: { tenantId, channel, createdAt: { gte: from, lte: to } },
+        select: { status: true },
+      });
+
+      const sent = deliveries.length;
+      const delivered = deliveries.filter(
+        (d) => d.status === "delivered",
+      ).length;
+      const opened = deliveries.filter((d) => d.status === "opened").length;
+      const clicked = deliveries.filter((d) => d.status === "clicked").length;
+
+      metrics.push({
+        channel,
+        sent,
+        delivered,
+        opened,
+        clicked,
+        deliveryRate: sent > 0 ? delivered / sent : 0,
+        openRate: delivered > 0 ? opened / delivered : 0,
+        clickRate: opened > 0 ? clicked / opened : 0,
+      });
+    }
+
+    return metrics.filter((m) => m.sent > 0);
+  });
+
+  // Time series with engagement metrics
+  fastify.get("/timeseries-v2", async (request) => {
+    const tenantId = request.tenantId;
+    const query = request.query as { from?: string; to?: string };
+    const from = query.from
+      ? new Date(query.from)
+      : new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const to = query.to ? new Date(query.to) : new Date();
+
+    from.setUTCHours(0, 0, 0, 0);
+
+    const rows = await fastify.prisma.$queryRaw<
+      Array<{ date: Date; status: string; count: bigint }>
+    >`
+      SELECT
+        date_trunc('day', "createdAt") AS date,
+        "status",
+        COUNT(*) AS count
+      FROM "Delivery"
+      WHERE "tenantId" = ${tenantId}
+        AND "createdAt" >= ${from}
+        AND "createdAt" <= ${to}
+      GROUP BY date, "status"
+      ORDER BY date ASC
+    `;
+
+    const byDate = new Map<string, Record<string, number> & { date: string }>();
+    const dayCount =
+      Math.ceil((to.getTime() - from.getTime()) / (24 * 3600 * 1000)) + 1;
+
+    for (let i = 0; i < dayCount; i++) {
+      const d = new Date(from);
+      d.setUTCDate(from.getUTCDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      byDate.set(key, {
+        date: key,
+        sent: 0,
+        delivered: 0,
+        opened: 0,
+        clicked: 0,
+      });
+    }
+
+    for (const row of rows) {
+      const dateKey = row.date.toISOString().slice(0, 10);
+      const entry = byDate.get(dateKey);
+      if (!entry) continue;
+      if (row.status === "sent" || row.status === "queued") {
+        entry.sent += Number(row.count);
+      } else {
+        (entry as Record<string, number>)[row.status] = Number(row.count);
+      }
+    }
+
+    return Array.from(byDate.values());
+  });
+
+  // Campaign performance metrics
+  fastify.get("/campaigns", async (request) => {
+    const tenantId = request.tenantId;
+    const query = request.query as { from?: string; to?: string };
+    const from = query.from
+      ? new Date(query.from)
+      : new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const to = query.to ? new Date(query.to) : new Date();
+
+    const campaigns = await fastify.prisma.campaign.findMany({
+      where: { tenantId, createdAt: { gte: from, lte: to } },
+      take: 50,
+    });
+
+    const metrics = await Promise.all(
+      campaigns.map(async (campaign) => {
+        const deliveries = await fastify.prisma.delivery.findMany({
+          where: {
+            tenantId,
+            engagementDecision: { campaignId: campaign.id },
+            createdAt: { gte: from, lte: to },
+          },
+          select: { status: true },
+        });
+
+        const sent = deliveries.length;
+        const delivered = deliveries.filter(
+          (d) => d.status === "delivered",
+        ).length;
+        const opened = deliveries.filter((d) => d.status === "opened").length;
+        const clicked = deliveries.filter((d) => d.status === "clicked").length;
+
+        return {
+          id: campaign.id,
+          name: campaign.name,
+          type: campaign.type || "unknown",
+          status: campaign.status || "draft",
+          sent,
+          delivered,
+          opened,
+          clicked,
+          converted: 0, // TODO: add conversion tracking
+          deliveryRate: sent > 0 ? delivered / sent : 0,
+          openRate: delivered > 0 ? opened / delivered : 0,
+          clickRate: opened > 0 ? clicked / opened : 0,
+          conversionRate: 0,
+          createdAt: campaign.createdAt.toISOString(),
+        };
+      }),
+    );
+
+    return metrics.filter((m) => m.sent > 0).sort((a, b) => b.sent - a.sent);
+  });
 };
 
 export default analyticsRoutes;
