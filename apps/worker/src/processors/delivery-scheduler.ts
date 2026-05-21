@@ -92,6 +92,16 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         await redis.incr(capKey);
       }
 
+      // ─── WhatsApp consent check ───────────────────────────────────────────
+      if (channel === "whatsapp") {
+        const consent = (user.metadata as Record<string, unknown> | null)
+          ?.whatsapp_consent;
+        if (!consent) {
+          await suppress("whatsapp_consent_missing");
+          return;
+        }
+      }
+
       // ─── Validate recipient ───────────────────────────────────────────────
       if (channel === "email" && !user.email) {
         await suppress("no_email");
@@ -196,6 +206,25 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       const channelQueue = queueMap[channel];
       if (!channelQueue) return;
 
+      // Extract Twilio Content Template SID from aiInstructions if present
+      let twilioTemplateMeta: Record<string, unknown> = {};
+      if (channel === "whatsapp" && template?.aiInstructions) {
+        try {
+          const extra = JSON.parse(template.aiInstructions) as Record<
+            string,
+            unknown
+          >;
+          if (extra.twilioTemplateSid) {
+            twilioTemplateMeta = {
+              twilioTemplateSid: extra.twilioTemplateSid,
+              templateVars: extra.templateVars ?? {},
+            };
+          }
+        } catch {
+          // aiInstructions is plain text, not JSON — skip
+        }
+      }
+
       await getQueue(channelQueue as QueueName).add("deliver", {
         deliveryId: delivery.id,
         tenantId,
@@ -211,7 +240,7 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
           to,
           subject: renderedSubject,
           body: renderedBody,
-          metadata: {},
+          metadata: twilioTemplateMeta,
         },
       });
     } catch (err) {

@@ -1,5 +1,11 @@
 import twilio from "twilio";
 import Handlebars from "handlebars";
+import type { ChannelProvider } from "../provider.interface.js";
+import type {
+  DeliveryPayload,
+  ProviderResult,
+  DeliveryEvent,
+} from "@engage/core";
 
 export interface WhatsAppMessagePayload {
   phone: string; // E.164: +5491123456789
@@ -202,5 +208,71 @@ export class TwilioWhatsAppProvider {
     // E.164 format: +[country code][number]
     // Example: +5491123456789
     return /^\+\d{1,15}$/.test(phone);
+  }
+}
+
+/**
+ * ChannelProvider-compatible adapter for event-triggered WhatsApp delivery.
+ * Supports Twilio Content Template SIDs via payload.metadata.twilioTemplateSid.
+ */
+export class TwilioWhatsAppChannelProvider implements ChannelProvider {
+  readonly channel = "whatsapp" as const;
+  readonly providerName = "twilio-whatsapp";
+
+  private client: twilio.Twilio;
+  private fromNumber: string;
+
+  constructor(accountSid: string, authToken: string, fromNumber: string) {
+    this.client = twilio(accountSid, authToken);
+    this.fromNumber = fromNumber;
+  }
+
+  async send(payload: DeliveryPayload): Promise<ProviderResult> {
+    const phone = payload.to;
+    if (!/^\+\d{1,15}$/.test(phone)) {
+      return { success: false, error: `Invalid E.164 phone: ${phone}` };
+    }
+
+    try {
+      const templateSid = payload.metadata?.twilioTemplateSid as
+        | string
+        | undefined;
+      const templateVars = payload.metadata?.templateVars as
+        | Record<string, string>
+        | undefined;
+
+      const base = {
+        from: `whatsapp:${this.fromNumber}`,
+        to: `whatsapp:${phone}`,
+      };
+
+      const message = templateSid
+        ? await this.client.messages.create({
+            ...base,
+            contentSid: templateSid,
+            contentVariables: JSON.stringify(templateVars ?? {}),
+          })
+        : await this.client.messages.create({
+            ...base,
+            body: payload.body,
+          });
+
+      console.log(`[twilio-whatsapp-channel] Sent ${message.sid} to ${phone}`);
+      return { success: true, providerMessageId: message.sid };
+    } catch (err) {
+      console.error(`[twilio-whatsapp-channel] Failed:`, err);
+      return { success: false, error: String(err) };
+    }
+  }
+
+  async validateConfig(config: Record<string, unknown>): Promise<boolean> {
+    return !!(config["accountSid"] && config["authToken"] && config["from"]);
+  }
+
+  parseWebhook(
+    _body: unknown,
+    _headers: Record<string, string>,
+  ): DeliveryEvent[] {
+    return [];
   }
 }

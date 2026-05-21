@@ -70,6 +70,25 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         },
       });
 
+      // Update contact data from metadata.user_contact if provided
+      const userContact = (body.metadata as Record<string, unknown>)
+        ?.user_contact as Record<string, unknown> | undefined;
+      if (userContact) {
+        const contactUpdate: Record<string, unknown> = {};
+        if (userContact.email) contactUpdate.email = String(userContact.email);
+        if (userContact.phone) contactUpdate.phone = String(userContact.phone);
+        if (userContact.idioma_pref)
+          contactUpdate.locale = String(userContact.idioma_pref);
+        const metaUpdate: Record<string, unknown> = {};
+        if (userContact.whatsapp_consent !== undefined)
+          metaUpdate.whatsapp_consent = Boolean(userContact.whatsapp_consent);
+        if (userContact.nombre) metaUpdate.nombre = String(userContact.nombre);
+        await fastify.prisma.user.update({
+          where: { tenantId_externalId: { tenantId, externalId: body.userId } },
+          data: { ...contactUpdate, metadata: asJson(metaUpdate) },
+        });
+      }
+
       const user = await fastify.prisma.user.findUniqueOrThrow({
         where: { tenantId_externalId: { tenantId, externalId: body.userId } },
       });
