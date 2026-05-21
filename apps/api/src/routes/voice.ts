@@ -360,7 +360,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         orderBy: { createdAt: "desc" },
       });
 
-      return reply.send(calls);
+      return reply.send({ calls });
     },
   );
 
@@ -376,12 +376,31 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!campaign) return reply.status(404).send({ error: "Not found" });
 
-      const metrics = await fastify.prisma.voiceMetric.findMany({
-        where: { voiceCampaignId: id },
-        orderBy: { date: "asc" },
-      });
+      const [metrics, interactions] = await Promise.all([
+        fastify.prisma.voiceMetric.findMany({
+          where: { voiceCampaignId: id },
+          orderBy: { date: "asc" },
+        }),
+        fastify.prisma.voiceInteraction.findMany({
+          where: {
+            tenantId: request.tenantId,
+            type: "sentiment",
+            call: { voiceCampaignId: id },
+          },
+          select: { data: true },
+        }),
+      ]);
 
-      return reply.send(metrics);
+      const sentiment = { positive: 0, neutral: 0, negative: 0 };
+      for (const i of interactions) {
+        const d = i.data as Record<string, unknown>;
+        const s = d["sentiment"] as string | undefined;
+        if (s === "positive") sentiment.positive++;
+        else if (s === "negative") sentiment.negative++;
+        else sentiment.neutral++;
+      }
+
+      return reply.send({ metrics, sentiment });
     },
   );
 };
