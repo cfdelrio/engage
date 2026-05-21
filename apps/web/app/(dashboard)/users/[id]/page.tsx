@@ -21,6 +21,9 @@ import {
   Clock,
   Tag,
   AlertCircle,
+  Link2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useApiKey } from "@/hooks/useApiKey";
@@ -122,6 +125,10 @@ export default function UserDetailPage(props: {
 
   const [prefSaving, setPrefSaving] = useState<string | null>(null);
   const [prefError, setPrefError] = useState<string | null>(null);
+  const [prefCenterUrl, setPrefCenterUrl] = useState<string | null>(null);
+  const [prefCenterExpiry, setPrefCenterExpiry] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const apiKey = useApiKey();
 
   useEffect(() => {
@@ -214,6 +221,41 @@ export default function UserDetailPage(props: {
     },
     [user, userId],
   );
+
+  const handleGenerateLink = useCallback(async () => {
+    setGeneratingLink(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/v1/users/${userId}/preferences/token`,
+        {
+          method: "POST",
+          headers: { "x-api-key": apiKey, "content-type": "application/json" },
+        },
+      );
+      if (!res.ok) throw new Error("Failed to generate link");
+      const data = (await res.json()) as {
+        token: string;
+        expiresAt: string;
+        url?: string;
+      };
+      const url =
+        data.url ??
+        `${window.location.origin}/public/preferences/${data.token}`;
+      setPrefCenterUrl(url);
+      setPrefCenterExpiry(data.expiresAt);
+    } catch {
+      setPrefError("Failed to generate preference center link");
+    } finally {
+      setGeneratingLink(false);
+    }
+  }, [userId, apiKey]);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!prefCenterUrl) return;
+    await navigator.clipboard.writeText(prefCenterUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }, [prefCenterUrl]);
 
   if (loading) {
     return (
@@ -438,6 +480,72 @@ export default function UserDetailPage(props: {
                     </div>
                   );
                 })}
+              </div>
+
+              <Separator className="my-6" />
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">Preference Center Link</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Send this link to the user so they can manage their
+                  preferences without logging in.
+                </p>
+
+                {!prefCenterUrl ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={generatingLink}
+                    onClick={handleGenerateLink}
+                  >
+                    <Link2 className="h-3.5 w-3.5 mr-2" />
+                    {generatingLink ? "Generating..." : "Generate Link"}
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={prefCenterUrl}
+                        className="flex-1 text-xs bg-muted rounded px-3 py-2 font-mono border border-border truncate"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCopyLink}
+                        className="shrink-0"
+                      >
+                        {linkCopied ? (
+                          <Check className="h-3.5 w-3.5 text-green-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      {prefCenterExpiry && (
+                        <p className="text-xs text-muted-foreground">
+                          Expires{" "}
+                          {formatDistanceToNow(new Date(prefCenterExpiry), {
+                            addSuffix: true,
+                          })}
+                        </p>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleGenerateLink}
+                        disabled={generatingLink}
+                        className="text-xs h-7 px-2"
+                      >
+                        {generatingLink ? "..." : "Generate New"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
