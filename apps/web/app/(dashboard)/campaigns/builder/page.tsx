@@ -10,8 +10,14 @@ export default function CampaignBuilderPage() {
 
   const handleSave = async (data: {
     name: string;
-    trigger: Record<string, unknown>;
-    rules: Record<string, unknown>;
+    trigger: {
+      type: string;
+      date?: string;
+      time?: string;
+      eventType?: string;
+      frequency?: string;
+    };
+    rules: { operator: "AND" | "OR"; conditions: unknown[] };
     templateId?: string;
     channels: string[];
   }) => {
