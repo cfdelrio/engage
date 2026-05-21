@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -17,6 +18,7 @@ export default function NewCampaignPage() {
   const [channels, setChannels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const apiKey = useApiKey();
 
   const handleChannelChange = (channel: string, checked: boolean) => {
     if (checked) {
@@ -30,8 +32,6 @@ export default function NewCampaignPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
 
     try {
       const res = await fetch(`${API_URL}/v1/campaigns`, {
@@ -49,14 +49,14 @@ export default function NewCampaignPage() {
       });
 
       if (!res.ok) {
-        setError("Error al crear la campaña");
+        setError("Failed to create campaign");
         return;
       }
 
       const campaign = await res.json();
       router.push(`/campaigns/${campaign.id}`);
     } catch {
-      setError("Error de red");
+      setError("Network error");
     } finally {
       setLoading(false);
     }
@@ -67,16 +67,16 @@ export default function NewCampaignPage() {
       <div>
         <Link href="/campaigns">
           <Button variant="ghost" size="sm" className="-ml-3">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
           </Button>
         </Link>
-        <h1 className="text-2xl font-semibold mt-2">Nueva campaña</h1>
+        <h1 className="text-4xl font-bold mt-2">New Campaign</h1>
       </div>
 
       <Card className="max-w-2xl">
         <CardHeader>
-          <CardTitle className="text-base">Crear campaña</CardTitle>
+          <CardTitle className="text-base">Create Campaign</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -88,32 +88,32 @@ export default function NewCampaignPage() {
 
             <div>
               <label className="text-sm font-medium mb-2 block">
-                Nombre de la campaña
+                Campaign name
               </label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="ej: Black Friday 2024"
+                placeholder="e.g. Black Friday 2024"
                 required
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">Tipo</label>
+              <label className="text-sm font-medium mb-2 block">Type</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
                 className="w-full px-3 py-2 border rounded-md bg-background"
               >
-                <option value="event-triggered">Disparado por evento</option>
-                <option value="scheduled">Programado</option>
-                <option value="recurring">Recurrente</option>
-                <option value="voice">Voz</option>
+                <option value="event-triggered">Event-triggered</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="recurring">Recurring</option>
+                <option value="voice">Voice</option>
               </select>
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-3 block">Canales</label>
+              <label className="text-sm font-medium mb-3 block">Channels</label>
               <div className="space-y-2">
                 {["email", "sms", "push", "whatsapp", "voice"].map(
                   (channel) => (
@@ -135,11 +135,11 @@ export default function NewCampaignPage() {
 
             <div className="flex gap-2 pt-4">
               <Button type="submit" disabled={!name || loading}>
-                {loading ? "Creando..." : "Crear campaña"}
+                {loading ? "Creating..." : "Create Campaign"}
               </Button>
               <Link href="/campaigns">
                 <Button type="button" variant="outline">
-                  Cancelar
+                  Cancel
                 </Button>
               </Link>
             </div>

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -39,9 +40,10 @@ export default function CampaignDetailPage(props: {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const apiKey = useApiKey();
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!apiKey) return;
     let cancelled = false;
 
     fetch(`${API_URL}/v1/campaigns/${campaignId}`, {
@@ -53,11 +55,11 @@ export default function CampaignDetailPage(props: {
         if (data) {
           setCampaign(data);
         } else {
-          setError("Campaña no encontrada");
+          setError("Campaign not found");
         }
       })
       .catch(() => {
-        if (!cancelled) setError("Error al cargar");
+        if (!cancelled) setError("Failed to load campaign");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -82,11 +84,11 @@ export default function CampaignDetailPage(props: {
       <div className="space-y-4">
         <Link href="/campaigns">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
           </Button>
         </Link>
-        <p className="text-sm text-muted-foreground">{error ?? "Sin datos"}</p>
+        <p className="text-sm text-muted-foreground">{error ?? "No data"}</p>
       </div>
     );
   }
@@ -96,29 +98,29 @@ export default function CampaignDetailPage(props: {
       <div>
         <Link href="/campaigns">
           <Button variant="ghost" size="sm" className="-ml-3">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver a campañas
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
           </Button>
         </Link>
-        <h1 className="text-2xl font-semibold mt-2">{campaign.name}</h1>
+        <h1 className="text-4xl font-bold mt-2">{campaign.name}</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Detalles</CardTitle>
+            <CardTitle className="text-base">Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div>
-              <div className="text-muted-foreground mb-1">Tipo</div>
+              <div className="text-muted-foreground mb-1">Type</div>
               <Badge variant="outline">{campaign.type}</Badge>
             </div>
             <div>
-              <div className="text-muted-foreground mb-1">Estado</div>
+              <div className="text-muted-foreground mb-1">Status</div>
               <Badge>{campaign.status}</Badge>
             </div>
             <div>
-              <div className="text-muted-foreground mb-1">Canales</div>
+              <div className="text-muted-foreground mb-1">Channels</div>
               <div className="flex gap-2 flex-wrap">
                 {campaign.channels.map((ch) => (
                   <Badge key={ch} variant="secondary">
@@ -129,16 +131,14 @@ export default function CampaignDetailPage(props: {
             </div>
             {campaign.startAt && (
               <div>
-                <div className="text-muted-foreground mb-1">Comienza</div>
-                <span>
-                  {new Date(campaign.startAt).toLocaleString("es-AR")}
-                </span>
+                <div className="text-muted-foreground mb-1">Starts</div>
+                <span>{new Date(campaign.startAt).toLocaleString()}</span>
               </div>
             )}
             {campaign.endAt && (
               <div>
-                <div className="text-muted-foreground mb-1">Termina</div>
-                <span>{new Date(campaign.endAt).toLocaleString("es-AR")}</span>
+                <div className="text-muted-foreground mb-1">Ends</div>
+                <span>{new Date(campaign.endAt).toLocaleString()}</span>
               </div>
             )}
           </CardContent>
@@ -146,11 +146,11 @@ export default function CampaignDetailPage(props: {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Ejecuciones</CardTitle>
+            <CardTitle className="text-base">Runs</CardTitle>
           </CardHeader>
           <CardContent>
             {campaign.runs.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sin ejecuciones</p>
+              <p className="text-xs text-muted-foreground">No runs yet</p>
             ) : (
               <div className="space-y-2 text-xs">
                 {campaign.runs.map((run) => (
@@ -160,7 +160,7 @@ export default function CampaignDetailPage(props: {
                         {run.status}
                       </Badge>
                       <span className="text-muted-foreground">
-                        {new Date(run.startedAt).toLocaleString("es-AR", {
+                        {new Date(run.startedAt).toLocaleString(undefined, {
                           month: "short",
                           day: "numeric",
                           hour: "2-digit",

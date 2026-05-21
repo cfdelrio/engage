@@ -26,7 +26,7 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Play, Trash2, MessageCircle } from "lucide-react";
+import { MoreHorizontal, Play, Trash2 } from "lucide-react";
 import { useApiKey } from "@/hooks/useApiKey";
 
 interface WhatsAppCampaign {
@@ -108,22 +108,27 @@ export function WhatsAppCampaignList() {
     }
   };
 
-  if (loading) return <div className="p-4">Loading campaigns...</div>;
-  if (error) return <div className="p-4 text-red-600">{error}</div>;
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <>
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Campaigns</h2>
-          <Link href="/whatsapp-campaigns/new">
-            <Button className="gap-2">
-              <MessageCircle className="h-4 w-4" />
-              New Campaign
-            </Button>
-          </Link>
-        </div>
-
         {campaigns.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No campaigns yet</p>

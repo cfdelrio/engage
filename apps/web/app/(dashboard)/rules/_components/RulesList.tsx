@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Edit,
 } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
 interface Rule {
   id: string;
@@ -24,18 +25,16 @@ interface Rule {
   cooldownSeconds?: number;
 }
 
-const API_URL =
-  process.env["INTERNAL_API_URL"] ??
-  process.env["NEXT_PUBLIC_API_URL"] ??
-  "http://localhost:3001";
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 export function RulesList() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const apiKey = useApiKey();
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
+    if (!apiKey) return;
     fetch(`${API_URL}/v1/rules`, {
       headers: { "x-api-key": apiKey },
     })

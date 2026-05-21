@@ -56,7 +56,7 @@ Environment="NODE_ENV=production"
 Environment="HOSTNAME=0.0.0.0"
 Environment="PORT=3000"
 Environment="INTERNAL_API_URL=http://localhost:3001"
-Environment="NEXT_PUBLIC_API_URL=https://$DOMAIN:3001"
+Environment="NEXT_PUBLIC_API_URL=https://$DOMAIN"
 
 [Install]
 WantedBy=multi-user.target
@@ -122,7 +122,7 @@ sudo yum install -y nginx
 # Backup original nginx config
 sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
 
-# Create ORKESTAI ENGAGE config
+# Create ORKESTAI ENGAGE config (path-based routing, single domain)
 sudo tee /etc/nginx/conf.d/orkestai.conf > /dev/null <<EOF
 # Redirect HTTP to HTTPS
 server {
@@ -139,7 +139,7 @@ server {
     }
 }
 
-# HTTPS Web Dashboard
+# HTTPS — single domain, path-based routing
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
@@ -152,11 +152,24 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Security headers
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
 
+    # API routes → Fastify (port 3001)
+    location ~ ^/(v1|webhooks|docs|admin)(/|\$) {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+    }
+
+    # Web dashboard → Next.js (port 3000, catch-all)
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -170,35 +183,7 @@ server {
     }
 }
 
-# HTTPS API (port 3001)
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name api.$DOMAIN;
-
-    ssl_certificate $CERT_PATH;
-    ssl_certificate_key $KEY_PATH;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    location / {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-    }
-}
-
-# Note: Bull Board runs directly on port 3002 (not proxied through NGINX)
+# Note: Bull Board runs on port 3002 (HTTP only)
 # Access at http://$DOMAIN:3002
 EOF
 
@@ -221,8 +206,8 @@ echo "✨ SSL setup complete!"
 echo ""
 echo "📍 Your ORKESTAI ENGAGE URLs:"
 echo "  Dashboard:  https://$DOMAIN"
-echo "  API:        https://api.$DOMAIN (or https://$DOMAIN:3001)"
-echo "  Swagger:    https://api.$DOMAIN/docs"
+echo "  API:        https://$DOMAIN/v1"
+echo "  Swagger:    https://$DOMAIN/docs"
 echo "  Bull Board: http://$DOMAIN:3002"
 echo ""
 echo "📝 Next steps:"

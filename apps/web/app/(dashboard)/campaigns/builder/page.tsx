@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useApiKey } from "@/hooks/useApiKey";
 import { CampaignBuilder } from "./CampaignBuilder";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 export default function CampaignBuilderPage() {
   const router = useRouter();
+  const apiKey = useApiKey();
 
   const handleSave = async (data: {
     name: string;
@@ -21,8 +23,6 @@ export default function CampaignBuilderPage() {
     templateId?: string;
     channels: string[];
   }) => {
-    const apiKey = localStorage.getItem("engage_api_key") ?? "";
-
     const response = await fetch(`${API_URL}/v1/campaigns`, {
       method: "POST",
       headers: {
@@ -50,9 +50,9 @@ export default function CampaignBuilderPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Constructor de campaña</h1>
-        <p className="text-muted-foreground mt-1">
-          Sigue los pasos para crear una nueva campaña
+        <h1 className="text-4xl font-bold">Campaign Builder</h1>
+        <p className="text-muted-foreground mt-2">
+          Follow the steps to create a new campaign
         </p>
       </div>
 
