@@ -43,7 +43,8 @@ skipIfNoDatabaseUrl("Event Ingestion Routes", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
+    if (!tenantId) return;
     await prisma.tenant.delete({
       where: { id: tenantId },
     });

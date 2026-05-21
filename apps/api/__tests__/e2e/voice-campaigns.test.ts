@@ -59,8 +59,8 @@ skipIfNoDatabaseUrl("Voice Campaigns E2E", () => {
   });
 
   afterAll(async () => {
-    await app.close();
-    // Cleanup
+    if (app) await app.close();
+    if (!tenantId) return;
     await prisma.voiceCall.deleteMany({ where: { tenantId } });
     await prisma.voiceMetric.deleteMany({ where: { tenantId } });
     await prisma.voiceCampaign.deleteMany({ where: { tenantId } });

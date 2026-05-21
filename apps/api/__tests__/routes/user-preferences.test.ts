@@ -59,12 +59,12 @@ skipIfNoDatabaseUrl("User Preferences Routes", () => {
   });
 
   afterAll(async () => {
-    // Cleanup
+    if (app) await app.close();
+    if (!tenantId) return;
     await prisma.userPreference.deleteMany({ where: { tenantId } });
     await prisma.user.deleteMany({ where: { tenantId } });
     await prisma.tenantApiKey.deleteMany({ where: { tenantId } });
     await prisma.tenant.delete({ where: { id: tenantId } });
-    await app.close();
   });
 
   beforeEach(async () => {
