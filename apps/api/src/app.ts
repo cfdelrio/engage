@@ -14,6 +14,7 @@ import redisPlugin from "./plugins/redis.js";
 import prismaPlugin from "./plugins/prisma.js";
 import apiKeyAuthPlugin from "./plugins/api-key-auth.js";
 import { rateLimitApiKeyPlugin } from "./plugins/rate-limit-api-key.js";
+import aiPlugin from "./plugins/ai.js";
 
 import eventsRoutes from "./routes/events.js";
 import eventStreamRoutes from "./routes/event-stream.js";
@@ -91,6 +92,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ─── Infrastructure plugins ───────────────────────────────────────────────
   await app.register(redisPlugin);
   await app.register(prismaPlugin);
+  await app.register(aiPlugin);
   await app.register(apiKeyAuthPlugin);
   await app.register(rateLimitApiKeyPlugin);
 

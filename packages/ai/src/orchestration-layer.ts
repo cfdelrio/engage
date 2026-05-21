@@ -171,4 +171,81 @@ Last seen: ${context.user.lastSeenAt?.toISOString() ?? "unknown"}
 
 Respond with JSON matching the decision schema.`;
   }
+
+  async suggestCampaignName(
+    tenantId: string,
+    campaignType: string,
+    channels: string[],
+    targetAudience?: string,
+    tenantConfigProvider?: AIProviderName,
+  ): Promise<{
+    campaignName: string;
+    description: string;
+    recommendedChannels: string[];
+    suggestedTiming: string;
+    tone: string;
+    reasoning: string;
+  } | null> {
+    const provider = this.registry.resolve(tenantId, tenantConfigProvider);
+
+    const systemPrompt = `You are a marketing automation expert specializing in engagement campaigns.
+Suggest creative, relevant campaign names and strategies.`;
+
+    const userPrompt = `Generate campaign suggestions for:
+Campaign Type: ${campaignType}
+Selected Channels: ${channels.length > 0 ? channels.join(", ") : "Any"}
+Target Audience: ${targetAudience || "General users"}
+
+Respond with JSON:
+{
+  "campaignName": "Descriptive name (max 50 chars)",
+  "description": "Brief description (max 100 chars)",
+  "recommendedChannels": ["channel1", "channel2"],
+  "suggestedTiming": "When to send this",
+  "tone": "professional|casual|friendly|urgent",
+  "reasoning": "Why these suggestions"
+}`;
+
+    const schema: Record<string, unknown> = {
+      type: "object",
+      required: [
+        "campaignName",
+        "description",
+        "recommendedChannels",
+        "suggestedTiming",
+        "tone",
+        "reasoning",
+      ],
+      properties: {
+        campaignName: { type: "string" },
+        description: { type: "string" },
+        recommendedChannels: { type: "array", items: { type: "string" } },
+        suggestedTiming: { type: "string" },
+        tone: { type: "string" },
+        reasoning: { type: "string" },
+      },
+    };
+
+    try {
+      const response = await provider.complete({
+        systemPrompt,
+        userPrompt,
+        schema,
+        temperature: 0.7,
+        maxTokens: 512,
+      });
+
+      return response.parsedContent as {
+        campaignName: string;
+        description: string;
+        recommendedChannels: string[];
+        suggestedTiming: string;
+        tone: string;
+        reasoning: string;
+      };
+    } catch (err) {
+      console.error("[AIOrchestrationLayer] campaign suggestion failed:", err);
+      return null;
+    }
+  }
 }

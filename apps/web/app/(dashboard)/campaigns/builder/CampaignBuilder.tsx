@@ -9,6 +9,7 @@ import { CheckCircle2, Circle } from "lucide-react";
 import { ConditionGroupBuilder } from "../../rules/_components/ConditionGroupBuilder";
 import type { ConditionGroupNode } from "../../rules/_components/ConditionGroup";
 import { TemplateSelector } from "./TemplateSelector";
+import { CampaignSuggestions } from "./CampaignSuggestions";
 
 interface BuilderStep {
   id: string;
@@ -109,7 +110,7 @@ export function CampaignBuilder({ onSave }: CampaignBuilderProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       {/* Sidebar */}
-      <div className="lg:col-span-1">
+      <div className="lg:col-span-1 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Progreso</CardTitle>
@@ -150,6 +151,14 @@ export function CampaignBuilder({ onSave }: CampaignBuilderProps) {
             </div>
           </CardContent>
         </Card>
+
+        <CampaignSuggestions
+          campaignType={data.trigger.type}
+          selectedChannels={data.channels}
+          targetAudience={data.name}
+          onSuggestName={(name) => setData({ ...data, name })}
+          onSuggestChannels={(channels) => setData({ ...data, channels })}
+        />
       </div>
 
       {/* Main Content */}
