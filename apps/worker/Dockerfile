@@ -19,7 +19,11 @@ RUN pnpm install --frozen-lockfile --prod=false
 FROM base AS builder
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
+# Bring over each workspace's per-package node_modules (pnpm uses isolated
+# node_modules per workspace with symlinks to root .pnpm store). Source files
+# arrive in subsequent COPYs without overwriting these directories.
+COPY --from=deps /app/packages ./packages
+COPY --from=deps /app/apps/worker/node_modules ./apps/worker/node_modules
 COPY packages ./packages
 COPY apps/worker ./apps/worker
 RUN packages/database/node_modules/.bin/prisma generate --schema packages/database/prisma/schema.prisma
