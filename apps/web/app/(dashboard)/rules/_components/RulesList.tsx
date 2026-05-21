@@ -1,11 +1,17 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, ChevronDown, ChevronRight, Edit } from 'lucide-react';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  CheckCircle,
+  XCircle,
+  ChevronDown,
+  ChevronRight,
+  Edit,
+} from "lucide-react";
 
 interface Rule {
   id: string;
@@ -18,7 +24,10 @@ interface Rule {
   cooldownSeconds?: number;
 }
 
-const API_URL = process.env['INTERNAL_API_URL'] ?? process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
+const API_URL =
+  process.env["INTERNAL_API_URL"] ??
+  process.env["NEXT_PUBLIC_API_URL"] ??
+  "http://localhost:3001";
 
 export function RulesList() {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -26,9 +35,9 @@ export function RulesList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const apiKey = localStorage.getItem('engage_api_key') ?? '';
+    const apiKey = localStorage.getItem("engage_api_key") ?? "";
     fetch(`${API_URL}/v1/rules`, {
-      headers: { 'x-api-key': apiKey },
+      headers: { "x-api-key": apiKey },
     })
       .then((r) => r.json())
       .then((data: Rule[]) => setRules(data))
@@ -82,7 +91,9 @@ export function RulesList() {
               <div className="flex-1 min-w-0">
                 <CardTitle className="text-sm">{rule.name}</CardTitle>
                 {rule.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{rule.description}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {rule.description}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -112,18 +123,29 @@ export function RulesList() {
             <CardContent className="pt-0 pb-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase">Condiciones</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase">
+                    Condiciones
+                  </p>
                   <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs">
-                    {typeof rule.conditions === 'object' && rule.conditions !== null && 'operator' in rule.conditions ? (
+                    {typeof rule.conditions === "object" &&
+                    rule.conditions !== null &&
+                    "operator" in rule.conditions ? (
                       <>
                         <p className="font-mono font-semibold mb-2">
-                          {(rule.conditions as unknown as { operator: string }).operator}
+                          {
+                            (rule.conditions as unknown as { operator: string })
+                              .operator
+                          }
                         </p>
                         <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">
                           {JSON.stringify(
-                            (rule.conditions as unknown as { conditions: unknown }).conditions,
+                            (
+                              rule.conditions as unknown as {
+                                conditions: unknown;
+                              }
+                            ).conditions,
                             null,
-                            2
+                            2,
                           )}
                         </pre>
                       </>
@@ -133,7 +155,9 @@ export function RulesList() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase">Acciones</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase">
+                    Acciones
+                  </p>
                   <div className="bg-green-50 border border-green-200 rounded p-3 text-xs">
                     {Array.isArray(rule.actions) && rule.actions.length > 0 ? (
                       <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">

@@ -2,30 +2,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import { WhatsAppCampaignBuilder } from "../_components/WhatsAppCampaignBuilder";
-import { WhatsAppCampaignStats } from "../_components/WhatsAppCampaignStats";
+import { SmsCampaignBuilder } from "../_components/SmsCampaignBuilder";
+import { SmsCampaignStats } from "../_components/SmsCampaignStats";
 
 export const dynamic = "force-dynamic";
 
-interface WhatsAppCampaignDetailPageProps {
+interface SmsCampaignDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function WhatsAppCampaignDetailPage({
+export default async function SmsCampaignDetailPage({
   params,
-}: WhatsAppCampaignDetailPageProps) {
+}: SmsCampaignDetailPageProps) {
   const { id } = await params;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/whatsapp-campaigns">
+        <Link href="/sms-campaigns">
           <Button variant="ghost" size="sm">
             <ChevronLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
         </Link>
-        <h1 className="text-4xl font-bold">WhatsApp Campaign</h1>
+        <h1 className="text-4xl font-bold">SMS Campaign</h1>
       </div>
 
       <Tabs defaultValue="settings" className="w-full">
@@ -35,11 +35,11 @@ export default async function WhatsAppCampaignDetailPage({
         </TabsList>
 
         <TabsContent value="settings" className="space-y-4">
-          <WhatsAppCampaignBuilder campaignId={id} />
+          <SmsCampaignBuilder campaignId={id} />
         </TabsContent>
 
         <TabsContent value="metrics" className="space-y-4">
-          <WhatsAppCampaignStats campaignId={id} />
+          <SmsCampaignStats campaignId={id} />
         </TabsContent>
       </Tabs>
     </div>

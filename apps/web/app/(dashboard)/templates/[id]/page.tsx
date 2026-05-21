@@ -1,30 +1,37 @@
-"use client";
-
-import { use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { TemplateEditor } from "../_components/TemplateEditor";
 
-export default function TemplateDetailPage(props: {
+export const dynamic = "force-dynamic";
+
+interface TemplateDetailPageProps {
   params: Promise<{ id: string }>;
-}) {
-  const params = use(props.params);
-  const templateId = params.id;
+}
+
+export default async function TemplateDetailPage({
+  params,
+}: TemplateDetailPageProps) {
+  const { id } = await params;
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex items-center gap-4">
         <Link href="/templates">
-          <Button variant="ghost" size="sm" className="-ml-3">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+          <Button variant="ghost" size="sm">
+            <ChevronLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
         </Link>
-        <h1 className="text-3xl font-bold mt-2">Edit Template</h1>
+        <div>
+          <h1 className="text-4xl font-bold">Edit Template</h1>
+          <p className="text-muted-foreground mt-1">
+            Update template content and settings
+          </p>
+        </div>
       </div>
 
-      <TemplateEditor templateId={templateId} />
+      <TemplateEditor templateId={id} />
     </div>
   );
 }

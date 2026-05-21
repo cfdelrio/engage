@@ -26,12 +26,14 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Play, Trash2, Phone } from "lucide-react";
+import { MoreHorizontal, Play, Trash2, Bell } from "lucide-react";
 import { useApiKey } from "@/hooks/useApiKey";
 
-interface VoiceCampaign {
+interface PushCampaign {
   id: string;
   name: string;
+  title: string;
+  body: string;
   status: string;
   createdAt: string;
 }
@@ -45,8 +47,8 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-blue-100 text-blue-900",
 };
 
-export function VoiceCampaignList() {
-  const [campaigns, setCampaigns] = useState<VoiceCampaign[]>([]);
+export function PushCampaignList() {
+  const [campaigns, setCampaigns] = useState<PushCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export function VoiceCampaignList() {
   const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/v1/voice-campaigns`, {
+      const response = await fetch(`${API_URL}/v1/push-campaigns`, {
         headers: { "x-api-key": apiKey },
       });
       if (!response.ok) throw new Error("Failed to fetch campaigns");
@@ -77,7 +79,7 @@ export function VoiceCampaignList() {
   const handleDelete = async (id: string) => {
     try {
       setDeleting(true);
-      const response = await fetch(`${API_URL}/v1/voice-campaigns/${id}`, {
+      const response = await fetch(`${API_URL}/v1/push-campaigns/${id}`, {
         method: "DELETE",
         headers: { "x-api-key": apiKey },
       });
@@ -93,13 +95,10 @@ export function VoiceCampaignList() {
 
   const handleStart = async (id: string) => {
     try {
-      const response = await fetch(
-        `${API_URL}/v1/voice-campaigns/${id}/start`,
-        {
-          method: "POST",
-          headers: { "x-api-key": apiKey },
-        },
-      );
+      const response = await fetch(`${API_URL}/v1/push-campaigns/${id}/send`, {
+        method: "POST",
+        headers: { "x-api-key": apiKey },
+      });
       if (!response.ok) throw new Error("Failed to start campaign");
       await fetchCampaigns();
     } catch (err) {
@@ -115,9 +114,9 @@ export function VoiceCampaignList() {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">Campaigns</h2>
-          <Link href="/voice-campaigns/new">
+          <Link href="/push-campaigns/new">
             <Button className="gap-2">
-              <Phone className="h-4 w-4" />
+              <Bell className="h-4 w-4" />
               New Campaign
             </Button>
           </Link>
@@ -126,7 +125,7 @@ export function VoiceCampaignList() {
         {campaigns.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No campaigns yet</p>
-            <Link href="/voice-campaigns/new">
+            <Link href="/push-campaigns/new">
               <Button>Create First Campaign</Button>
             </Link>
           </div>
@@ -135,6 +134,7 @@ export function VoiceCampaignList() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Title</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -144,11 +144,14 @@ export function VoiceCampaignList() {
               {campaigns.map((campaign) => (
                 <TableRow key={campaign.id}>
                   <TableCell>
-                    <Link href={`/voice-campaigns/${campaign.id}`}>
+                    <Link href={`/push-campaigns/${campaign.id}`}>
                       <span className="text-blue-600 hover:underline">
                         {campaign.name}
                       </span>
                     </Link>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                    {campaign.title}
                   </TableCell>
                   <TableCell>
                     <Badge className={STATUS_COLORS[campaign.status] || ""}>
@@ -167,7 +170,7 @@ export function VoiceCampaignList() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/voice-campaigns/${campaign.id}`}>
+                          <Link href={`/push-campaigns/${campaign.id}`}>
                             View Details
                           </Link>
                         </DropdownMenuItem>
@@ -176,7 +179,7 @@ export function VoiceCampaignList() {
                             onClick={() => handleStart(campaign.id)}
                           >
                             <Play className="h-4 w-4 mr-2" />
-                            Start
+                            Send
                           </DropdownMenuItem>
                         )}
                         {campaign.status === "draft" && (

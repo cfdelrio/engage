@@ -1,34 +1,27 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import { RuleBuilder } from "../_components/RuleBuilder";
+import { PushCampaignBuilder } from "../_components/PushCampaignBuilder";
 
-export const dynamic = "force-dynamic";
-
-interface RuleDetailPageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default async function RuleDetailPage({ params }: RuleDetailPageProps) {
-  const { id } = await params;
-
+export default function NewPushCampaignPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/rules">
+        <Link href="/push-campaigns">
           <Button variant="ghost" size="sm">
             <ChevronLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Edit Rule</h1>
+          <h1 className="text-4xl font-bold">Create Push Campaign</h1>
           <p className="text-muted-foreground mt-1">
-            Update rule conditions and actions
+            Set up a new push notification campaign with custom message and
+            delivery triggers.
           </p>
         </div>
       </div>
-      <RuleBuilder ruleId={id} />
+      <PushCampaignBuilder />
     </div>
   );
 }

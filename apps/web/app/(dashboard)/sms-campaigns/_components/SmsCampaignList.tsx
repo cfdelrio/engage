@@ -26,14 +26,24 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Play, Trash2, Phone } from "lucide-react";
+import {
+  MoreHorizontal,
+  Play,
+  Pause,
+  Trash2,
+  MessageSquare,
+} from "lucide-react";
 import { useApiKey } from "@/hooks/useApiKey";
 
-interface VoiceCampaign {
+interface SmsCampaign {
   id: string;
   name: string;
+  body: string;
   status: string;
+  triggerType: string;
   createdAt: string;
+  startAt?: string;
+  _count?: { deliveries: number };
 }
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
@@ -45,8 +55,8 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-blue-100 text-blue-900",
 };
 
-export function VoiceCampaignList() {
-  const [campaigns, setCampaigns] = useState<VoiceCampaign[]>([]);
+export function SmsCampaignList() {
+  const [campaigns, setCampaigns] = useState<SmsCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -56,12 +66,12 @@ export function VoiceCampaignList() {
   const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/v1/voice-campaigns`, {
+      const response = await fetch(`${API_URL}/v1/sms-campaigns`, {
         headers: { "x-api-key": apiKey },
       });
       if (!response.ok) throw new Error("Failed to fetch campaigns");
       const data = await response.json();
-      setCampaigns(data.campaigns || data || []);
+      setCampaigns(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -77,7 +87,7 @@ export function VoiceCampaignList() {
   const handleDelete = async (id: string) => {
     try {
       setDeleting(true);
-      const response = await fetch(`${API_URL}/v1/voice-campaigns/${id}`, {
+      const response = await fetch(`${API_URL}/v1/sms-campaigns/${id}`, {
         method: "DELETE",
         headers: { "x-api-key": apiKey },
       });
@@ -93,14 +103,24 @@ export function VoiceCampaignList() {
 
   const handleStart = async (id: string) => {
     try {
-      const response = await fetch(
-        `${API_URL}/v1/voice-campaigns/${id}/start`,
-        {
-          method: "POST",
-          headers: { "x-api-key": apiKey },
-        },
-      );
+      const response = await fetch(`${API_URL}/v1/sms-campaigns/${id}/start`, {
+        method: "POST",
+        headers: { "x-api-key": apiKey },
+      });
       if (!response.ok) throw new Error("Failed to start campaign");
+      await fetchCampaigns();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    }
+  };
+
+  const handlePause = async (id: string) => {
+    try {
+      const response = await fetch(`${API_URL}/v1/sms-campaigns/${id}/pause`, {
+        method: "POST",
+        headers: { "x-api-key": apiKey },
+      });
+      if (!response.ok) throw new Error("Failed to pause campaign");
       await fetchCampaigns();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -115,9 +135,9 @@ export function VoiceCampaignList() {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">Campaigns</h2>
-          <Link href="/voice-campaigns/new">
+          <Link href="/sms-campaigns/new">
             <Button className="gap-2">
-              <Phone className="h-4 w-4" />
+              <MessageSquare className="h-4 w-4" />
               New Campaign
             </Button>
           </Link>
@@ -126,7 +146,7 @@ export function VoiceCampaignList() {
         {campaigns.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No campaigns yet</p>
-            <Link href="/voice-campaigns/new">
+            <Link href="/sms-campaigns/new">
               <Button>Create First Campaign</Button>
             </Link>
           </div>
@@ -135,7 +155,10 @@ export function VoiceCampaignList() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Message</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Trigger</TableHead>
+                <TableHead>Sent</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -144,16 +167,25 @@ export function VoiceCampaignList() {
               {campaigns.map((campaign) => (
                 <TableRow key={campaign.id}>
                   <TableCell>
-                    <Link href={`/voice-campaigns/${campaign.id}`}>
+                    <Link href={`/sms-campaigns/${campaign.id}`}>
                       <span className="text-blue-600 hover:underline">
                         {campaign.name}
                       </span>
                     </Link>
                   </TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                    {campaign.body}
+                  </TableCell>
                   <TableCell>
                     <Badge className={STATUS_COLORS[campaign.status] || ""}>
                       {campaign.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {campaign.triggerType}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {campaign._count?.deliveries ?? 0}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(campaign.createdAt).toLocaleDateString()}
@@ -167,7 +199,7 @@ export function VoiceCampaignList() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/voice-campaigns/${campaign.id}`}>
+                          <Link href={`/sms-campaigns/${campaign.id}`}>
                             View Details
                           </Link>
                         </DropdownMenuItem>
@@ -177,6 +209,14 @@ export function VoiceCampaignList() {
                           >
                             <Play className="h-4 w-4 mr-2" />
                             Start
+                          </DropdownMenuItem>
+                        )}
+                        {campaign.status === "active" && (
+                          <DropdownMenuItem
+                            onClick={() => handlePause(campaign.id)}
+                          >
+                            <Pause className="h-4 w-4 mr-2" />
+                            Pause
                           </DropdownMenuItem>
                         )}
                         {campaign.status === "draft" && (
