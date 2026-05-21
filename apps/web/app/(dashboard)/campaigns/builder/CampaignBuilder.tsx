@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, Circle } from "lucide-react";
+import { RuleBuilder } from "../../rules/_components/RuleBuilder";
 
 interface BuilderStep {
   id: string;
@@ -45,6 +46,11 @@ const TRIGGER_TYPES = [
   },
 ];
 
+interface ConditionGroup {
+  operator: "AND" | "OR";
+  conditions: unknown[];
+}
+
 interface CampaignData {
   name: string;
   trigger: {
@@ -54,10 +60,7 @@ interface CampaignData {
     eventType?: string;
     frequency?: string;
   };
-  rules: {
-    ruleId?: string;
-    custom?: Record<string, unknown>;
-  };
+  rules: ConditionGroup;
   templateId?: string;
   channels: string[];
 }
@@ -71,7 +74,7 @@ export function CampaignBuilder({ onSave }: CampaignBuilderProps) {
   const [data, setData] = useState<CampaignData>({
     name: "",
     trigger: { type: "manual" },
-    rules: {},
+    rules: { operator: "AND", conditions: [] },
     channels: [],
   });
   const [saving, setSaving] = useState(false);
@@ -273,15 +276,21 @@ export function CampaignBuilder({ onSave }: CampaignBuilderProps) {
 
             {/* Step 3: Rules */}
             {step.id === "rules" && (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Las reglas determinarán a qué usuarios se envía la campaña.
-                </p>
-                <div className="border rounded-lg p-4 bg-muted/30">
-                  <p className="text-sm">
-                    Próximamente: editor visual de reglas. Por ahora, se envía a
-                    todos.
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-1">
+                    Condiciones de audiencia
                   </p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Define qué usuarios recibirán esta campaña. Sin condiciones,
+                    se envía a todos.
+                  </p>
+                  <RuleBuilder
+                    value={data.rules}
+                    onChange={(v) =>
+                      setData({ ...data, rules: v as ConditionGroup })
+                    }
+                  />
                 </div>
               </div>
             )}
@@ -370,7 +379,29 @@ export function CampaignBuilder({ onSave }: CampaignBuilderProps) {
                     </div>
                     <div className="font-medium capitalize">
                       {data.trigger.type}
+                      {data.trigger.date &&
+                        ` — ${data.trigger.date} ${data.trigger.time ?? ""}`}
+                      {data.trigger.eventType &&
+                        ` — evento: ${data.trigger.eventType}`}
                     </div>
+                  </div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs font-medium text-muted-foreground mb-1">
+                      Reglas de audiencia
+                    </div>
+                    {data.rules.conditions.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">
+                        Sin filtros — se envía a todos
+                      </span>
+                    ) : (
+                      <span className="text-sm font-medium">
+                        {data.rules.conditions.length} condición
+                        {data.rules.conditions.length > 1 ? "es" : ""}{" "}
+                        <Badge variant="outline" className="text-xs ml-1">
+                          {data.rules.operator}
+                        </Badge>
+                      </span>
+                    )}
                   </div>
                   <div className="p-3 bg-muted rounded-lg">
                     <div className="text-xs font-medium text-muted-foreground">

@@ -39,6 +39,16 @@ jobs:
         id: meta
         run: echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
 
+      - name: Ensure ECR repositories exist
+        run: |
+          for repo in engage-api engage-worker engage-web; do
+            aws ecr describe-repositories --repository-names "$repo" --region ${{ env.AWS_REGION }} 2>/dev/null || \
+            aws ecr create-repository \
+              --repository-name "$repo" \
+              --image-scanning-configuration scanOnPush=true \
+              --region ${{ env.AWS_REGION }}
+          done
+
       - name: Build and push API image
         uses: docker/build-push-action@v5
         with:
