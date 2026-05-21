@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, Circle } from "lucide-react";
-import { RuleBuilder } from "../../rules/_components/RuleBuilder";
+import { ConditionGroupBuilder } from "../../rules/_components/ConditionGroupBuilder";
 import { TemplateSelector } from "./TemplateSelector";
 
 interface BuilderStep {
@@ -286,7 +286,7 @@ export function CampaignBuilder({ onSave }: CampaignBuilderProps) {
                     Define qué usuarios recibirán esta campaña. Sin condiciones,
                     se envía a todos.
                   </p>
-                  <RuleBuilder
+                  <ConditionGroupBuilder
                     value={data.rules}
                     onChange={(v) =>
                       setData({ ...data, rules: v as ConditionGroup })

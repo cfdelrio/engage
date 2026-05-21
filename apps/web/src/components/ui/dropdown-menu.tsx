@@ -50,11 +50,17 @@ export function DropdownMenuItem({
   children?: ReactNode;
 }) {
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement, {
-      ...props,
-      onClick,
-      className: `block w-full text-left px-4 py-2 hover:bg-gray-100 ${className}`,
-    });
+    return React.cloneElement(
+      children as React.ReactElement<{
+        className?: string;
+        onClick?: () => void;
+      }>,
+      {
+        ...props,
+        onClick,
+        className: `block w-full text-left px-4 py-2 hover:bg-gray-100 ${className}`,
+      },
+    );
   }
   return (
     <button

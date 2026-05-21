@@ -1,226 +1,243 @@
-'use client';
+"use client";
 
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Plus, Trash2 } from 'lucide-react';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { ConditionGroup } from "./ConditionGroup";
+import { ActionsList } from "./ActionsList";
+import { RulePreview } from "./RulePreview";
+import { Save } from "lucide-react";
+import { useApiKey } from "@/hooks/useApiKey";
 
-interface Condition {
-  field: string;
-  operator: string;
-  value: unknown;
+interface RuleData {
+  name: string;
+  description?: string;
+  enabled: boolean;
+  priority: number;
+  conditions: {
+    operator: "AND" | "OR";
+    conditions: unknown[];
+  };
+  actions: Array<{
+    type: string;
+    params: Record<string, unknown>;
+  }>;
+  cooldownSeconds?: number;
 }
 
-interface ConditionGroup {
-  operator: 'AND' | 'OR';
-  conditions: (Condition | ConditionGroup)[];
-}
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
-interface Props {
-  value: unknown;
-  onChange: (value: unknown) => void;
-}
+export function RuleBuilder({ ruleId }: { ruleId?: string }) {
+  const router = useRouter();
+  const apiKey = useApiKey();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rule, setRule] = useState<RuleData>({
+    name: "",
+    description: "",
+    enabled: true,
+    priority: 0,
+    conditions: {
+      operator: "AND",
+      conditions: [],
+    },
+    actions: [],
+    cooldownSeconds: undefined,
+  });
 
-const FIELD_OPTIONS = [
-  { label: 'Tipo de evento', value: 'event.type' },
-  { label: 'ID de usuario', value: 'event.userId' },
-  { label: 'Score de fatiga del usuario', value: 'user.fatigueScore' },
-  { label: 'Último evento visto', value: 'user.lastSeenAt' },
-  { label: 'Payload del evento', value: 'event.payload' },
-  { label: 'Metadata del usuario', value: 'user.metadata' },
-];
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rule.name.trim()) {
+      setError("Rule name is required");
+      return;
+    }
+    if (rule.conditions.conditions.length === 0) {
+      setError("At least one condition is required");
+      return;
+    }
+    if (rule.actions.length === 0) {
+      setError("At least one action is required");
+      return;
+    }
 
-const OPERATOR_OPTIONS = [
-  { label: 'Igual a', value: 'eq' },
-  { label: 'No igual a', value: 'neq' },
-  { label: 'Mayor que', value: 'gt' },
-  { label: 'Menor que', value: 'lt' },
-  { label: 'Mayor o igual', value: 'gte' },
-  { label: 'Menor o igual', value: 'lte' },
-  { label: 'Contiene', value: 'contains' },
-  { label: 'En lista', value: 'in' },
-  { label: 'Cambió', value: 'changed' },
-];
+    try {
+      setLoading(true);
+      const method = ruleId ? "PUT" : "POST";
+      const url = ruleId
+        ? `${API_URL}/v1/rules/${ruleId}`
+        : `${API_URL}/v1/rules`;
 
-function isCondition(item: unknown): item is Condition {
-  return typeof item === 'object' && item !== null && 'field' in item && 'operator' in item;
-}
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "x-api-key": apiKey,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(rule),
+      });
 
-function isConditionGroup(item: unknown): item is ConditionGroup {
-  return typeof item === 'object' && item !== null && 'operator' in item && 'conditions' in item;
-}
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to save rule");
+      }
 
-function ConditionRow({
-  condition,
-  onUpdate,
-  onRemove,
-}: {
-  condition: Condition;
-  onUpdate: (condition: Condition) => void;
-  onRemove: () => void;
-}) {
+      router.push("/rules");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Card className="p-4 space-y-3">
-      <div className="grid grid-cols-3 gap-3">
-        <Select value={condition.field} onValueChange={(field) => field && onUpdate({ ...condition, field })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Campo" />
-          </SelectTrigger>
-          <SelectContent>
-            {FIELD_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-6xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2">
+          <Label htmlFor="name">Rule Name *</Label>
+          <Input
+            id="name"
+            value={rule.name}
+            onChange={(e) => setRule({ ...rule, name: e.target.value })}
+            placeholder="e.g., High-value users welcome campaign"
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="priority">Priority</Label>
+          <Input
+            id="priority"
+            type="number"
+            value={rule.priority}
+            onChange={(e) =>
+              setRule({ ...rule, priority: parseInt(e.target.value) })
+            }
+            min={0}
+            max={100}
+          />
+        </div>
+      </div>
 
-        <Select value={condition.operator} onValueChange={(operator) => operator && onUpdate({ ...condition, operator })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Operador" />
-          </SelectTrigger>
-          <SelectContent>
-            {OPERATOR_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Input
-          value={String(condition.value ?? '')}
-          onChange={(e) => {
-            let val: unknown = e.target.value;
-            if (!isNaN(Number(val)) && val !== '') val = Number(val);
-            onUpdate({ ...condition, value: val });
-          }}
-          placeholder="Valor"
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={rule.description || ""}
+          onChange={(e) => setRule({ ...rule, description: e.target.value })}
+          placeholder="Why this rule exists and what it does"
+          rows={3}
         />
       </div>
 
-      <div className="flex justify-end">
-        <Button size="sm" variant="ghost" onClick={onRemove}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </Card>
-  );
-}
+      <Tabs defaultValue="conditions" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="conditions">Conditions</TabsTrigger>
+          <TabsTrigger value="actions">Actions</TabsTrigger>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+        </TabsList>
 
-function ConditionGroupComp({
-  group,
-  onUpdate,
-  onRemove,
-  depth = 0,
-}: {
-  group: ConditionGroup;
-  onUpdate: (group: ConditionGroup) => void;
-  onRemove: () => void;
-  depth?: number;
-}) {
-  const addCondition = () => {
-    const newCondition: Condition = { field: '', operator: 'eq', value: '' };
-    onUpdate({
-      ...group,
-      conditions: [...group.conditions, newCondition],
-    });
-  };
+        <TabsContent value="conditions">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Condition Group</CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setRule({
+                        ...rule,
+                        conditions: {
+                          ...rule.conditions,
+                          operator:
+                            rule.conditions.operator === "AND" ? "OR" : "AND",
+                        },
+                      });
+                    }}
+                  >
+                    Switch to{" "}
+                    {rule.conditions.operator === "AND" ? "OR" : "AND"}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <Badge variant="secondary">
+                  {rule.conditions.operator} logic
+                </Badge>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {rule.conditions.operator === "AND"
+                    ? "All conditions must be true"
+                    : "At least one condition must be true"}
+                </p>
+              </div>
 
-  const addGroup = () => {
-    const newGroup: ConditionGroup = { operator: 'AND', conditions: [] };
-    onUpdate({
-      ...group,
-      conditions: [...group.conditions, newGroup],
-    });
-  };
+              <ConditionGroup
+                group={rule.conditions}
+                onChange={(updated) =>
+                  setRule({ ...rule, conditions: updated })
+                }
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-  const updateCondition = (index: number, condition: Condition) => {
-    const newConditions = [...group.conditions];
-    newConditions[index] = condition;
-    onUpdate({ ...group, conditions: newConditions });
-  };
+        <TabsContent value="actions">
+          <Card>
+            <CardHeader>
+              <CardTitle>Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ActionsList
+                actions={rule.actions}
+                onChange={(updated) => setRule({ ...rule, actions: updated })}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-  const updateNestedGroup = (index: number, nestedGroup: ConditionGroup) => {
-    const newConditions = [...group.conditions];
-    newConditions[index] = nestedGroup;
-    onUpdate({ ...group, conditions: newConditions });
-  };
+        <TabsContent value="preview">
+          <RulePreview rule={rule} />
+        </TabsContent>
+      </Tabs>
 
-  const removeCondition = (index: number) => {
-    onUpdate({
-      ...group,
-      conditions: group.conditions.filter((_, i) => i !== index),
-    });
-  };
+      <div className="flex gap-2 justify-between">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="enabled"
+            checked={rule.enabled}
+            onChange={(e) => setRule({ ...rule, enabled: e.target.checked })}
+          />
+          <Label htmlFor="enabled" className="cursor-pointer">
+            Enabled
+          </Label>
+        </div>
 
-  const borderClass = depth === 0 ? 'border-2 border-blue-200' : 'border-2 border-orange-200';
-  const bgClass = depth === 0 ? 'bg-blue-50' : 'bg-orange-50';
-
-  return (
-    <Card className={`p-4 space-y-4 ${borderClass} ${bgClass}`}>
-      <div className="flex items-center justify-between">
-        <Select value={group.operator} onValueChange={(operator) => onUpdate({ ...group, operator: operator as 'AND' | 'OR' })}>
-          <SelectTrigger className="w-24">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="AND">AND</SelectItem>
-            <SelectItem value="OR">OR</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {depth > 0 && (
-          <Button size="sm" variant="ghost" onClick={onRemove}>
-            <Trash2 className="h-4 w-4" />
+        <div className="flex gap-2">
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+            disabled={loading}
+          >
+            Cancel
           </Button>
-        )}
+          <Button type="submit" disabled={loading} className="gap-2">
+            <Save className="h-4 w-4" />
+            {loading ? "Saving..." : "Save Rule"}
+          </Button>
+        </div>
       </div>
-
-      <div className="space-y-3">
-        {group.conditions.map((cond, idx) =>
-          isCondition(cond) ? (
-            <ConditionRow
-              key={idx}
-              condition={cond}
-              onUpdate={(updated) => updateCondition(idx, updated)}
-              onRemove={() => removeCondition(idx)}
-            />
-          ) : isConditionGroup(cond) ? (
-            <ConditionGroupComp
-              key={idx}
-              group={cond}
-              onUpdate={(updated) => updateNestedGroup(idx, updated)}
-              onRemove={() => removeCondition(idx)}
-              depth={depth + 1}
-            />
-          ) : null,
-        )}
-      </div>
-
-      <div className="flex gap-2">
-        <Button size="sm" onClick={addCondition} variant="outline">
-          <Plus className="h-4 w-4 mr-2" />
-          Agregar Condición
-        </Button>
-        <Button size="sm" onClick={addGroup} variant="outline">
-          <Plus className="h-4 w-4 mr-2" />
-          Agregar Grupo
-        </Button>
-      </div>
-    </Card>
+    </form>
   );
-}
-
-export function RuleBuilder({ value, onChange }: Props) {
-  const group: ConditionGroup =
-    value && isConditionGroup(value)
-      ? value
-      : {
-          operator: 'AND',
-          conditions: [],
-        };
-
-  return <ConditionGroupComp group={group} onUpdate={onChange} onRemove={() => {}} />;
 }
