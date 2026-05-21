@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ConditionGroup } from "./ConditionGroup";
+import type { ConditionGroupNode } from "./ConditionGroup";
 import { ActionsList } from "./ActionsList";
 import { RulePreview } from "./RulePreview";
 import { Save } from "lucide-react";
@@ -20,10 +21,7 @@ interface RuleData {
   description?: string;
   enabled: boolean;
   priority: number;
-  conditions: {
-    operator: "AND" | "OR";
-    conditions: unknown[];
-  };
+  conditions: ConditionGroupNode;
   actions: Array<{
     type: string;
     params: Record<string, unknown>;

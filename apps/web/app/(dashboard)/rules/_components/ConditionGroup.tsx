@@ -60,7 +60,10 @@ export function ConditionGroup({
     });
   };
 
-  const updateCondition = (index: number, condition: unknown) => {
+  const updateCondition = (
+    index: number,
+    condition: SingleCondition | ConditionGroupNode,
+  ) => {
     const updated = [...group.conditions];
     updated[index] = condition;
     onChange({ ...group, conditions: updated });

@@ -35,25 +35,25 @@ const FIELD_OPTIONS = [
   { label: "Days Inactive", value: "user.daysInactive" },
 ];
 
-const OPERATORS_BY_TYPE: Record<string, string[]> = {
-  string: ["eq", "neq", "contains", "changed"],
-  number: ["eq", "neq", "gt", "lt", "gte", "lte"],
-  boolean: ["eq", "neq"],
-  array: ["in", "nin", "contains"],
-  default: ["eq", "neq", "exists"],
-};
+const OPERATORS_BY_TYPE = {
+  string: ["eq", "neq", "contains", "changed"] as const,
+  number: ["eq", "neq", "gt", "lt", "gte", "lte"] as const,
+  boolean: ["eq", "neq"] as const,
+  array: ["in", "nin", "contains"] as const,
+  default: ["eq", "neq", "exists"] as const,
+} as const;
 
 function getOperatorsForField(field: string): string[] {
-  if (field.includes("Score")) return OPERATORS_BY_TYPE.number;
-  if (field.includes("Session")) return OPERATORS_BY_TYPE.boolean;
-  if (field.includes("Tags")) return OPERATORS_BY_TYPE.array;
-  return OPERATORS_BY_TYPE.default;
+  if (field.includes("Score")) return [...OPERATORS_BY_TYPE.number];
+  if (field.includes("Session")) return [...OPERATORS_BY_TYPE.boolean];
+  if (field.includes("Tags")) return [...OPERATORS_BY_TYPE.array];
+  return [...OPERATORS_BY_TYPE.default];
 }
 
 export function Condition({ condition, onChange, onRemove }: ConditionProps) {
-  const [operators, setOperators] = useState<string[]>(
-    OPERATORS_BY_TYPE.default || ["eq", "neq", "exists"],
-  );
+  const [operators, setOperators] = useState<string[]>([
+    ...OPERATORS_BY_TYPE.default,
+  ]);
 
   useEffect(() => {
     setOperators(getOperatorsForField(condition.field));
