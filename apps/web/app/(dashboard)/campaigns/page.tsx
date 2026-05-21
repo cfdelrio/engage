@@ -9,15 +9,15 @@ export default function CampaignsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Campañas</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Crea y gestiona campañas de engagement
+          <h1 className="text-4xl font-bold">Campaigns</h1>
+          <p className="text-muted-foreground mt-2">
+            Create and manage engagement campaigns
           </p>
         </div>
         <Link href="/campaigns/builder">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva campaña
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Campaign
           </Button>
         </Link>
       </div>
