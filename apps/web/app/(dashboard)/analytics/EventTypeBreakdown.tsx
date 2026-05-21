@@ -1,44 +1,63 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+"use client";
 
-const API_URL = process.env['INTERNAL_API_URL'] ?? process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
-const API_KEY = process.env['INTERNAL_API_KEY'] ?? '';
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useApiKey } from "@/hooks/useApiKey";
+
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface EventStat {
   type: string;
   _count: number;
 }
 
-async function getEventStats(): Promise<EventStat[]> {
-  try {
-    const res = await fetch(`${API_URL}/v1/analytics/events`, {
-      headers: { 'x-api-key': API_KEY },
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
-    return [];
-  }
-}
+export function EventTypeBreakdown() {
+  const [events, setEvents] = useState<EventStat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const apiKey = useApiKey();
 
-export async function EventTypeBreakdown() {
-  const events = await getEventStats();
+  useEffect(() => {
+    if (!apiKey) return;
+    fetch(`${API_URL}/v1/analytics/events`, {
+      headers: { "x-api-key": apiKey },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((d: EventStat[]) => setEvents(d))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [apiKey]);
+
   const maxCount = Math.max(...events.map((e) => e._count), 1);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Eventos más frecuentes (7d)</CardTitle>
+        <CardTitle className="text-base">Top Events (7d)</CardTitle>
       </CardHeader>
       <CardContent>
-        {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Sin datos</p>
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="h-5 w-48 bg-muted rounded animate-pulse" />
+                <div className="flex-1 h-2 bg-muted rounded animate-pulse" />
+                <div className="h-4 w-10 bg-muted rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No data available
+          </p>
         ) : (
           <div className="space-y-3">
             {events.slice(0, 10).map((event) => (
               <div key={event.type} className="flex items-center gap-3">
-                <Badge variant="outline" className="font-mono text-xs w-64 truncate">
+                <Badge
+                  variant="outline"
+                  className="font-mono text-xs w-64 truncate"
+                >
                   {event.type}
                 </Badge>
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">

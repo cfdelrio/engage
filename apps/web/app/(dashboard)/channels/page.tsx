@@ -5,9 +5,9 @@ export default function ChannelsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Canales y proveedores</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Configura tus API keys para cada canal
+        <h1 className="text-4xl font-bold">Channels</h1>
+        <p className="text-muted-foreground mt-2">
+          Configure providers for each delivery channel
         </p>
       </div>
 
