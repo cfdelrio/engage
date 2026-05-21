@@ -1,13 +1,40 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Mail, Phone, Globe, Activity } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ChevronLeft,
+  Mail,
+  Phone,
+  Globe,
+  Clock,
+  Tag,
+  AlertCircle,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
+
+const CHANNELS = ["email", "sms", "push", "whatsapp", "voice"] as const;
+
+const CHANNEL_LABELS: Record<string, string> = {
+  email: "Email",
+  sms: "SMS",
+  push: "Push",
+  whatsapp: "WhatsApp",
+  voice: "Voice",
+};
 
 interface UserDetail {
   id: string;
@@ -30,20 +57,55 @@ interface UserDetail {
     channel: string;
     category: string;
     enabled: boolean;
+    quietHoursStart: number | null;
+    quietHoursEnd: number | null;
   }>;
+}
+
+interface Delivery {
+  id: string;
+  channel: string;
+  status: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  openedAt: string | null;
+  createdAt: string;
 }
 
 interface EngagementResponse {
   score: UserDetail["engagementScore"];
-  recentDeliveries: Array<{
-    id: string;
-    channel: string;
-    status: string;
-    sentAt: string | null;
-    deliveredAt: string | null;
-    openedAt: string | null;
-    createdAt: string;
-  }>;
+  recentDeliveries: Delivery[];
+}
+
+const STATUS_VARIANTS: Record<
+  string,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  delivered: "default",
+  opened: "default",
+  clicked: "default",
+  sent: "secondary",
+  queued: "outline",
+  failed: "destructive",
+  suppressed: "outline",
+};
+
+const CHANNEL_COLORS: Record<string, string> = {
+  email: "bg-blue-100 text-blue-800",
+  sms: "bg-green-100 text-green-800",
+  push: "bg-purple-100 text-purple-800",
+  whatsapp: "bg-emerald-100 text-emerald-800",
+  voice: "bg-orange-100 text-orange-800",
+};
+
+function scoreBadgeClass(score: number, inverted = false): string {
+  const high = inverted ? score < 0.4 : score >= 0.7;
+  const mid = inverted
+    ? score >= 0.4 && score < 0.7
+    : score >= 0.4 && score < 0.7;
+  if (high) return "bg-green-100 text-green-800";
+  if (mid) return "bg-yellow-100 text-yellow-800";
+  return "bg-red-100 text-red-800";
 }
 
 export default function UserDetailPage(props: {
@@ -51,10 +113,14 @@ export default function UserDetailPage(props: {
 }) {
   const params = use(props.params);
   const userId = params.id;
+
   const [user, setUser] = useState<UserDetail | null>(null);
   const [engagement, setEngagement] = useState<EngagementResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [prefSaving, setPrefSaving] = useState<string | null>(null);
+  const [prefError, setPrefError] = useState<string | null>(null);
 
   useEffect(() => {
     const apiKey = localStorage.getItem("engage_api_key") ?? "";
@@ -72,9 +138,7 @@ export default function UserDetailPage(props: {
         if (cancelled) return;
         if (!userRes.ok) {
           setError(
-            userRes.status === 404
-              ? "Usuario no encontrado"
-              : "No se pudo cargar",
+            userRes.status === 404 ? "User not found" : "Failed to load user",
           );
           return;
         }
@@ -84,7 +148,7 @@ export default function UserDetailPage(props: {
         }
       })
       .catch(() => {
-        if (!cancelled) setError("Error de red");
+        if (!cancelled) setError("Network error");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -95,11 +159,68 @@ export default function UserDetailPage(props: {
     };
   }, [userId]);
 
+  const handleTogglePreference = useCallback(
+    async (channel: string, currentEnabled: boolean) => {
+      if (!user) return;
+      const newEnabled = !currentEnabled;
+      setPrefSaving(channel);
+      setPrefError(null);
+
+      try {
+        const apiKey = localStorage.getItem("engage_api_key") ?? "";
+        const res = await fetch(`${API_URL}/v1/users/${userId}/preferences`, {
+          method: "PUT",
+          headers: { "x-api-key": apiKey, "content-type": "application/json" },
+          body: JSON.stringify([
+            { channel, category: "all", enabled: newEnabled },
+          ]),
+        });
+        if (!res.ok) throw new Error("Failed to update preference");
+        setUser((prev) => {
+          if (!prev) return prev;
+          const existing = prev.preferences.find(
+            (p) => p.channel === channel && p.category === "all",
+          );
+          if (existing) {
+            return {
+              ...prev,
+              preferences: prev.preferences.map((p) =>
+                p.channel === channel && p.category === "all"
+                  ? { ...p, enabled: newEnabled }
+                  : p,
+              ),
+            };
+          }
+          return {
+            ...prev,
+            preferences: [
+              ...prev.preferences,
+              {
+                id: crypto.randomUUID(),
+                channel,
+                category: "all",
+                enabled: newEnabled,
+                quietHoursStart: null,
+                quietHoursEnd: null,
+              },
+            ],
+          };
+        });
+      } catch {
+        setPrefError(`Failed to update ${channel} preference`);
+      } finally {
+        setPrefSaving(null);
+      }
+    },
+    [user, userId],
+  );
+
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="h-8 w-64 bg-muted rounded animate-pulse" />
+        <div className="h-10 w-64 bg-muted rounded animate-pulse" />
         <div className="h-48 bg-muted rounded animate-pulse" />
+        <div className="h-32 bg-muted rounded animate-pulse" />
       </div>
     );
   }
@@ -109,189 +230,293 @@ export default function UserDetailPage(props: {
       <div className="space-y-4">
         <Link href="/users">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
           </Button>
         </Link>
-        <p className="text-sm text-muted-foreground">{error ?? "Sin datos"}</p>
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <p className="text-sm">{error ?? "No data"}</p>
+        </div>
       </div>
     );
   }
 
+  const engScore = engagement?.score ?? user.engagementScore;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <Link href="/users">
+          <Button variant="ghost" size="sm">
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </Link>
         <div>
-          <Link href="/users">
-            <Button variant="ghost" size="sm" className="-ml-3">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver a usuarios
-            </Button>
-          </Link>
-          <h1 className="text-2xl font-semibold mt-2 font-mono">
-            {user.externalId}
-          </h1>
+          <h1 className="text-4xl font-bold font-mono">{user.externalId}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Created{" "}
+            {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Perfil</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            {user.email && (
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span>{user.email}</span>
-              </div>
-            )}
-            {user.phone && (
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{user.phone}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-muted-foreground" />
-              <span>
-                {user.timezone} · {user.locale}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Creado</span>
-              <span>{new Date(user.createdAt).toLocaleString("es-AR")}</span>
-            </div>
-            {user.tags.length > 0 && (
-              <div className="flex gap-2 flex-wrap pt-2">
-                {user.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Engagement score summary bar */}
+      {engScore && (
+        <div className="grid grid-cols-4 gap-4">
+          <ScoreCard
+            label="Engagement"
+            value={engScore.score}
+            format={(v) => v.toFixed(2)}
+            badgeClass={scoreBadgeClass(engScore.score)}
+          />
+          <ScoreCard
+            label="Fatigue"
+            value={engScore.fatigueScore}
+            format={(v) => v.toFixed(2)}
+            badgeClass={scoreBadgeClass(engScore.fatigueScore, true)}
+          />
+          <ScoreCard
+            label="Open rate 30d"
+            value={engScore.openRate30d}
+            format={(v) => `${Math.round(v * 100)}%`}
+            badgeClass={scoreBadgeClass(engScore.openRate30d)}
+          />
+          <ScoreCard
+            label="Click rate 30d"
+            value={engScore.clickRate30d}
+            format={(v) => `${Math.round(v * 100)}%`}
+            badgeClass={scoreBadgeClass(engScore.clickRate30d)}
+          />
+        </div>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Engagement
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            {engagement?.score ? (
-              <>
-                <ScoreRow
-                  label="Score"
-                  value={engagement.score.score}
-                  format={(v) => v.toFixed(2)}
-                />
-                <ScoreRow
-                  label="Fatigue"
-                  value={engagement.score.fatigueScore}
-                  format={(v) => v.toFixed(2)}
-                />
-                <ScoreRow
-                  label="Open rate 30d"
-                  value={engagement.score.openRate30d}
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-                <ScoreRow
-                  label="Click rate 30d"
-                  value={engagement.score.clickRate30d}
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-              </>
-            ) : (
-              <p className="text-muted-foreground text-xs">
-                Sin score calculado todavía
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          <TabsTrigger value="deliveries">
+            Deliveries
+            {engagement?.recentDeliveries &&
+              engagement.recentDeliveries.length > 0 && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {engagement.recentDeliveries.length}
+                </Badge>
+              )}
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Deliveries recientes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!engagement?.recentDeliveries ||
-          engagement.recentDeliveries.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Sin deliveries
-            </p>
-          ) : (
-            <div className="divide-y">
-              {engagement.recentDeliveries.map((d) => (
-                <div
-                  key={d.id}
-                  className="flex items-center gap-3 py-3 text-sm"
-                >
-                  <Badge variant="outline" className="text-xs">
-                    {d.channel}
-                  </Badge>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {d.id.slice(0, 12)}…
-                  </span>
-                  <span className="ml-auto">
-                    <DeliveryStatusBadge status={d.status} />
-                  </span>
-                  <span className="text-xs text-muted-foreground w-32 text-right">
-                    {new Date(d.createdAt).toLocaleString("es-AR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
+        {/* ── Overview ── */}
+        <TabsContent value="overview" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile</CardTitle>
+              <CardDescription>Contact info and metadata</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {user.email && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span>{user.email}</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              )}
+              {user.phone && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span>{user.phone}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-3 text-sm">
+                <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span>
+                  {user.timezone} · {user.locale.toUpperCase()}
+                </span>
+              </div>
+              {user.tags.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="flex items-start gap-3">
+                    <Tag className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="flex gap-1 flex-wrap">
+                      {user.tags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="text-xs"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              {Object.keys(user.metadata).length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      Metadata
+                    </p>
+                    <pre className="text-xs bg-muted rounded p-3 overflow-x-auto">
+                      {JSON.stringify(user.metadata, null, 2)}
+                    </pre>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Preferences ── */}
+        <TabsContent value="preferences" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Channel Preferences</CardTitle>
+              <CardDescription>
+                Opt-in/out per channel. Disabled channels will suppress
+                deliveries.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {prefError && (
+                <div className="mb-4 text-sm text-destructive bg-destructive/10 p-3 rounded">
+                  {prefError}
+                </div>
+              )}
+              <div className="divide-y">
+                {CHANNELS.map((channel) => {
+                  const pref = user.preferences.find(
+                    (p) => p.channel === channel && p.category === "all",
+                  );
+                  const enabled = pref ? pref.enabled : true;
+                  const isSaving = prefSaving === channel;
+
+                  return (
+                    <div
+                      key={channel}
+                      className="py-4 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded ${CHANNEL_COLORS[channel] ?? ""}`}
+                        >
+                          {CHANNEL_LABELS[channel]}
+                        </span>
+                        {pref?.quietHoursStart != null &&
+                          pref.quietHoursEnd != null && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              Quiet {pref.quietHoursStart}:00 –{" "}
+                              {pref.quietHoursEnd}:00
+                            </span>
+                          )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant={enabled ? "default" : "secondary"}
+                          className="text-xs"
+                        >
+                          {enabled ? "Subscribed" : "Unsubscribed"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant={enabled ? "outline" : "default"}
+                          disabled={isSaving}
+                          onClick={() =>
+                            handleTogglePreference(channel, enabled)
+                          }
+                        >
+                          {isSaving
+                            ? "..."
+                            : enabled
+                              ? "Unsubscribe"
+                              : "Subscribe"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Deliveries ── */}
+        <TabsContent value="deliveries" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Deliveries</CardTitle>
+              <CardDescription>
+                Last 20 messages sent to this user
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!engagement?.recentDeliveries ||
+              engagement.recentDeliveries.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No deliveries yet
+                </p>
+              ) : (
+                <div className="divide-y">
+                  {engagement.recentDeliveries.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center gap-3 py-3 text-sm"
+                    >
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded shrink-0 ${CHANNEL_COLORS[d.channel] ?? "bg-muted"}`}
+                      >
+                        {d.channel}
+                      </span>
+                      <code className="text-xs text-muted-foreground flex-1 truncate">
+                        {d.id}
+                      </code>
+                      <Badge
+                        variant={STATUS_VARIANTS[d.status] ?? "outline"}
+                        className="text-xs shrink-0"
+                      >
+                        {d.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground shrink-0 w-28 text-right">
+                        {formatDistanceToNow(new Date(d.createdAt), {
+                          addSuffix: true,
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-function ScoreRow({
+function ScoreCard({
   label,
   value,
   format,
+  badgeClass,
 }: {
   label: string;
   value: number;
   format: (v: number) => string;
+  badgeClass: string;
 }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{format(value)}</span>
-    </div>
-  );
-}
-
-const STATUS_VARIANTS: Record<
-  string,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  delivered: "default",
-  opened: "default",
-  clicked: "default",
-  sent: "secondary",
-  queued: "outline",
-  failed: "destructive",
-  suppressed: "outline",
-};
-
-function DeliveryStatusBadge({ status }: { status: string }) {
-  return (
-    <Badge variant={STATUS_VARIANTS[status] ?? "outline"} className="text-xs">
-      {status}
-    </Badge>
+    <Card>
+      <CardContent className="pt-4 pb-4">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p
+          className={`mt-1 text-2xl font-bold px-1 rounded inline-block ${badgeClass}`}
+        >
+          {format(value)}
+        </p>
+      </CardContent>
+    </Card>
   );
 }
