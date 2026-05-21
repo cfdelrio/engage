@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import type { AIOrchestrationLayer } from "@engage/ai";
 import { asJson } from "../utils/prisma.js";
 
 const campaignSchema = z.object({
@@ -168,7 +169,9 @@ const campaignsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         // Get AI layer from fastify context
-        const aiLayer = (fastify as unknown as { aiLayer: unknown }).aiLayer;
+        const aiLayer = (
+          fastify as unknown as { aiLayer: AIOrchestrationLayer }
+        ).aiLayer;
         if (!aiLayer) {
           return reply.status(503).send({ error: "AI service not available" });
         }
