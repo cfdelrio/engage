@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { CampaignScheduling } from '@/components/campaign/CampaignScheduling';
 import { ArrowLeft, Trash2, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -233,6 +234,15 @@ export default function PushCampaignDetailPage() {
           </div>
         </div>
       </Card>
+
+      {/* Campaign Scheduling */}
+      <CampaignScheduling
+        campaignId={campaignId}
+        currentStatus={campaign.status}
+        startAt={campaign.startAt}
+        endAt={campaign.endAt}
+        onUpdate={fetchCampaign}
+      />
 
       {/* Delivery Log */}
       <Card className="p-6">
