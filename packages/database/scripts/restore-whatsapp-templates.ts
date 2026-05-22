@@ -9,6 +9,8 @@ const templates = [
     eventType: "prode.winner.personal",
     sid: "HX037ab7e8789f1de1575a26737ff8a233",
     body: "🏆 ¡{{1}} ganó {{2}}!\nCon {{3}} puntos exactos.\n\n👉 prodecaballito.com/ranking",
+    aiInstructions:
+      'Map Twilio template variables: "1" -> payload.business_context.winner_name, "2" -> payload.business_context.position, "3" -> payload.business_context.exact_points. Return as JSON: {"1": "name", "2": "pos", "3": "points"}',
     variables: [
       { position: 1, name: "winner_name", description: "Nombre del ganador" },
       { position: 2, name: "position", description: "Posición en ranking" },
@@ -24,6 +26,8 @@ const templates = [
     eventType: "prode.new_leader",
     sid: "HX3d2e4229b56b20d222ae85b64a2e607e",
     body: "🔥 ¡Sos el nuevo líder del PRODE Caballito!\nCon {{1}} puntos estás en el puesto #1.\n\n¡No lo sueltes! 👉 prodecaballito.com/ranking",
+    aiInstructions:
+      'Map Twilio template variables: "1" -> payload.business_context.points. Return as JSON: {"1": "points_value"}',
     variables: [
       {
         position: 1,
@@ -37,6 +41,8 @@ const templates = [
     eventType: "prode.result_published.individual",
     sid: "HX7ed5ef7d53402b094a81ecd8d4cbf5af",
     body: "⚽ {{1}} {{2}}-{{3}} {{4}}\n\n{{5}}\n🏆 Estás #{{6}} en el ranking\n\n👉 prodecaballito.com/ranking",
+    aiInstructions:
+      'Map Twilio template variables: "1" -> payload.business_context.match.local, "2" -> payload.business_context.match.goles_local, "3" -> payload.business_context.match.goles_visitante, "4" -> payload.business_context.match.away, "5" -> payload.business_context.outcome, "6" -> payload.business_context.ranking_after.position. Return as JSON: {"1": "home", "2": "hgoals", "3": "agoals", "4": "away", "5": "outcome", "6": "pos"}',
     variables: [
       { position: 1, name: "home_team", description: "Equipo local" },
       { position: 2, name: "home_goals", description: "Goles equipo local" },
@@ -80,6 +86,7 @@ async function main() {
         subject: template.sid, // Almacenamos SID en subject para Twilio Content Template
         body: template.body,
         variables: template.variables,
+        aiInstructions: template.aiInstructions,
         version: 2,
       },
     });
