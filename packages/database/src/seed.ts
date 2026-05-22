@@ -998,7 +998,7 @@ async function main() {
         description: "SMS alert when matches start",
         status: "active",
         triggerType: "event",
-        messageBody: "¡Arranca el partido {{match.local}} vs {{match.away}}!",
+        body: "¡Arranca el partido {{match.local}} vs {{match.away}}!",
         aiGenerated: false,
       },
     })
@@ -1012,8 +1012,7 @@ async function main() {
         description: "Notify when user's ranking changes",
         status: "draft",
         triggerType: "event",
-        messageBody:
-          "¡Subiste a posición {{ranking.new_position}}! Acumulás {{ranking.points}} puntos.",
+        body: "¡Subiste a posición {{ranking.new_position}}! Acumulás {{ranking.points}} puntos.",
         aiGenerated: false,
       },
     })
@@ -1030,10 +1029,7 @@ async function main() {
         description: "WhatsApp result notification",
         status: "draft",
         triggerType: "event",
-        messageBody:
-          "Resultado: {{match.local}} {{match.goles_local}} - {{match.goles_visitante}} {{match.away}}",
-        usesTemplate: false,
-        aiGenerated: false,
+        body: "Resultado: {{match.local}} {{match.goles_local}} - {{match.goles_visitante}} {{match.away}}",
       },
     })
     .catch(() => {});
@@ -1051,8 +1047,6 @@ async function main() {
         triggerType: "event",
         title: "¡Nuevo líder!",
         body: "{{user.name}} es el nuevo líder con {{user.points}} puntos",
-        imageUrl: null,
-        aiGenerated: false,
       },
     })
     .catch(() => {});
