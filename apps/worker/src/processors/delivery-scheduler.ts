@@ -182,33 +182,7 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         to = user.phone as string;
       }
 
-      // ─── Create delivery record ───────────────────────────────────────────
-      const delivery = await db.delivery.create({
-        data: {
-          tenantId,
-          engagementDecisionId,
-          userId,
-          channel,
-          provider: providerRecord.provider,
-          status: "queued",
-          payload: { subject: renderedSubject, body: renderedBody, to },
-          metadata: { templateId: template?.id ?? null },
-        },
-      });
-
-      // ─── Route to channel queue ───────────────────────────────────────────
-      const queueMap: Record<string, string> = {
-        email: QUEUES.DELIVERIES_EMAIL,
-        sms: QUEUES.DELIVERIES_SMS,
-        push: QUEUES.DELIVERIES_PUSH,
-        whatsapp: QUEUES.DELIVERIES_WHATSAPP,
-        voice: QUEUES.DELIVERIES_VOICE,
-      };
-
-      const channelQueue = queueMap[channel];
-      if (!channelQueue) return;
-
-      // Extract Twilio Content Template SID and map variables
+      // ─── Extract Twilio Content Template SID and map variables (before creating delivery) ───────────────────────────────────────────
       let twilioTemplateMeta: Record<string, unknown> = {};
       if (channel === "whatsapp" && template?.subject) {
         // Check if subject contains a Twilio template SID (HX...)
@@ -267,6 +241,35 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
           }
         }
       }
+
+      // ─── Create delivery record ───────────────────────────────────────────
+      const delivery = await db.delivery.create({
+        data: {
+          tenantId,
+          engagementDecisionId,
+          userId,
+          channel,
+          provider: providerRecord.provider,
+          status: "queued",
+          payload: { subject: renderedSubject, body: renderedBody, to },
+          metadata: {
+            templateId: template?.id ?? null,
+            ...twilioTemplateMeta,
+          },
+        },
+      });
+
+      // ─── Route to channel queue ───────────────────────────────────────────
+      const queueMap: Record<string, string> = {
+        email: QUEUES.DELIVERIES_EMAIL,
+        sms: QUEUES.DELIVERIES_SMS,
+        push: QUEUES.DELIVERIES_PUSH,
+        whatsapp: QUEUES.DELIVERIES_WHATSAPP,
+        voice: QUEUES.DELIVERIES_VOICE,
+      };
+
+      const channelQueue = queueMap[channel];
+      if (!channelQueue) return;
 
       await getQueue(channelQueue as QueueName).add("deliver", {
         deliveryId: delivery.id,
