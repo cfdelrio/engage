@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 const templates = [
   {
-    name: "WA - Ganador Fecha",
+    name: "wa_ganador_fecha",
     eventType: "prode.winner.personal",
     sid: "HX037ab7e8789f1de1575a26737ff8a233",
     body: "🏆 ¡{{1}} ganó {{2}}!\nCon {{3}} puntos exactos.\n\n👉 prodecaballito.com/ranking",
@@ -20,7 +20,7 @@ const templates = [
     ],
   },
   {
-    name: "WA - Nuevo Líder",
+    name: "wa_nuevo_lider",
     eventType: "prode.new_leader",
     sid: "HX3d2e4229b56b20d222ae85b64a2e607e",
     body: "🔥 ¡Sos el nuevo líder del PRODE Caballito!\nCon {{1}} puntos estás en el puesto #1.\n\n¡No lo sueltes! 👉 prodecaballito.com/ranking",
@@ -33,7 +33,7 @@ const templates = [
     ],
   },
   {
-    name: "WA - Resultado Partido",
+    name: "wa_resultado_partido",
     eventType: "prode.result_published.individual",
     sid: "HX7ed5ef7d53402b094a81ecd8d4cbf5af",
     body: "⚽ {{1}} {{2}}-{{3}} {{4}}\n\n{{5}}\n🏆 Estás #{{6}} en el ranking\n\n👉 prodecaballito.com/ranking",
