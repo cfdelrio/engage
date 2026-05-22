@@ -907,6 +907,122 @@ async function main() {
     .catch(() => {});
 
   console.log("Public feed created/verified");
+
+  // ─── Channel Providers (optional, requires env vars) ──────────────────────
+  const resendApiKey = process.env["RESEND_API_KEY"];
+  const twilioAccountSid = process.env["TWILIO_ACCOUNT_SID"];
+  const twilioAuthToken = process.env["TWILIO_AUTH_TOKEN"];
+  const twilioFromNumber =
+    process.env["TWILIO_FROM_NUMBER"] ?? process.env["TWILIO_PHONE_NUMBER"];
+  const twilioWaFrom =
+    process.env["TWILIO_WHATSAPP_FROM_NUMBER"] ?? twilioFromNumber;
+
+  const providerResults: string[] = [];
+
+  if (resendApiKey) {
+    await prisma.channelProvider
+      .upsert({
+        where: {
+          tenantId_channel_provider: {
+            tenantId,
+            channel: "email",
+            provider: "resend",
+          },
+        },
+        create: {
+          tenantId,
+          channel: "email",
+          provider: "resend",
+          configEncrypted: JSON.stringify({ apiKey: resendApiKey }),
+          isDefault: true,
+          isActive: true,
+        },
+        update: {
+          configEncrypted: JSON.stringify({ apiKey: resendApiKey }),
+          isActive: true,
+        },
+      })
+      .then(() => providerResults.push("email(resend)"))
+      .catch(() => {});
+  }
+
+  if (twilioAccountSid && twilioAuthToken && twilioFromNumber) {
+    await prisma.channelProvider
+      .upsert({
+        where: {
+          tenantId_channel_provider: {
+            tenantId,
+            channel: "sms",
+            provider: "twilio",
+          },
+        },
+        create: {
+          tenantId,
+          channel: "sms",
+          provider: "twilio",
+          configEncrypted: JSON.stringify({
+            accountSid: twilioAccountSid,
+            authToken: twilioAuthToken,
+            from: twilioFromNumber,
+          }),
+          isDefault: true,
+          isActive: true,
+        },
+        update: {
+          configEncrypted: JSON.stringify({
+            accountSid: twilioAccountSid,
+            authToken: twilioAuthToken,
+            from: twilioFromNumber,
+          }),
+          isActive: true,
+        },
+      })
+      .then(() => providerResults.push("sms(twilio)"))
+      .catch(() => {});
+
+    const waFrom = twilioWaFrom ?? twilioFromNumber;
+    await prisma.channelProvider
+      .upsert({
+        where: {
+          tenantId_channel_provider: {
+            tenantId,
+            channel: "whatsapp",
+            provider: "twilio-whatsapp",
+          },
+        },
+        create: {
+          tenantId,
+          channel: "whatsapp",
+          provider: "twilio-whatsapp",
+          configEncrypted: JSON.stringify({
+            accountSid: twilioAccountSid,
+            authToken: twilioAuthToken,
+            from: waFrom,
+          }),
+          isDefault: true,
+          isActive: true,
+        },
+        update: {
+          configEncrypted: JSON.stringify({
+            accountSid: twilioAccountSid,
+            authToken: twilioAuthToken,
+            from: waFrom,
+          }),
+          isActive: true,
+        },
+      })
+      .then(() => providerResults.push("whatsapp(twilio-whatsapp)"))
+      .catch(() => {});
+  }
+
+  if (providerResults.length > 0) {
+    console.log(`Channel providers: ${providerResults.join(", ")} configured`);
+  } else {
+    console.log(
+      "Channel providers: none configured (set RESEND_API_KEY, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER to enable)",
+    );
+  }
+
   console.log("\n✅ Seed completed successfully");
   console.log(`\nTenant ID: ${tenant.id}`);
   console.log(`Tenant slug: ${tenant.slug}`);
