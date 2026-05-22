@@ -70,7 +70,10 @@ async function main() {
 
   if (process.env["RESEND_API_KEY"]) {
     channelRegistry.register(
-      new ResendEmailProvider(process.env["RESEND_API_KEY"]),
+      new ResendEmailProvider(
+        process.env["RESEND_API_KEY"],
+        process.env["RESEND_FROM_EMAIL"],
+      ),
     );
   }
   if (
