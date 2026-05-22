@@ -219,6 +219,11 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
               | Record<string, unknown>
               | undefined) ?? {};
 
+          console.log(
+            `[delivery-scheduler] WhatsApp template="${template.name}" SID=${template.subject} businessContext=`,
+            businessContext,
+          );
+
           // Map variables based on template name
           let templateVars: Record<string, string> = {};
           if (template.name === "wa_ganador_fecha") {
@@ -248,6 +253,11 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
               "6": String(rankingAfter.position ?? ""),
             };
           }
+
+          console.log(
+            `[delivery-scheduler] templateVars for ${template.name}:`,
+            templateVars,
+          );
 
           if (Object.keys(templateVars).length > 0) {
             twilioTemplateMeta = {
