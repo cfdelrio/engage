@@ -42,7 +42,7 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         return;
       }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pref = preferences.find((p: any) => p.category === "all");
       if (pref?.enabled === false) {
         await suppress("user_preference_disabled");
@@ -64,7 +64,7 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
           "category"
         ] as string | undefined) ?? "all";
       const categoryPref = preferences.find(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (p: any) => p.category === decisionCategory,
       );
       if (categoryPref?.enabled === false) {
@@ -208,22 +208,53 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       const channelQueue = queueMap[channel];
       if (!channelQueue) return;
 
-      // Extract Twilio Content Template SID from aiInstructions if present
+      // Extract Twilio Content Template SID and map variables
       let twilioTemplateMeta: Record<string, unknown> = {};
-      if (channel === "whatsapp" && template?.aiInstructions) {
-        try {
-          const extra = JSON.parse(template.aiInstructions) as Record<
-            string,
-            unknown
-          >;
-          if (extra.twilioTemplateSid) {
-            twilioTemplateMeta = {
-              twilioTemplateSid: extra.twilioTemplateSid,
-              templateVars: extra.templateVars ?? {},
+      if (channel === "whatsapp" && template?.subject) {
+        // Check if subject contains a Twilio template SID (HX...)
+        const sidMatch = template.subject.match(/^HX[a-f0-9]{30}$/);
+        if (sidMatch) {
+          const businessContext =
+            (eventPayload.business_context as
+              | Record<string, unknown>
+              | undefined) ?? {};
+
+          // Map variables based on template name
+          let templateVars: Record<string, string> = {};
+          if (template.name === "wa_ganador_fecha") {
+            templateVars = {
+              "1": String(businessContext.winner_name ?? ""),
+              "2": String(businessContext.position ?? ""),
+              "3": String(businessContext.exact_points ?? ""),
+            };
+          } else if (template.name === "wa_nuevo_lider") {
+            templateVars = {
+              "1": String(businessContext.points ?? ""),
+            };
+          } else if (template.name === "wa_resultado_partido") {
+            const match =
+              (businessContext.match as Record<string, unknown> | undefined) ??
+              {};
+            const rankingAfter =
+              (businessContext.ranking_after as
+                | Record<string, unknown>
+                | undefined) ?? {};
+            templateVars = {
+              "1": String(match.local ?? ""),
+              "2": String(match.goles_local ?? ""),
+              "3": String(match.goles_visitante ?? ""),
+              "4": String(match.away ?? ""),
+              "5": String(businessContext.outcome ?? ""),
+              "6": String(rankingAfter.position ?? ""),
             };
           }
-        } catch {
-          // aiInstructions is plain text, not JSON — skip
+
+          if (Object.keys(templateVars).length > 0) {
+            twilioTemplateMeta = {
+              twilioTemplateSid: template.subject,
+              templateVars,
+            };
+          }
         }
       }
 
