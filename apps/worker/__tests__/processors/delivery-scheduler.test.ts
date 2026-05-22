@@ -5,6 +5,10 @@ import type { Job } from "bullmq";
 import Redis from "ioredis";
 import { REDIS_KEYS } from "@engage/core";
 
+vi.mock("@engage/event-bus", () => ({
+  getQueue: vi.fn(() => ({ add: vi.fn().mockResolvedValue(undefined) })),
+}));
+
 // Skip if DATABASE_URL is not set
 const skipIfNoDatabaseUrl = !process.env.DATABASE_URL
   ? describe.skip
@@ -468,6 +472,186 @@ skipIfNoDatabaseUrl("Delivery Scheduler with User Preferences", () => {
       expect(delivery).toBeDefined();
       expect(delivery?.status).toBe("suppressed");
       expect(delivery?.metadata).toEqual({ reason: "no_phone" });
+    });
+  });
+
+  describe("Template Variable Rendering", () => {
+    it("renders Handlebars variables from event payload and user data into delivery body", async () => {
+      // Replace the static template with one that has Handlebars syntax
+      await db.template.deleteMany({ where: { tenantId } });
+      await db.template.create({
+        data: {
+          tenantId,
+          name: "Handlebars Template",
+          channel: "email",
+          subject: "Notificación para {{user.email}}",
+          body: "Resultado: {{outcome}} — usuario: {{user.email}}",
+        },
+      });
+
+      // Enrich the event payload with the variable used by the template
+      const event = await db.event.findFirst({ where: { tenantId } });
+      if (!event) throw new Error("Test setup error: event not found");
+      await db.event.update({
+        where: { id: event.id },
+        data: { payload: JSON.stringify({ outcome: "exacto" }) },
+      });
+
+      const mockJob = {
+        data: {
+          engagementDecisionId,
+          tenantId,
+          userId,
+          channel: "email",
+        },
+      } as unknown as Job;
+
+      await scheduler(mockJob);
+
+      const delivery = await db.delivery.findFirst({
+        where: { tenantId, engagementDecisionId },
+      });
+
+      expect(delivery).toBeDefined();
+      expect(delivery?.status).toBe("queued");
+      const payload = delivery?.payload as Record<string, string>;
+      // Variables must be substituted — no Handlebars syntax remaining
+      expect(payload.body).not.toContain("{{outcome}}");
+      expect(payload.body).not.toContain("{{user.email}}");
+      expect(payload.body).toContain("exacto");
+      expect(payload.subject).not.toContain("{{user.email}}");
+    });
+  });
+
+  describe("WhatsApp SID + templateVars Construction", () => {
+    let waDecisionId: string;
+
+    beforeEach(async () => {
+      // Create WhatsApp channel provider
+      await db.channelProvider.create({
+        data: {
+          tenantId,
+          channel: "whatsapp",
+          provider: "twilio-whatsapp",
+          configEncrypted: JSON.stringify({}),
+          isActive: true,
+          isDefault: true,
+        },
+      });
+
+      // User must have phone + whatsapp_consent
+      await db.user.update({
+        where: { id: userId },
+        data: {
+          phone: "+5491123456789",
+          metadata: { whatsapp_consent: true },
+        },
+      });
+
+      // Template with Twilio Content Template SID stored in subject
+      await db.template.create({
+        data: {
+          tenantId,
+          name: "wa_ganador_fecha",
+          channel: "whatsapp",
+          subject: "HX037ab7e8789f1de1575a26737ff8a233",
+          body: "🏆 ¡{{1}} ganó {{2}}!\nCon {{3}} puntos exactos.",
+        },
+      });
+
+      // Event with business_context payload used by the variable mapper
+      const event = await db.event.findFirst({ where: { tenantId } });
+      if (!event) throw new Error("Test setup error: event not found");
+      await db.event.update({
+        where: { id: event.id },
+        data: {
+          payload: JSON.stringify({
+            business_context: {
+              winner_name: "Carlos",
+              position: "1",
+              exact_points: "10",
+            },
+          }),
+        },
+      });
+
+      const waDecision = await db.engagementDecision.create({
+        data: {
+          tenantId,
+          eventId: event.id,
+          userId,
+          channel: "whatsapp",
+          decisionType: "send",
+          reasoning: JSON.stringify({}),
+          confidence: 0.95,
+        },
+      });
+      waDecisionId = waDecision.id;
+    });
+
+    it("stores twilioTemplateSid and mapped templateVars in delivery metadata", async () => {
+      const mockJob = {
+        data: {
+          engagementDecisionId: waDecisionId,
+          tenantId,
+          userId,
+          channel: "whatsapp",
+        },
+      } as unknown as Job;
+
+      await scheduler(mockJob);
+
+      const delivery = await db.delivery.findFirst({
+        where: { tenantId, engagementDecisionId: waDecisionId },
+      });
+
+      expect(delivery).toBeDefined();
+      expect(delivery?.status).toBe("queued");
+      const metadata = delivery?.metadata as Record<string, unknown>;
+      expect(metadata.twilioTemplateSid).toBe(
+        "HX037ab7e8789f1de1575a26737ff8a233",
+      );
+      expect(metadata.templateVars).toEqual({
+        "1": "Carlos",
+        "2": "1",
+        "3": "10",
+      });
+    });
+
+    it("does not set twilioTemplateSid when template subject is plain text", async () => {
+      // Replace the SID template with a freeform one
+      await db.template.deleteMany({
+        where: { tenantId, channel: "whatsapp" },
+      });
+      await db.template.create({
+        data: {
+          tenantId,
+          name: "wa_freeform",
+          channel: "whatsapp",
+          subject: "Mensaje freeform",
+          body: "Hola, este es un mensaje libre sin SID",
+        },
+      });
+
+      const mockJob = {
+        data: {
+          engagementDecisionId: waDecisionId,
+          tenantId,
+          userId,
+          channel: "whatsapp",
+        },
+      } as unknown as Job;
+
+      await scheduler(mockJob);
+
+      const delivery = await db.delivery.findFirst({
+        where: { tenantId, engagementDecisionId: waDecisionId },
+      });
+
+      expect(delivery).toBeDefined();
+      const metadata = delivery?.metadata as Record<string, unknown>;
+      expect(metadata.twilioTemplateSid).toBeUndefined();
+      expect(metadata.templateVars).toBeUndefined();
     });
   });
 });

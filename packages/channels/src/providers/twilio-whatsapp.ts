@@ -250,7 +250,9 @@ export class TwilioWhatsAppChannelProvider implements ChannelProvider {
         ? await this.client.messages.create({
             ...base,
             contentSid: templateSid,
-            contentVariables: JSON.stringify(templateVars ?? {}),
+            ...(templateVars && Object.keys(templateVars).length > 0
+              ? { contentVariables: JSON.stringify(templateVars) }
+              : {}),
           })
         : await this.client.messages.create({
             ...base,
