@@ -99,7 +99,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(aiPlugin);
   await app.register(apiKeyAuthPlugin);
   await app.register(rateLimitApiKeyPlugin);
-  await app.register(aiPlugin);
 
   // ─── Health ───────────────────────────────────────────────────────────────
   app.get("/health", async () => ({
