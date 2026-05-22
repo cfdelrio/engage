@@ -117,6 +117,18 @@ async function main() {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registeredProviders = [...(channelRegistry as any)["providers"].keys()];
+  if (registeredProviders.length === 0) {
+    console.warn(
+      "[worker] WARNING: No channel providers registered. Check RESEND_API_KEY / TWILIO_* env vars. Deliveries will fail until providers are available.",
+    );
+  } else {
+    console.log(
+      `[worker] Channel providers registered: ${registeredProviders.join(", ")}`,
+    );
+  }
+
   // ─── Workers ──────────────────────────────────────────────────────────────
   const eventWorker = createWorker(
     QUEUES.EVENTS_INCOMING,
@@ -185,9 +197,6 @@ async function main() {
 
   console.log(`[worker] Started ${allWorkers.length} workers`);
   console.log(`[worker] AI provider: ${defaultProvider}`);
-  console.log(
-    `[worker] Channel providers: ${[...channelRegistry["providers"].keys()].join(", ")}`,
-  );
 
   const shutdown = async (signal: string) => {
     console.log(`[worker] ${signal} received, shutting down...`);

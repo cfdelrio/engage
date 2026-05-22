@@ -1,7 +1,7 @@
-import type { Job } from 'bullmq';
-import type { PrismaClient } from '@engage/database';
-import type { ChannelProviderRegistry } from '@engage/channels';
-import type { DeliveryPayload } from '@engage/core';
+import type { Job } from "bullmq";
+import type { PrismaClient } from "@engage/database";
+import type { ChannelProviderRegistry } from "@engage/channels";
+import type { DeliveryPayload } from "@engage/core";
 
 interface ChannelDeliveryJobPayload {
   deliveryId: string;
@@ -19,18 +19,49 @@ export function createChannelDeliveryWorker(
   return async (job: Job<ChannelDeliveryJobPayload>) => {
     const { deliveryId, channel, providerName, payload } = job.data;
 
-    const provider = channelRegistry.resolve(channel as DeliveryPayload['channel'], providerName)
-      ?? channelRegistry.resolveDefault(channel as DeliveryPayload['channel']);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const registryKeys = [...(channelRegistry as any)["providers"].keys()];
+    console.log(
+      `[channel-delivery] job=${job.id} channel=${channel} providerName=${providerName} registryKeys=${JSON.stringify(registryKeys)} attempt=${job.attemptsMade}`,
+    );
+
+    const provider =
+      channelRegistry.resolve(
+        channel as DeliveryPayload["channel"],
+        providerName,
+      ) ??
+      channelRegistry.resolveDefault(channel as DeliveryPayload["channel"]);
 
     if (!provider) {
+      const attempt = job.attemptsMade;
+      const isLastAttempt = attempt >= (job.opts.attempts ?? 1) - 1;
+      console.error(
+        `[channel-delivery] No provider for channel=${channel} providerName=${providerName} attempt=${attempt}/${job.opts.attempts ?? 1} registryKeys=${JSON.stringify(registryKeys)}`,
+      );
       await db.delivery.update({
         where: { id: deliveryId },
-        data: { status: 'failed', failedAt: new Date(), failureReason: 'No provider found' },
+        data: {
+          status: isLastAttempt ? "failed" : "queued",
+          ...(isLastAttempt
+            ? {
+                failedAt: new Date(),
+                failureReason: `No provider found for channel=${channel}`,
+              }
+            : {}),
+        },
       });
+      if (!isLastAttempt) {
+        throw new Error(
+          `No provider found for channel=${channel} providerName=${providerName} registryKeys=${JSON.stringify(registryKeys)}`,
+        );
+      }
       return;
     }
 
-    await db.delivery.update({ where: { id: deliveryId }, data: { status: 'sent', sentAt: new Date() } });
+    await db.delivery.update({
+      where: { id: deliveryId },
+      data: { status: "sent", sentAt: new Date() },
+    });
 
     const result = await provider.send(payload);
 
@@ -46,10 +77,10 @@ export function createChannelDeliveryWorker(
       const isLastAttempt = attempt >= (job.opts.attempts ?? 1) - 1;
 
       const updateData: Record<string, unknown> = {
-        status: isLastAttempt ? 'failed' : 'queued',
+        status: isLastAttempt ? "failed" : "queued",
       };
-      if (isLastAttempt) updateData['failedAt'] = new Date();
-      if (result.error) updateData['failureReason'] = result.error;
+      if (isLastAttempt) updateData["failedAt"] = new Date();
+      if (result.error) updateData["failureReason"] = result.error;
 
       await db.delivery.update({
         where: { id: deliveryId },
@@ -57,7 +88,7 @@ export function createChannelDeliveryWorker(
       });
 
       if (!isLastAttempt) {
-        throw new Error(result.error ?? 'Delivery failed');
+        throw new Error(result.error ?? "Delivery failed");
       }
     }
   };
