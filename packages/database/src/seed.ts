@@ -892,6 +892,61 @@ async function main() {
 
   console.log(`Rules: ${rules.length} created/verified`);
 
+  // ─── Campaigns ────────────────────────────────────────────────────────────
+  const campaigns = [
+    {
+      name: "Welcome to ProdeCaballito",
+      type: "event-triggered",
+      status: "draft",
+      channels: ["email"],
+      trigger: { eventType: "prode.welcome" },
+      description: "Welcome email for new users",
+    },
+    {
+      name: "Ranking Update Notification",
+      type: "event-triggered",
+      status: "draft",
+      channels: ["sms", "whatsapp"],
+      trigger: { eventType: "prode.ranking_change.up" },
+      description: "Notify users when they move up in the ranking",
+    },
+    {
+      name: "Weekly Digest",
+      type: "scheduled",
+      status: "draft",
+      channels: ["email"],
+      trigger: { frequency: "weekly", day: "monday", time: "09:00" },
+      description: "Send weekly performance summary",
+    },
+    {
+      name: "Match Kickoff Reminder",
+      type: "event-triggered",
+      status: "active",
+      channels: ["sms"],
+      trigger: { eventType: "prode.kickoff" },
+      description: "Notify users when matches start",
+    },
+  ];
+
+  for (const campaign of campaigns) {
+    await prisma.campaign
+      .create({
+        data: {
+          tenantId: tenant.id,
+          name: campaign.name,
+          type: campaign.type,
+          status: campaign.status,
+          channels: campaign.channels,
+          trigger: campaign.trigger,
+          rules: {},
+          aiConfig: {},
+        },
+      })
+      .catch(() => {});
+  }
+
+  console.log(`Campaigns: ${campaigns.length} created/verified`);
+
   // ─── Public Feed ──────────────────────────────────────────────────────────
   await prisma.publicFeed
     .create({
