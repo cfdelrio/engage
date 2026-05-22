@@ -142,69 +142,6 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     return { deliveries: page, nextCursor, hasMore };
   });
 
-  fastify.get("/:id/preferences", async (request) => {
-    const { id } = request.params as { id: string };
-    const prefs = await fastify.prisma.userPreference.findMany({
-      where: { userId: id, tenantId: request.tenantId },
-    });
-    return prefs;
-  });
-
-  fastify.put("/:id/preferences", async (request) => {
-    const { id } = request.params as { id: string };
-    const prefsSchema = z.array(
-      z.object({
-        channel: z.string(),
-        category: z.string().default("all"),
-        enabled: z.boolean(),
-        quietHoursStart: z.number().int().min(0).max(23).optional(),
-        quietHoursEnd: z.number().int().min(0).max(23).optional(),
-      }),
-    );
-
-    const prefs = prefsSchema.parse(request.body);
-    const tenantId = request.tenantId;
-
-    const results = await Promise.all(
-      prefs.map((pref) =>
-        fastify.prisma.userPreference.upsert({
-          where: {
-            userId_tenantId_channel_category: {
-              userId: id,
-              tenantId,
-              channel: pref.channel,
-              category: pref.category,
-            },
-          },
-          update: {
-            enabled: pref.enabled,
-            ...(pref.quietHoursStart !== undefined
-              ? { quietHoursStart: pref.quietHoursStart }
-              : {}),
-            ...(pref.quietHoursEnd !== undefined
-              ? { quietHoursEnd: pref.quietHoursEnd }
-              : {}),
-          },
-          create: {
-            userId: id,
-            tenantId,
-            channel: pref.channel,
-            category: pref.category,
-            enabled: pref.enabled,
-            ...(pref.quietHoursStart !== undefined
-              ? { quietHoursStart: pref.quietHoursStart }
-              : {}),
-            ...(pref.quietHoursEnd !== undefined
-              ? { quietHoursEnd: pref.quietHoursEnd }
-              : {}),
-          },
-        }),
-      ),
-    );
-
-    return results;
-  });
-
   fastify.get("/:id/engagement", async (request) => {
     const { id } = request.params as { id: string };
     const [score, recentDeliveries] = await Promise.all([

@@ -88,8 +88,10 @@ export async function publicPreferencesRoutes(app: FastifyInstance) {
 
         const response: PublicPreferencesResponse = {
           preferences: preferences
-            .filter((p) => isValidChannel(p.channel))
-            .map((p) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .filter((p: any) => isValidChannel(p.channel))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((p: any) => ({
               id: p.id,
               userId: p.userId,
               channel: p.channel as ValidChannel,

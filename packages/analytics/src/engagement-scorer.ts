@@ -1,7 +1,11 @@
-import type { PrismaClient } from '@engage/database';
+import type { PrismaClient } from "@engage/database";
 
 export class EngagementScorer {
-  async recalculate(userId: string, tenantId: string, db: PrismaClient): Promise<void> {
+  async recalculate(
+    userId: string,
+    tenantId: string,
+    db: PrismaClient,
+  ): Promise<void> {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000);
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
 
@@ -16,16 +20,26 @@ export class EngagementScorer {
       }),
     ]);
 
-    const sent30 = thirtyDayDeliveries.filter((d) => d.sentAt).length;
-    const opened30 = thirtyDayDeliveries.filter((d) => d.openedAt).length;
-    const clicked30 = thirtyDayDeliveries.filter((d) => d.clickedAt).length;
+    const sent30 = thirtyDayDeliveries.filter(
+      (d: (typeof thirtyDayDeliveries)[0]) => d.sentAt,
+    ).length;
+    const opened30 = thirtyDayDeliveries.filter(
+      (d: (typeof thirtyDayDeliveries)[0]) => d.openedAt,
+    ).length;
+    const clicked30 = thirtyDayDeliveries.filter(
+      (d: (typeof thirtyDayDeliveries)[0]) => d.clickedAt,
+    ).length;
 
     const openRate = sent30 > 0 ? opened30 / sent30 : 0;
     const clickRate = sent30 > 0 ? clicked30 / sent30 : 0;
     const engagementScore = Math.min(1, openRate * 0.6 + clickRate * 0.4);
 
-    const sent7 = sevenDayDeliveries.filter((d) => d.sentAt).length;
-    const opened7 = sevenDayDeliveries.filter((d) => d.openedAt).length;
+    const sent7 = sevenDayDeliveries.filter(
+      (d: (typeof sevenDayDeliveries)[0]) => d.sentAt,
+    ).length;
+    const opened7 = sevenDayDeliveries.filter(
+      (d: (typeof sevenDayDeliveries)[0]) => d.openedAt,
+    ).length;
     const recentOpenRate = sent7 > 0 ? opened7 / sent7 : 0;
 
     // High volume + low engagement = high fatigue

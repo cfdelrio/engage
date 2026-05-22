@@ -131,6 +131,8 @@ async function main() {
   );
 
   const channelWorkerNames = [
+    QUEUES.DELIVERIES_EMAIL,
+    QUEUES.DELIVERIES_SMS,
     QUEUES.DELIVERIES_PUSH,
     QUEUES.DELIVERIES_WHATSAPP,
     QUEUES.DELIVERIES_VOICE,
@@ -144,14 +146,14 @@ async function main() {
     ),
   );
 
-  // Dedicated workers for email, SMS, voice, and WhatsApp campaigns
+  // Dedicated workers for email and SMS campaigns (separate queues from transactional deliveries)
   const emailCampaignWorker = createWorker(
-    QUEUES.DELIVERIES_EMAIL,
+    QUEUES.EMAIL_CAMPAIGN_DELIVERY,
     processEmailMessage,
     5,
   );
   const smsCampaignWorker = createWorker(
-    QUEUES.DELIVERIES_SMS,
+    QUEUES.SMS_CAMPAIGN_DELIVERY,
     processSmsMessage,
     5,
   );

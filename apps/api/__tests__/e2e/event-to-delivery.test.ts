@@ -82,8 +82,8 @@ skipIfNoDatabaseUrl("Event-to-Delivery Integration", () => {
   });
 
   afterAll(async () => {
-    await app.close();
-    // Cleanup - delete all data for this tenant
+    if (app) await app.close();
+    if (!tenantId) return;
     await prisma.delivery.deleteMany({ where: { tenantId } });
     await prisma.engagementDecision.deleteMany({ where: { tenantId } });
     await prisma.event.deleteMany({ where: { tenantId } });

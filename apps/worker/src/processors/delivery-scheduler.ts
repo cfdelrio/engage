@@ -42,7 +42,8 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         return;
       }
 
-      const pref = preferences.find((p) => p.category === "all");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pref = preferences.find((p: any) => p.category === "all");
       if (pref?.enabled === false) {
         await suppress("user_preference_disabled");
         return;
@@ -63,7 +64,8 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
           "category"
         ] as string | undefined) ?? "all";
       const categoryPref = preferences.find(
-        (p) => p.category === decisionCategory,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (p: any) => p.category === decisionCategory,
       );
       if (categoryPref?.enabled === false) {
         await suppress("category_preference_disabled");

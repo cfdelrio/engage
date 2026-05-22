@@ -1,9 +1,11 @@
-import type { Prisma } from '@engage/database';
-
-export function asJson(value: unknown): Prisma.InputJsonValue {
-  return value as Prisma.InputJsonValue;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function asJson(value: unknown): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return value as any;
 }
 
-export function asJsonNullable(value: unknown): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue {
-  return value as Prisma.InputJsonValue;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function asJsonNullable(value: unknown): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return value as any;
 }

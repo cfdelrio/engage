@@ -76,7 +76,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       orderBy: { createdAt: "desc" },
     });
 
-    return keys.map((key) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return keys.map((key: any) => ({
       id: key.id,
       name: key.name,
       keyPrefix: key.keyPrefix,

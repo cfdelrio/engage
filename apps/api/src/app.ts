@@ -40,13 +40,16 @@ import embedRoutes from "./routes/embed.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: {
-      level: process.env["LOG_LEVEL"] ?? "info",
-      transport:
-        process.env["NODE_ENV"] !== "production"
-          ? { target: "pino-pretty", options: { colorize: true } }
-          : undefined,
-    },
+    logger:
+      process.env["NODE_ENV"] === "test"
+        ? false
+        : {
+            level: process.env["LOG_LEVEL"] ?? "info",
+            transport:
+              process.env["NODE_ENV"] !== "production"
+                ? { target: "pino-pretty", options: { colorize: true } }
+                : undefined,
+          },
     trustProxy: true,
   });
 
@@ -96,7 +99,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(aiPlugin);
   await app.register(apiKeyAuthPlugin);
   await app.register(rateLimitApiKeyPlugin);
-  await app.register(aiPlugin);
 
   // ─── Health ───────────────────────────────────────────────────────────────
   app.get("/health", async () => ({

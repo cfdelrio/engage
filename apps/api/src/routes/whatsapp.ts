@@ -340,9 +340,12 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const stats = {
         sent: messages.length,
-        delivered: messages.filter((m) => m.deliveredAt).length,
-        read: messages.filter((m) => m.readAt).length,
-        failed: messages.filter((m) => m.failedAt).length,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delivered: messages.filter((m: any) => m.deliveredAt).length,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        read: messages.filter((m: any) => m.readAt).length,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        failed: messages.filter((m: any) => m.failedAt).length,
       };
 
       const deliveryRate =
