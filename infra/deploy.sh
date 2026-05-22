@@ -26,12 +26,15 @@ BUILD_API=false
 BUILD_WEB=false
 BUILD_WORKER=false
 
-# API/Worker: changes in apps/api, apps/worker, packages/* (except core themes)
-[[ "$CHANGED" =~ ^apps/api/ || "$CHANGED" =~ ^packages/(ai|channels|event-bus|rules-engine|analytics|database) ]] && BUILD_API=true
-[[ "$CHANGED" =~ ^apps/worker/ || "$CHANGED" =~ ^packages/(ai|event-bus|rules-engine|analytics|database) ]] && BUILD_WORKER=true
-
-# Web: changes in apps/web, packages/core (shared types)
-[[ "$CHANGED" =~ ^apps/web/ || "$CHANGED" =~ ^packages/core ]] && BUILD_WEB=true
+# Evaluate each changed file individually so ^ anchors work correctly on multiline output.
+# packages/channels is included in worker triggers because worker imports from @engage/channels.
+while IFS= read -r file; do
+  [[ "$file" =~ ^apps/api/ ]] && BUILD_API=true
+  [[ "$file" =~ ^apps/worker/ ]] && BUILD_WORKER=true
+  [[ "$file" =~ ^apps/web/ ]] && BUILD_WEB=true
+  [[ "$file" =~ ^packages/(ai|channels|event-bus|rules-engine|analytics|database) ]] && BUILD_API=true && BUILD_WORKER=true
+  [[ "$file" =~ ^packages/core ]] && BUILD_WEB=true
+done <<< "$CHANGED"
 
 echo ""
 echo "Build plan:"
