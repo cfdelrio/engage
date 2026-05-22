@@ -11,6 +11,7 @@ import {
   ChannelProviderRegistry,
   ResendEmailProvider,
   TwilioSMSProvider,
+  InfobipSMSProvider,
   FirebasePushProvider,
   TwilioVoiceProvider,
   TwilioWhatsAppChannelProvider,
@@ -67,6 +68,20 @@ async function main() {
 
   // ─── Channel Provider Registry ────────────────────────────────────────────
   const channelRegistry = new ChannelProviderRegistry();
+
+  if (
+    process.env["INFOBIP_API_KEY"] &&
+    process.env["INFOBIP_BASE_URL"] &&
+    process.env["INFOBIP_SMS_FROM"]
+  ) {
+    channelRegistry.register(
+      new InfobipSMSProvider(
+        process.env["INFOBIP_API_KEY"],
+        process.env["INFOBIP_BASE_URL"],
+        process.env["INFOBIP_SMS_FROM"],
+      ),
+    );
+  }
 
   if (process.env["RESEND_API_KEY"]) {
     channelRegistry.register(
