@@ -186,7 +186,7 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       let twilioTemplateMeta: Record<string, unknown> = {};
       if (channel === "whatsapp" && template?.subject) {
         // Check if subject contains a Twilio template SID (HX...)
-        const sidMatch = template.subject.match(/^HX[a-f0-9]{30}$/);
+        const sidMatch = template.subject.match(/^HX[a-f0-9]{32}$/);
         if (sidMatch) {
           const businessContext =
             (eventPayload.business_context as
