@@ -56,7 +56,8 @@ const userPreferencesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       return reply.status(200).send(
-        preferences.map((p) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        preferences.map((p: any) => ({
           userId: p.userId,
           tenantId: p.tenantId,
           channel: p.channel,

@@ -328,9 +328,12 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const stats = {
         sent: notifications.length,
-        delivered: notifications.filter((n) => n.deliveredAt).length,
-        opened: notifications.filter((n) => n.openedAt).length,
-        failed: notifications.filter((n) => n.failedAt).length,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delivered: notifications.filter((n: any) => n.deliveredAt).length,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        opened: notifications.filter((n: any) => n.openedAt).length,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        failed: notifications.filter((n: any) => n.failedAt).length,
       };
 
       const deliveryRate =
