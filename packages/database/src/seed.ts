@@ -892,7 +892,7 @@ async function main() {
 
   console.log(`Rules: ${rules.length} created/verified`);
 
-  // ─── Campaigns ────────────────────────────────────────────────────────────
+  // ─── Campaigns (Generic) ─────────────────────────────────────────────────
   const campaigns = [
     {
       name: "Welcome to ProdeCaballito",
@@ -946,6 +946,118 @@ async function main() {
   }
 
   console.log(`Campaigns: ${campaigns.length} created/verified`);
+
+  // ─── Email Campaigns ──────────────────────────────────────────────────────
+  await prisma.emailCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Welcome Email",
+        description: "Automatic welcome email for new users",
+        status: "draft",
+        triggerType: "event",
+        subject: "¡Bienvenido a ProdeCaballito!",
+        bodyHtml:
+          "<h1>Welcome {{user.firstName}}!</h1><p>Thanks for joining ProdeCaballito. Start making predictions now.</p>",
+        bodyText:
+          "Welcome {{user.firstName}}! Thanks for joining ProdeCaballito. Start making predictions now.",
+        fromName: "ProdeCaballito",
+        fromEmail: "notifications@prodecaballito.com",
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  await prisma.emailCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Weekly Rankings",
+        description: "Weekly rankings digest",
+        status: "draft",
+        triggerType: "scheduled",
+        subject: "Your Weekly Rankings - {{meta.date}}",
+        bodyHtml:
+          "<h2>Hello {{user.firstName}}</h2><p>You are ranked #{{user.rank}} this week.</p>",
+        bodyText: "You are ranked #{{user.rank}} this week.",
+        fromName: "ProdeCaballito",
+        fromEmail: "notifications@prodecaballito.com",
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  console.log("Email campaigns: 2 created/verified");
+
+  // ─── SMS Campaigns ────────────────────────────────────────────────────────
+  await prisma.smsCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Match Kickoff Alert",
+        description: "SMS alert when matches start",
+        status: "active",
+        triggerType: "event",
+        messageBody: "¡Arranca el partido {{match.local}} vs {{match.away}}!",
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  await prisma.smsCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Ranking Change Alert",
+        description: "Notify when user's ranking changes",
+        status: "draft",
+        triggerType: "event",
+        messageBody:
+          "¡Subiste a posición {{ranking.new_position}}! Acumulás {{ranking.points}} puntos.",
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  console.log("SMS campaigns: 2 created/verified");
+
+  // ─── WhatsApp Campaigns ───────────────────────────────────────────────────
+  await prisma.whatsAppCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Result Notification",
+        description: "WhatsApp result notification",
+        status: "draft",
+        triggerType: "event",
+        messageBody:
+          "Resultado: {{match.local}} {{match.goles_local}} - {{match.goles_visitante}} {{match.away}}",
+        usesTemplate: false,
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  console.log("WhatsApp campaigns: 1 created/verified");
+
+  // ─── Push Campaigns ───────────────────────────────────────────────────────
+  await prisma.pushCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "New Leader Alert",
+        description: "Push notification for new leader",
+        status: "draft",
+        triggerType: "event",
+        title: "¡Nuevo líder!",
+        body: "{{user.name}} es el nuevo líder con {{user.points}} puntos",
+        imageUrl: null,
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  console.log("Push campaigns: 1 created/verified");
 
   // ─── Public Feed ──────────────────────────────────────────────────────────
   await prisma.publicFeed
