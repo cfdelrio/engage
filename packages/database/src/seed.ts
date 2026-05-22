@@ -924,13 +924,13 @@ async function main() {
       .upsert({
         where: {
           tenantId_channel_provider: {
-            tenantId,
+            tenantId: tenant.id,
             channel: "email",
             provider: "resend",
           },
         },
         create: {
-          tenantId,
+          tenantId: tenant.id,
           channel: "email",
           provider: "resend",
           configEncrypted: JSON.stringify({ apiKey: resendApiKey }),
@@ -951,13 +951,13 @@ async function main() {
       .upsert({
         where: {
           tenantId_channel_provider: {
-            tenantId,
+            tenantId: tenant.id,
             channel: "sms",
             provider: "twilio",
           },
         },
         create: {
-          tenantId,
+          tenantId: tenant.id,
           channel: "sms",
           provider: "twilio",
           configEncrypted: JSON.stringify({
@@ -985,13 +985,13 @@ async function main() {
       .upsert({
         where: {
           tenantId_channel_provider: {
-            tenantId,
+            tenantId: tenant.id,
             channel: "whatsapp",
             provider: "twilio-whatsapp",
           },
         },
         create: {
-          tenantId,
+          tenantId: tenant.id,
           channel: "whatsapp",
           provider: "twilio-whatsapp",
           configEncrypted: JSON.stringify({
