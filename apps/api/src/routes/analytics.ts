@@ -163,12 +163,12 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (d: any) => d.status === "delivered",
       ).length;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const opened = deliveries.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (d: any) => d.status === "opened",
       ).length;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const clicked = deliveries.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (d: any) => d.status === "clicked",
       ).length;
 
@@ -214,12 +214,12 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (d: any) => d.status === "delivered",
       ).length;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const opened = deliveries.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (d: any) => d.status === "opened",
       ).length;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const clicked = deliveries.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (d: any) => d.status === "clicked",
       ).length;
 
