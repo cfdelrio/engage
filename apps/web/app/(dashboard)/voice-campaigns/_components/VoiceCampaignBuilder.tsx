@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,38 +18,43 @@ import {
 } from "@/components/ui/select";
 import { Save } from "lucide-react";
 import { useApiKey } from "@/hooks/useApiKey";
+import {
+  voiceCampaignSchema,
+  type VoiceCampaignValues,
+} from "@/lib/campaign-schemas";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
-interface VoiceCampaignData {
-  name: string;
-  description?: string;
-  script: string;
-  languageCode: string;
-  voiceGender: "male" | "female";
-  voiceSpeed: number;
-  recordingEnabled: boolean;
-  dtmfEnabled: boolean;
-  maxRetries: number;
-}
 
 export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
   const router = useRouter();
   const apiKey = useApiKey();
   const [loading, setLoading] = useState(!!campaignId);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<VoiceCampaignData>({
-    name: "",
-    description: "",
-    script: "",
-    languageCode: "en-US",
-    voiceGender: "male",
-    voiceSpeed: 1.0,
-    recordingEnabled: true,
-    dtmfEnabled: false,
-    maxRetries: 2,
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<VoiceCampaignValues>({
+    resolver: zodResolver(voiceCampaignSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      script: "",
+      languageCode: "en-US",
+      voiceGender: "male",
+      voiceSpeed: 1.0,
+      recordingEnabled: true,
+      dtmfEnabled: false,
+      maxRetries: 2,
+    },
   });
+
+  const voiceSpeed = watch("voiceSpeed");
 
   useEffect(() => {
     if (!campaignId || !apiKey) return;
@@ -56,44 +63,33 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
       try {
         const response = await fetch(
           `${API_URL}/v1/voice-campaigns/${campaignId}`,
-          {
-            headers: { "x-api-key": apiKey },
-          },
+          { headers: { "x-api-key": apiKey } },
         );
         if (!response.ok) throw new Error("Failed to fetch campaign");
         const campaign = await response.json();
-        setData({
+        reset({
           name: campaign.name,
-          description: campaign.description || "",
+          description: campaign.description ?? "",
           script: campaign.script,
-          languageCode: campaign.languageCode || "en-US",
-          voiceGender: campaign.voiceGender || "male",
-          voiceSpeed: campaign.voiceSpeed || 1.0,
+          languageCode: campaign.languageCode ?? "en-US",
+          voiceGender: campaign.voiceGender ?? "male",
+          voiceSpeed: campaign.voiceSpeed ?? 1.0,
           recordingEnabled: campaign.recordingEnabled ?? true,
           dtmfEnabled: campaign.dtmfEnabled ?? false,
-          maxRetries: campaign.maxRetries || 2,
+          maxRetries: campaign.maxRetries ?? 2,
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setApiError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     };
 
     fetchCampaign();
-  }, [campaignId, apiKey]);
+  }, [campaignId, apiKey, reset]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!data.name.trim()) {
-      setError("Campaign name is required");
-      return;
-    }
-    if (!data.script.trim()) {
-      setError("Script is required");
-      return;
-    }
-
+  const onSubmit = async (data: VoiceCampaignValues) => {
+    setApiError(null);
     try {
       setSaving(true);
       const method = campaignId ? "PUT" : "POST";
@@ -117,7 +113,7 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
 
       router.push("/voice-campaigns");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setApiError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -126,20 +122,22 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
   if (loading) return <div className="p-4">Loading campaign...</div>;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
-      {error && (
-        <div className="p-4 bg-red-50 text-red-600 rounded-lg">{error}</div>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-3xl">
+      {apiError && (
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg">{apiError}</div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label>Campaign Name *</Label>
           <Input
-            value={data.name}
-            onChange={(e) => setData({ ...data, name: e.target.value })}
+            {...register("name")}
             placeholder="e.g., Reactivation Campaign"
             className="mt-2"
           />
+          {errors.name && (
+            <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
+          )}
         </div>
 
         <div>
@@ -148,20 +146,21 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
             type="number"
             min="0"
             max="5"
-            value={data.maxRetries}
-            onChange={(e) =>
-              setData({ ...data, maxRetries: parseInt(e.target.value) })
-            }
+            {...register("maxRetries", { valueAsNumber: true })}
             className="mt-2"
           />
+          {errors.maxRetries && (
+            <p className="text-sm text-red-600 mt-1">
+              {errors.maxRetries.message}
+            </p>
+          )}
         </div>
       </div>
 
       <div>
         <Label>Description</Label>
         <Textarea
-          value={data.description || ""}
-          onChange={(e) => setData({ ...data, description: e.target.value })}
+          {...register("description")}
           placeholder="Optional campaign description"
           className="mt-2 min-h-16"
         />
@@ -173,11 +172,13 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
         </CardHeader>
         <CardContent>
           <Textarea
-            value={data.script}
-            onChange={(e) => setData({ ...data, script: e.target.value })}
+            {...register("script")}
             placeholder="The script that will be read during calls (supports {{user.firstName}} template variables)"
             className="min-h-32 font-mono text-sm"
           />
+          {errors.script && (
+            <p className="text-sm text-red-600 mt-1">{errors.script.message}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -189,47 +190,46 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="language">Language</Label>
-              <Select
-                value={data.languageCode}
-                onValueChange={(value) =>
-                  setData({ ...data, languageCode: value })
-                }
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en-US">English (US)</SelectItem>
-                  <SelectItem value="en-GB">English (UK)</SelectItem>
-                  <SelectItem value="es-ES">Spanish (Spain)</SelectItem>
-                  <SelectItem value="es-MX">Spanish (Mexico)</SelectItem>
-                  <SelectItem value="fr-FR">French</SelectItem>
-                  <SelectItem value="de-DE">German</SelectItem>
-                  <SelectItem value="it-IT">Italian</SelectItem>
-                  <SelectItem value="pt-BR">Portuguese (Brazil)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                name="languageCode"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en-US">English (US)</SelectItem>
+                      <SelectItem value="en-GB">English (UK)</SelectItem>
+                      <SelectItem value="es-ES">Spanish (Spain)</SelectItem>
+                      <SelectItem value="es-MX">Spanish (Mexico)</SelectItem>
+                      <SelectItem value="fr-FR">French</SelectItem>
+                      <SelectItem value="de-DE">German</SelectItem>
+                      <SelectItem value="it-IT">Italian</SelectItem>
+                      <SelectItem value="pt-BR">Portuguese (Brazil)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div>
               <Label htmlFor="gender">Voice Gender</Label>
-              <Select
-                value={data.voiceGender}
-                onValueChange={(value) =>
-                  setData({
-                    ...data,
-                    voiceGender: value as "male" | "female",
-                  })
-                }
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                name="voiceGender"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
           </div>
 
@@ -241,14 +241,11 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
                 min="0.5"
                 max="2"
                 step="0.1"
-                value={data.voiceSpeed}
-                onChange={(e) =>
-                  setData({ ...data, voiceSpeed: parseFloat(e.target.value) })
-                }
+                {...register("voiceSpeed", { valueAsNumber: true })}
                 className="flex-1"
               />
               <span className="text-sm font-medium w-12">
-                {data.voiceSpeed.toFixed(1)}x
+                {(voiceSpeed ?? 1.0).toFixed(1)}x
               </span>
             </div>
           </div>
@@ -264,10 +261,7 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
             <input
               type="checkbox"
               id="recording"
-              checked={data.recordingEnabled}
-              onChange={(e) =>
-                setData({ ...data, recordingEnabled: e.target.checked })
-              }
+              {...register("recordingEnabled")}
               className="rounded"
             />
             <Label htmlFor="recording" className="cursor-pointer">
@@ -279,10 +273,7 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
             <input
               type="checkbox"
               id="dtmf"
-              checked={data.dtmfEnabled}
-              onChange={(e) =>
-                setData({ ...data, dtmfEnabled: e.target.checked })
-              }
+              {...register("dtmfEnabled")}
               className="rounded"
             />
             <Label htmlFor="dtmf" className="cursor-pointer">

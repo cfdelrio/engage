@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,18 +18,12 @@ import {
 } from "@/components/ui/select";
 import { Save } from "lucide-react";
 import { useApiKey } from "@/hooks/useApiKey";
+import {
+  whatsAppCampaignSchema,
+  type WhatsAppCampaignValues,
+} from "@/lib/campaign-schemas";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
-interface WhatsAppCampaignData {
-  name: string;
-  description?: string;
-  message: string;
-  mediaUrl?: string;
-  buttonText?: string;
-  buttonUrl?: string;
-  triggerType: "manual" | "scheduled" | "rule-based" | "event-based";
-}
 
 export function WhatsAppCampaignBuilder({
   campaignId,
@@ -38,16 +34,29 @@ export function WhatsAppCampaignBuilder({
   const apiKey = useApiKey();
   const [loading, setLoading] = useState(!!campaignId);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<WhatsAppCampaignData>({
-    name: "",
-    description: "",
-    message: "",
-    mediaUrl: "",
-    buttonText: "",
-    buttonUrl: "",
-    triggerType: "manual",
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<WhatsAppCampaignValues>({
+    resolver: zodResolver(whatsAppCampaignSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      message: "",
+      mediaUrl: "",
+      buttonText: "",
+      buttonUrl: "",
+      triggerType: "manual",
+    },
   });
+
+  const messageValue = watch("message");
 
   useEffect(() => {
     if (!campaignId || !apiKey) return;
@@ -56,46 +65,31 @@ export function WhatsAppCampaignBuilder({
       try {
         const response = await fetch(
           `${API_URL}/v1/whatsapp-campaigns/${campaignId}`,
-          {
-            headers: { "x-api-key": apiKey },
-          },
+          { headers: { "x-api-key": apiKey } },
         );
         if (!response.ok) throw new Error("Failed to fetch campaign");
         const campaign = await response.json();
-        setData({
+        reset({
           name: campaign.name,
-          description: campaign.description || "",
+          description: campaign.description ?? "",
           message: campaign.message,
-          mediaUrl: campaign.mediaUrl || "",
-          buttonText: campaign.buttonText || "",
-          buttonUrl: campaign.buttonUrl || "",
-          triggerType: campaign.triggerType || "manual",
+          mediaUrl: campaign.mediaUrl ?? "",
+          buttonText: campaign.buttonText ?? "",
+          buttonUrl: campaign.buttonUrl ?? "",
+          triggerType: campaign.triggerType ?? "manual",
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setApiError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     };
 
     fetchCampaign();
-  }, [campaignId, apiKey]);
+  }, [campaignId, apiKey, reset]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!data.name.trim()) {
-      setError("Campaign name is required");
-      return;
-    }
-    if (!data.message.trim()) {
-      setError("Message is required");
-      return;
-    }
-    if (data.message.length > 4096) {
-      setError("Message must be 4096 characters or less");
-      return;
-    }
-
+  const onSubmit = async (data: WhatsAppCampaignValues) => {
+    setApiError(null);
     try {
       setSaving(true);
       const method = campaignId ? "PUT" : "POST";
@@ -119,7 +113,7 @@ export function WhatsAppCampaignBuilder({
 
       router.push("/whatsapp-campaigns");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setApiError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -128,51 +122,50 @@ export function WhatsAppCampaignBuilder({
   if (loading) return <div className="p-4">Loading campaign...</div>;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
-      {error && (
-        <div className="p-4 bg-red-50 text-red-600 rounded-lg">{error}</div>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-3xl">
+      {apiError && (
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg">{apiError}</div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label>Campaign Name *</Label>
           <Input
-            value={data.name}
-            onChange={(e) => setData({ ...data, name: e.target.value })}
+            {...register("name")}
             placeholder="e.g., Promotional Campaign"
             className="mt-2"
           />
+          {errors.name && (
+            <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
+          )}
         </div>
 
         <div>
           <Label>Trigger Type</Label>
-          <Select
-            value={data.triggerType}
-            onValueChange={(triggerType) =>
-              setData({
-                ...data,
-                triggerType: triggerType as WhatsAppCampaignData["triggerType"],
-              })
-            }
-          >
-            <SelectTrigger className="mt-2">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="manual">Manual</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="rule-based">Rule-based</SelectItem>
-              <SelectItem value="event-based">Event-based</SelectItem>
-            </SelectContent>
-          </Select>
+          <Controller
+            name="triggerType"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="rule-based">Rule-based</SelectItem>
+                  <SelectItem value="event-based">Event-based</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
         </div>
       </div>
 
       <div>
         <Label>Description</Label>
         <Textarea
-          value={data.description || ""}
-          onChange={(e) => setData({ ...data, description: e.target.value })}
+          {...register("description")}
           placeholder="Optional campaign description"
           className="mt-2 min-h-16"
         />
@@ -184,13 +177,17 @@ export function WhatsAppCampaignBuilder({
         </CardHeader>
         <CardContent>
           <Textarea
-            value={data.message}
-            onChange={(e) => setData({ ...data, message: e.target.value })}
+            {...register("message")}
             placeholder="Your WhatsApp message (max 4096 characters)"
             className="min-h-32 font-mono text-sm"
           />
+          {errors.message && (
+            <p className="text-sm text-red-600 mt-1">
+              {errors.message.message}
+            </p>
+          )}
           <div className="text-xs text-muted-foreground mt-2">
-            {data.message.length} / 4096 characters
+            {messageValue?.length ?? 0} / 4096 characters
           </div>
         </CardContent>
       </Card>
@@ -201,11 +198,15 @@ export function WhatsAppCampaignBuilder({
         </CardHeader>
         <CardContent>
           <Input
-            value={data.mediaUrl || ""}
-            onChange={(e) => setData({ ...data, mediaUrl: e.target.value })}
+            {...register("mediaUrl")}
             placeholder="https://example.com/image.jpg"
             type="url"
           />
+          {errors.mediaUrl && (
+            <p className="text-sm text-red-600 mt-1">
+              {errors.mediaUrl.message}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground mt-2">
             Image, video, or document URL to attach to the message
           </p>
@@ -223,8 +224,7 @@ export function WhatsAppCampaignBuilder({
             </Label>
             <Input
               id="buttonText"
-              value={data.buttonText || ""}
-              onChange={(e) => setData({ ...data, buttonText: e.target.value })}
+              {...register("buttonText")}
               placeholder="e.g., Shop Now"
               className="mt-2"
             />
@@ -235,12 +235,16 @@ export function WhatsAppCampaignBuilder({
             </Label>
             <Input
               id="buttonUrl"
-              value={data.buttonUrl || ""}
-              onChange={(e) => setData({ ...data, buttonUrl: e.target.value })}
+              {...register("buttonUrl")}
               placeholder="https://example.com"
               type="url"
               className="mt-2"
             />
+            {errors.buttonUrl && (
+              <p className="text-sm text-red-600 mt-1">
+                {errors.buttonUrl.message}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
