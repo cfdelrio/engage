@@ -3,25 +3,21 @@ set -e
 
 # ORKESTAI ENGAGE — Restart All Services Script
 # Usage: ./infra/scripts/restart-all.sh
-# Handles: env loading, clean kills, full rebuild, fresh start
+# Uses systemd for reliable process management
 
 cd /home/ec2-user/engage || { echo "Change directory failed"; exit 1; }
 
 echo "🔄 ORKESTAI ENGAGE — Restarting all services..."
 
-# 1. Load environment
+# 1. Load environment for the build
 echo "📋 Loading environment..."
 set -a
 source .env
 set +a
 
-# 2. Kill existing processes gracefully
-echo "🛑 Stopping existing services..."
-pkill -f "apps/worker/dist/index.js" 2>/dev/null || true
-pkill -f "apps/api/dist/index.js" 2>/dev/null || true
-pkill -f "next start" 2>/dev/null || true
-fuser -k 3000/tcp 2>/dev/null || true
-fuser -k 3001/tcp 2>/dev/null || true
+# 2. Stop services via systemd (no port conflicts possible)
+echo "🛑 Stopping services..."
+sudo systemctl stop orkestai-web orkestai-worker orkestai-api 2>/dev/null || true
 sleep 2
 
 # 3. Clean caches
@@ -34,49 +30,44 @@ rm -rf apps/worker/dist
 echo "🏗️  Building all apps..."
 pnpm build 2>&1 | tail -20
 
-# 5. Start services in order
+# 5. Install/update systemd service files
+echo "📦 Installing systemd services..."
+sudo cp infra/systemd/orkestai-api.service /etc/systemd/system/
+sudo cp infra/systemd/orkestai-worker.service /etc/systemd/system/
+sudo cp infra/systemd/orkestai-web.service /etc/systemd/system/
+sudo systemctl daemon-reload
+
+# 6. Start services via systemd
 echo "🚀 Starting services..."
-
-# API first (needed by worker and web)
-echo "  → Starting API on port 3001..."
-NODE_ENV=production node apps/api/dist/index.js >> ~/api.log 2>&1 &
-API_PID=$!
+sudo systemctl start orkestai-api
 sleep 3
-
-# Worker
-echo "  → Starting Worker..."
-NODE_ENV=production node apps/worker/dist/index.js >> ~/worker.log 2>&1 &
-WORKER_PID=$!
+sudo systemctl start orkestai-worker
 sleep 2
+sudo systemctl start orkestai-web
+sleep 4
 
-# Web (Next.js)
-echo "  → Starting Web on port 3000..."
-cd apps/web && NODE_ENV=production node_modules/.bin/next start >> ~/web.log 2>&1 &
-WEB_PID=$!
-cd /home/ec2-user/engage
-sleep 3
+# 7. Enable on boot
+sudo systemctl enable orkestai-api orkestai-worker orkestai-web 2>/dev/null
 
-# 6. Verify all running
-echo "✅ Services started (PIDs: API=$API_PID, Worker=$WORKER_PID, Web=$WEB_PID)"
-
-# 7. Quick health checks
+# 8. Health checks
 echo "🏥 Health checks..."
 if curl -s http://localhost:3001/health > /dev/null; then
   echo "  ✓ API healthy"
 else
-  echo "  ✗ API not responding"
+  echo "  ✗ API not responding — check: sudo journalctl -u orkestai-api -n 20"
 fi
 
 if curl -s http://localhost:3000 > /dev/null 2>&1; then
   echo "  ✓ Web responding"
 else
-  echo "  ✗ Web not responding"
+  echo "  ✗ Web not responding — check: sudo journalctl -u orkestai-web -n 20"
 fi
 
 echo ""
-echo "📊 Logs available at:"
-echo "  - API:    tail -f ~/api.log"
-echo "  - Worker: tail -f ~/worker.log"
-echo "  - Web:    tail -f ~/web.log"
+echo "📊 Logs:"
+echo "  sudo journalctl -u orkestai-api -f"
+echo "  sudo journalctl -u orkestai-worker -f"
+echo "  sudo journalctl -u orkestai-web -f"
 echo ""
+echo "🔁 Para reiniciar un servicio: sudo systemctl restart orkestai-web"
 echo "🌐 Access at: https://engage.orkestai.ar"
