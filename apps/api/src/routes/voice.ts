@@ -22,7 +22,13 @@ const flowStepSchema = z.object({
 const createVoiceCampaignSchema = z.object({
   name: z.string().min(1).max(256),
   description: z.string().optional(),
-  script: z.string().min(1),
+  script: z.string().optional().default(""),
+  ttsProvider: z
+    .enum(["elevenlabs", "openai"])
+    .optional()
+    .default("elevenlabs"),
+  elevenLabsVoiceId: z.string().optional(),
+  flowSteps: z.array(flowStepSchema).optional(),
   triggerType: z
     .enum(["manual", "scheduled", "rule-based", "event-based"])
     .default("manual"),
@@ -96,6 +102,9 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         name: body.name,
         description: body.description,
         script: body.script,
+        ttsProvider: body.ttsProvider,
+        elevenLabsVoiceId: body.elevenLabsVoiceId,
+        ...(body.flowSteps && { flowSteps: asJson(body.flowSteps) }),
         triggerType: body.triggerType,
         voiceConfig: asJson(body.voiceConfig),
         aiGenerated: body.aiGenerated,
@@ -199,6 +208,11 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
           description: body.description,
         }),
         ...(body.script && { script: body.script }),
+        ...(body.ttsProvider && { ttsProvider: body.ttsProvider }),
+        ...(body.elevenLabsVoiceId !== undefined && {
+          elevenLabsVoiceId: body.elevenLabsVoiceId,
+        }),
+        ...(body.flowSteps && { flowSteps: asJson(body.flowSteps) }),
         ...(body.triggerType && { triggerType: body.triggerType }),
         ...(body.voiceConfig && { voiceConfig: asJson(body.voiceConfig) }),
         ...(body.aiGenerated !== undefined && {
@@ -367,9 +381,12 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const steps = body?.steps ?? [
-        { id: "s1", type: "say" as const, text: campaign.script },
-      ];
+      type FlowStep = z.infer<typeof flowStepSchema>;
+      const storedSteps = campaign.flowSteps as FlowStep[] | null;
+      const steps = body?.steps ??
+        storedSteps ?? [
+          { id: "s1", type: "say" as const, text: campaign.script || "Hello" },
+        ];
 
       await client.defineCampaignFlow(orkestaiCampaignId, steps);
 

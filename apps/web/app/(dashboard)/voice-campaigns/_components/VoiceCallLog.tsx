@@ -29,6 +29,7 @@ interface VoiceCall {
   sentiment?: string;
   transcription?: string;
   dtmfResponse?: string;
+  responses?: Array<{ stepId: string; value: string }>;
   recordingUrl?: string;
   errorMessage?: string;
   createdAt: string;
@@ -84,7 +85,7 @@ export function VoiceCallLog({ campaignId }: VoiceCallLogProps) {
             <TableHead>Status</TableHead>
             <TableHead>Duration</TableHead>
             <TableHead>Sentiment</TableHead>
-            <TableHead>DTMF</TableHead>
+            <TableHead>Responses</TableHead>
             <TableHead>Date</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -116,7 +117,11 @@ export function VoiceCallLog({ campaignId }: VoiceCallLogProps) {
                   "-"
                 )}
               </TableCell>
-              <TableCell>{call.dtmfResponse || "-"}</TableCell>
+              <TableCell>
+                {call.responses && call.responses.length > 0
+                  ? `${call.responses.length} response${call.responses.length > 1 ? "s" : ""}`
+                  : call.dtmfResponse || "-"}
+              </TableCell>
               <TableCell className="text-sm">
                 {new Date(call.createdAt).toLocaleDateString()}
               </TableCell>
@@ -158,12 +163,24 @@ export function VoiceCallLog({ campaignId }: VoiceCallLogProps) {
                   <p className="font-medium">{selectedCall.duration} seconds</p>
                 </div>
               )}
-              {selectedCall.dtmfResponse && (
+              {selectedCall.responses && selectedCall.responses.length > 0 ? (
+                <div>
+                  <p className="text-sm text-muted-foreground">Responses</p>
+                  <div className="space-y-1 mt-1">
+                    {selectedCall.responses.map((r, i) => (
+                      <p key={i} className="text-sm">
+                        Step <span className="font-mono">{r.stepId}</span>:{" "}
+                        <strong>{r.value}</strong>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : selectedCall.dtmfResponse ? (
                 <div>
                   <p className="text-sm text-muted-foreground">DTMF Response</p>
                   <p className="font-medium">{selectedCall.dtmfResponse}</p>
                 </div>
-              )}
+              ) : null}
               {selectedCall.sentiment && (
                 <div>
                   <p className="text-sm text-muted-foreground">Sentiment</p>

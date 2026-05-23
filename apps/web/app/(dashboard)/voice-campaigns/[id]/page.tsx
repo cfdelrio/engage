@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { VoiceCampaignBuilder } from "../_components/VoiceCampaignBuilder";
 import { VoiceCampaignStats } from "../_components/VoiceCampaignStats";
 import { VoiceCallLog } from "../_components/VoiceCallLog";
+import { AudienceManager } from "../_components/AudienceManager";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +33,17 @@ export default async function VoiceCampaignDetailPage({
       <Tabs defaultValue="settings" className="w-full">
         <TabsList>
           <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="audience">Audience</TabsTrigger>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="calls">Calls</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-4">
           <VoiceCampaignBuilder campaignId={id} />
+        </TabsContent>
+
+        <TabsContent value="audience" className="space-y-4">
+          <AudienceManager campaignId={id} />
         </TabsContent>
 
         <TabsContent value="metrics" className="space-y-4">
