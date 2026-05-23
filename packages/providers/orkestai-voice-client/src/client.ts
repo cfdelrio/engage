@@ -1,5 +1,3 @@
-import type { AxiosInstance } from "axios";
-import axios from "axios";
 import type {
   Contact,
   Campaign,
@@ -14,18 +12,14 @@ import type {
 } from "./types.js";
 
 export class OrkestaiVoiceClient {
-  private client: AxiosInstance;
+  private baseUrl: string;
+  private apiKey: string;
   private tenantId: string;
 
   constructor(apiUrl: string, apiKey: string, tenantId: string) {
+    this.baseUrl = apiUrl;
+    this.apiKey = apiKey;
     this.tenantId = tenantId;
-    this.client = axios.create({
-      baseURL: apiUrl,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-    });
   }
 
   async createContact(
@@ -133,26 +127,25 @@ export class OrkestaiVoiceClient {
     path: string,
     data?: unknown,
   ): Promise<T> {
-    try {
-      const response = await this.client({
-        method,
-        url: path,
-        data,
-      });
-      return response.data as T;
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.data) {
-        const apiError = error.response.data as {
-          error?: { message: string; detail?: string };
-        };
-        const message =
-          apiError.error?.message || "Unknown error from orkestai-voice";
-        const detail = apiError.error?.detail
-          ? ` — ${apiError.error.detail}`
-          : "";
-        throw new Error(`${message}${detail}`);
-      }
-      throw error;
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      ...(data !== undefined && { body: JSON.stringify(data) }),
+    });
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => null)) as {
+        error?: { message: string; detail?: string };
+      } | null;
+      const message =
+        errorData?.error?.message ?? "Unknown error from orkestai-voice";
+      const detail = errorData?.error?.detail
+        ? ` — ${errorData.error.detail}`
+        : "";
+      throw new Error(`${message}${detail}`);
     }
+    return (await response.json()) as T;
   }
 }
