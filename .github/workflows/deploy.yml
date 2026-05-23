@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [claude/event-driven-engagement-platform-Bl7PI, main]
+    branches: [main]
 
 concurrency:
   group: deploy-production
