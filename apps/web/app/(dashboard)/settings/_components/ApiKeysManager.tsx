@@ -34,6 +34,12 @@ interface CreatedKey extends ApiKey {
   rawKey: string;
 }
 
+type ActiveModal =
+  | null
+  | { type: "create" }
+  | { type: "rotate"; keyId: string; keyName: string }
+  | { type: "delete"; keyId: string; keyName: string };
+
 export function ApiKeysManager() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +48,7 @@ export function ApiKeysManager() {
   const [copied, setCopied] = useState(false);
   const [activeKeyInput, setActiveKeyInput] = useState("");
   const [activeKeySaved, setActiveKeySaved] = useState(false);
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   const storedApiKey = useApiKey();
 
@@ -58,17 +65,16 @@ export function ApiKeysManager() {
     }
   };
 
-  const [createKeyOpen, setCreateKeyOpen] = useState(false);
-  const [rotateKeyId, setRotateKeyId] = useState<string | null>(null);
-  const [rotateKeyName, setRotateKeyName] = useState("");
-  const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
-  const [deleteKeyName, setDeleteKeyName] = useState("");
-
   const fetchKeys = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await apiFetch("/admin/api-keys");
+      if (res.status === 401) {
+        setError("Enter your API key above to manage keys.");
+        setKeys([]);
+        return;
+      }
       if (!res.ok) throw new Error("Failed to fetch API keys");
       setKeys(await res.json());
     } catch (err) {
@@ -76,7 +82,7 @@ export function ApiKeysManager() {
     } finally {
       setLoading(false);
     }
-  }, [storedApiKey]);
+  }, []);
 
   useEffect(() => {
     void fetchKeys();
@@ -106,12 +112,7 @@ export function ApiKeysManager() {
 
   const handleRotate = (keyId: string) => {
     const key = keys.find((k) => k.id === keyId);
-    if (key) {
-      setCreateKeyOpen(false);
-      setDeleteKeyId(null);
-      setRotateKeyId(keyId);
-      setRotateKeyName(key.name);
-    }
+    if (key) setActiveModal({ type: "rotate", keyId, keyName: key.name });
   };
 
   const handleRotateConfirm = async (keyId: string) => {
@@ -131,18 +132,13 @@ export function ApiKeysManager() {
       createdAt: data.createdAt,
       rawKey: data.rawKey,
     });
-    setRotateKeyId(null);
+    setActiveModal(null);
     await fetchKeys();
   };
 
   const handleDelete = (keyId: string) => {
     const key = keys.find((k) => k.id === keyId);
-    if (key) {
-      setCreateKeyOpen(false);
-      setRotateKeyId(null);
-      setDeleteKeyId(keyId);
-      setDeleteKeyName(key.name);
-    }
+    if (key) setActiveModal({ type: "delete", keyId, keyName: key.name });
   };
 
   const handleDeleteConfirm = async (keyId: string) => {
@@ -150,7 +146,7 @@ export function ApiKeysManager() {
       method: "DELETE",
     });
     if (!res.ok) throw new Error("Failed to delete API key");
-    setDeleteKeyId(null);
+    setActiveModal(null);
     await fetchKeys();
   };
 
@@ -246,7 +242,7 @@ export function ApiKeysManager() {
                 Manage API keys for authenticating requests to your tenant
               </CardDescription>
             </div>
-            <Button onClick={() => setCreateKeyOpen(true)}>
+            <Button onClick={() => setActiveModal({ type: "create" })}>
               Create API Key
             </Button>
           </div>
@@ -273,24 +269,24 @@ export function ApiKeysManager() {
       </Card>
 
       <CreateApiKeyDialog
-        open={createKeyOpen}
-        onOpenChange={setCreateKeyOpen}
+        open={activeModal?.type === "create"}
+        onOpenChange={(open) => !open && setActiveModal(null)}
         onSuccess={handleCreateSuccess}
       />
 
       <RotateApiKeyDialog
-        open={rotateKeyId !== null}
-        onOpenChange={(open) => !open && setRotateKeyId(null)}
-        keyId={rotateKeyId ?? ""}
-        keyName={rotateKeyName}
+        open={activeModal?.type === "rotate"}
+        onOpenChange={(open) => !open && setActiveModal(null)}
+        keyId={activeModal?.type === "rotate" ? activeModal.keyId : ""}
+        keyName={activeModal?.type === "rotate" ? activeModal.keyName : ""}
         onConfirm={handleRotateConfirm}
       />
 
       <DeleteApiKeyDialog
-        open={deleteKeyId !== null}
-        onOpenChange={(open) => !open && setDeleteKeyId(null)}
-        keyId={deleteKeyId ?? ""}
-        keyName={deleteKeyName}
+        open={activeModal?.type === "delete"}
+        onOpenChange={(open) => !open && setActiveModal(null)}
+        keyId={activeModal?.type === "delete" ? activeModal.keyId : ""}
+        keyName={activeModal?.type === "delete" ? activeModal.keyName : ""}
         onConfirm={handleDeleteConfirm}
       />
     </div>
