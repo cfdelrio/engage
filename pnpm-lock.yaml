@@ -362,9 +362,6 @@ importers:
 
   packages/providers/orkestai-voice-client:
     dependencies:
-      axios:
-        specifier: ^1.6.0
-        version: 1.16.1
       zod:
         specifier: ^3.22.0
         version: 3.25.76
