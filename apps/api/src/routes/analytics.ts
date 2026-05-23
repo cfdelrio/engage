@@ -160,12 +160,17 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
     const calcMetrics = (deliveries: typeof currentDeliveries) => {
       const totalSent = deliveries.length;
       const delivered = deliveries.filter(
-        (d) => d.status === "delivered",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (d: any) => d.status === "delivered",
       ).length;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const opened = deliveries.filter((d: any) => d.status === "opened").length;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const clicked = deliveries.filter((d: any) => d.status === "clicked").length;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const opened = deliveries.filter(
+        (d: any) => d.status === "opened",
+      ).length;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clicked = deliveries.filter(
+        (d: any) => d.status === "clicked",
+      ).length;
 
       return {
         totalSent,
@@ -206,12 +211,17 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const sent = deliveries.length;
       const delivered = deliveries.filter(
-        (d) => d.status === "delivered",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (d: any) => d.status === "delivered",
       ).length;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const opened = deliveries.filter((d: any) => d.status === "opened").length;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const clicked = deliveries.filter((d: any) => d.status === "clicked").length;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const opened = deliveries.filter(
+        (d: any) => d.status === "opened",
+      ).length;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clicked = deliveries.filter(
+        (d: any) => d.status === "clicked",
+      ).length;
 
       metrics.push({
         channel,
@@ -306,7 +316,7 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
       orderBy: { createdAt: "desc" },
     });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const metrics = campaigns.map((campaign: any) => ({
       id: campaign.id,
       name: campaign.name,
