@@ -23,6 +23,6 @@ jobs:
           script: |
             cd /home/ec2-user/engage
             git fetch origin
-            git reset --hard origin/claude/event-driven-engagement-platform-Bl7PI
+            git reset --hard origin/${{ github.ref_name }}
             chmod +x infra/scripts/restart-all.sh
             bash infra/scripts/restart-all.sh
