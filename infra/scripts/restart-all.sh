@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 # ORKESTAI ENGAGE — Smart Restart Script
 # Detects what changed since last deploy and only rebuilds what's needed
@@ -55,6 +55,11 @@ else
   done <<< "$CHANGED"
 fi
 
+# Force rebuild if dist artifacts are missing (recovery from failed previous build)
+[ ! -f "apps/api/dist/index.js" ]    && { echo "  ⚠️  API dist missing — forcing rebuild"; BUILD_API=true; }
+[ ! -f "apps/worker/dist/index.js" ] && { echo "  ⚠️  Worker dist missing — forcing rebuild"; BUILD_WORKER=true; }
+[ ! -d "apps/web/.next" ]            && { echo "  ⚠️  Web dist missing — forcing rebuild"; BUILD_WEB=true; }
+
 echo "  → API: $BUILD_API | Worker: $BUILD_WORKER | Web: $BUILD_WEB | Infra: $BUILD_INFRA"
 
 # 3. Ensure Docker and databases are running
@@ -85,13 +90,21 @@ sleep 2
 if $BUILD_API; then
   echo "🏗️  Building API..."
   rm -rf apps/api/dist
-  pnpm --filter @engage/api... run build 2>&1 | tail -5
+  pnpm --filter @engage/api... run build 2>&1 | tail -10
+  if [ ! -f "apps/api/dist/index.js" ]; then
+    echo "✗ API build failed — dist/index.js not found"; exit 1
+  fi
+  echo "  ✓ API build OK"
 fi
 
 if $BUILD_WORKER; then
   echo "🏗️  Building Worker..."
   rm -rf apps/worker/dist
-  pnpm --filter @engage/worker... run build 2>&1 | tail -5
+  pnpm --filter @engage/worker... run build 2>&1 | tail -10
+  if [ ! -f "apps/worker/dist/index.js" ]; then
+    echo "✗ Worker build failed — dist/index.js not found"; exit 1
+  fi
+  echo "  ✓ Worker build OK"
 fi
 
 if $BUILD_WEB; then
@@ -132,7 +145,7 @@ fi
 # 8. Save current commit as last deploy
 echo "$CURRENT" > .last-deploy-commit
 
-# 9. Health checks — only for services that were (re)started this deploy
+# 9. Health checks — solo para servicios que fueron (re)iniciados
 echo "🏥 Health checks..."
 if ! $BUILD_API && ! $BUILD_WEB; then
   echo "  No services restarted — skipping health checks"
