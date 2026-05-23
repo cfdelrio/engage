@@ -65,6 +65,23 @@ git checkout -b release/v1.2.0
 - ✅ GitHub Actions **auto-deploya en pushes a `main`**
 - ✅ **Sin commits directos a `main` o `develop`** (siempre PR)
 
+### Validación previa a pushear
+
+Antes de hacer `git push`, correr validación completa localmente:
+
+```bash
+pnpm validate
+```
+
+Esto corre:
+
+- `pnpm typecheck` — TypeScript strict mode (todos los paquetes)
+- `pnpm lint` — turbo lint (web, core)
+- `pnpm exec eslint packages apps --max-warnings 0` — ESLint en TODO el monorepo
+- `pnpm test` — todas las pruebas (vitest)
+
+Si alguno falla, arreglar antes de pushear. El pre-push hook también corre typecheck pero **`validate` es más exhaustivo** (incluye tests y lint completo).
+
 ## EC2 de producción
 
 - **Path**: `/home/ec2-user/engage`
