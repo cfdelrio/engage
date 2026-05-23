@@ -1,6 +1,12 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { verifySvixSignature, verifyTwilioSignature } from "@engage/core";
 import { asJson, asJsonNullable } from "../utils/prisma.js";
+import {
+  verifyWebhookSignature,
+  parseWebhookPayload,
+  isCallCompletedEvent,
+  isCampaignCompletedEvent,
+} from "@engage/orkestai-voice-client";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -579,6 +585,143 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
             timestamp: new Date(),
           }),
         },
+      });
+
+      return reply.status(200).send({ ok: true });
+    },
+  );
+
+  // orkestai-voice webhooks: call.completed, campaign.completed
+  fastify.post(
+    "/orkestai-voice",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const secret = process.env["ORKESTAI_VOICE_WEBHOOK_SECRET"];
+      const signature = request.headers["x-orkestai-signature"] as
+        | string
+        | undefined;
+
+      if (secret && signature) {
+        const rawBody =
+          request.rawBody ?? Buffer.from(JSON.stringify(request.body));
+        if (!verifyWebhookSignature(rawBody, signature, secret)) {
+          return reply.status(401).send({ error: "Invalid webhook signature" });
+        }
+      } else if (secret && !signature) {
+        return reply
+          .status(401)
+          .send({ error: "Missing x-orkestai-signature header" });
+      }
+
+      let payload;
+      try {
+        payload = parseWebhookPayload(request.body);
+      } catch {
+        return reply.status(400).send({ error: "Invalid webhook payload" });
+      }
+
+      // Idempotency: skip if already processed
+      const idempotencyId = `${payload.timestamp}:${payload.tenantId}:${payload.event}`;
+      const existing = await fastify.prisma.webhookEvent.findUnique({
+        where: {
+          source_orkestaiEventId: {
+            source: "orkestai-voice",
+            orkestaiEventId: idempotencyId,
+          },
+        },
+      });
+      if (existing?.processed) {
+        return reply.status(200).send({ ok: true, skipped: true });
+      }
+
+      const webhookRecord = await fastify.prisma.webhookEvent.upsert({
+        where: {
+          source_orkestaiEventId: {
+            source: "orkestai-voice",
+            orkestaiEventId: idempotencyId,
+          },
+        },
+        create: {
+          tenantId: payload.tenantId,
+          source: "orkestai-voice",
+          orkestaiEventId: idempotencyId,
+          eventType: payload.event,
+          payload: asJson(payload.data),
+        },
+        update: {},
+      });
+
+      if (
+        payload.event === "call.completed" &&
+        isCallCompletedEvent(payload.data)
+      ) {
+        const data = payload.data;
+
+        const campaign = await fastify.prisma.voiceCampaign.findFirst({
+          where: {
+            orkestaiCampaignId: data.campaignId,
+            tenantId: payload.tenantId,
+          },
+        });
+
+        if (campaign) {
+          const user = await fastify.prisma.user.findFirst({
+            where: { tenantId: payload.tenantId },
+          });
+
+          if (user) {
+            const call = await fastify.prisma.voiceCall.upsert({
+              where: { orkestaiCallId: data.callId },
+              create: {
+                voiceCampaignId: campaign.id,
+                tenantId: payload.tenantId,
+                userId: user.id,
+                phone: "",
+                status: "completed",
+                orkestaiCallId: data.callId,
+                duration: data.duration,
+                responses: asJson(data.responses),
+                completedAt: new Date(data.endedAt),
+                answeredAt: new Date(data.startedAt),
+              },
+              update: {
+                status: "completed",
+                duration: data.duration,
+                responses: asJson(data.responses),
+                completedAt: new Date(data.endedAt),
+              },
+            });
+
+            for (const response of data.responses) {
+              await fastify.prisma.voiceInteraction.create({
+                data: {
+                  voiceCallId: call.id,
+                  tenantId: payload.tenantId,
+                  type: "dtmf",
+                  data: asJson(response),
+                },
+              });
+            }
+          }
+        }
+      }
+
+      if (
+        payload.event === "campaign.completed" &&
+        isCampaignCompletedEvent(payload.data)
+      ) {
+        const data = payload.data;
+        await fastify.prisma.voiceCampaign.updateMany({
+          where: {
+            orkestaiCampaignId: data.campaignId,
+            tenantId: payload.tenantId,
+          },
+          data: { status: "completed", endAt: new Date(data.completedAt) },
+        });
+      }
+
+      await fastify.prisma.webhookEvent.update({
+        where: { id: webhookRecord.id },
+        data: { processed: true, processedAt: new Date() },
       });
 
       return reply.status(200).send({ ok: true });

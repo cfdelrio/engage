@@ -1,7 +1,23 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { Queue } from "bullmq";
 import { asJson } from "../utils/prisma.js";
+import { OrkestaiVoiceClient } from "@engage/orkestai-voice-client";
+
+function getVoiceClient(): OrkestaiVoiceClient | null {
+  const apiUrl = process.env["ORKESTAI_VOICE_API_URL"];
+  const apiKey = process.env["ORKESTAI_VOICE_API_KEY"];
+  const tenantId = process.env["ORKESTAI_VOICE_TENANT_ID"];
+  if (!apiUrl || !apiKey || !tenantId) return null;
+  return new OrkestaiVoiceClient(apiUrl, apiKey, tenantId);
+}
+
+const flowStepSchema = z.object({
+  id: z.string(),
+  type: z.enum(["say", "dtmf_question", "speech_question", "goodbye"]),
+  text: z.string(),
+  options: z.record(z.string()).optional(),
+  timeout: z.number().optional(),
+});
 
 const createVoiceCampaignSchema = z.object({
   name: z.string().min(1).max(256),
@@ -231,11 +247,101 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // Start campaign
+  // Add audience to campaign via orkestai-voice
+  fastify.post(
+    "/:id/add-audience",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const body = z
+        .object({
+          contacts: z.array(
+            z.object({
+              phone: z.string(),
+              firstName: z.string(),
+              lastName: z.string().optional(),
+              email: z.string().optional(),
+              metadata: z.record(z.unknown()).optional(),
+            }),
+          ),
+        })
+        .parse(request.body);
+
+      const campaign = await fastify.prisma.voiceCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
+
+      if (!campaign) return reply.status(404).send({ error: "Not found" });
+      if (campaign.status !== "draft") {
+        return reply
+          .status(400)
+          .send({ error: "Campaign must be in draft status to add audience" });
+      }
+
+      const client = getVoiceClient();
+      if (!client) {
+        return reply
+          .status(503)
+          .send({ error: "orkestai-voice not configured (missing env vars)" });
+      }
+
+      let orkestaiCampaignId = campaign.orkestaiCampaignId;
+      if (!orkestaiCampaignId) {
+        const voiceConfig =
+          (campaign.voiceConfig as Record<string, unknown>) ?? {};
+        const created = await client.createCampaign(
+          campaign.name,
+          (campaign.ttsProvider as "elevenlabs" | "openai") ?? "elevenlabs",
+          campaign.elevenLabsVoiceId ?? undefined,
+          campaign.aiInstructions ?? undefined,
+          campaign.description ?? undefined,
+        );
+        orkestaiCampaignId = created.id;
+        await fastify.prisma.voiceCampaign.update({
+          where: { id },
+          data: {
+            orkestaiCampaignId,
+            ttsProvider: (voiceConfig["provider"] as string) ?? "elevenlabs",
+          },
+        });
+      }
+
+      const contactIds: string[] = [];
+      for (const c of body.contacts) {
+        const contact = await client.createContact(
+          c.firstName,
+          c.phone,
+          c.lastName,
+          c.email,
+          c.metadata,
+        );
+        contactIds.push(contact.id);
+      }
+
+      const result = await client.addRecipients(orkestaiCampaignId, contactIds);
+
+      await fastify.prisma.voiceCampaign.update({
+        where: { id },
+        data: { audienceSize: { increment: result.added } },
+      });
+
+      return reply.status(201).send({
+        added: result.added,
+        skipped: result.skipped,
+        audienceSize: (campaign.audienceSize ?? 0) + result.added,
+      });
+    },
+  );
+
+  // Start campaign via orkestai-voice
   fastify.post(
     "/:id/start",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
+      const body = z
+        .object({ steps: z.array(flowStepSchema).optional() })
+        .optional()
+        .parse(request.body);
+
       const campaign = await fastify.prisma.voiceCampaign.findFirst({
         where: { id, tenantId: request.tenantId },
       });
@@ -247,72 +353,41 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
           .send({ error: "Campaign must be in draft status" });
       }
 
-      // Update campaign status
-      const updated = await fastify.prisma.voiceCampaign.update({
-        where: { id },
-        data: { status: "active", startAt: new Date() },
-      });
-
-      // Find users matching audience filter
-      const users = await fastify.prisma.user.findMany({
-        where: {
-          tenantId: request.tenantId,
-          phone: { not: null },
-        },
-        take: 1000,
-      });
-
-      // Create VoiceCall records and enqueue jobs
-      const voiceQueue = new Queue("voice.calls", {
-        connection: fastify.redis,
-      });
-
-      let enqueuedCount = 0;
-      for (const user of users) {
-        const voiceCall = await fastify.prisma.voiceCall.create({
-          data: {
-            voiceCampaignId: id,
-            tenantId: request.tenantId,
-            userId: user.id,
-            phone: user.phone ?? "",
-            status: "queued",
-          },
-        });
-
-        const voiceConfig =
-          (campaign.voiceConfig as Record<string, unknown>) || {};
-        await voiceQueue.add(
-          "voice-call",
-          {
-            voiceCallId: voiceCall.id,
-            voiceCampaignId: id,
-            userId: user.id,
-            phone: user.phone,
-            script: campaign.script,
-            languageCode: (voiceConfig["language"] as string) || "es-ES",
-            voiceGender:
-              (voiceConfig["voice"] as "male" | "female") || "female",
-            dtmfConfig: campaign.dtmfConfig,
-            attempt: 0,
-          },
-          {
-            attempts: campaign.maxRetries + 1,
-            backoff: {
-              type: "exponential",
-              delay: 60000,
-            },
-          },
-        );
-
-        enqueuedCount++;
+      const client = getVoiceClient();
+      if (!client) {
+        return reply
+          .status(503)
+          .send({ error: "orkestai-voice not configured (missing env vars)" });
       }
 
-      await voiceQueue.close();
+      let orkestaiCampaignId = campaign.orkestaiCampaignId;
+      if (!orkestaiCampaignId) {
+        return reply.status(400).send({
+          error: "Add audience first via POST /:id/add-audience",
+        });
+      }
+
+      const steps = body?.steps ?? [
+        { id: "s1", type: "say" as const, text: campaign.script },
+      ];
+
+      await client.defineCampaignFlow(orkestaiCampaignId, steps);
+
+      const startResult = await client.startCampaign(orkestaiCampaignId);
+
+      const updated = await fastify.prisma.voiceCampaign.update({
+        where: { id },
+        data: {
+          status: "running",
+          startAt: new Date(),
+          flowSteps: asJson(steps),
+        },
+      });
 
       return reply.send({
         ...updated,
-        enqueuedCount,
-        message: `${enqueuedCount} voice calls enqueued for delivery`,
+        enqueued: startResult.enqueued,
+        message: `${startResult.enqueued} calls enqueued via orkestai-voice`,
       });
     },
   );
@@ -327,10 +402,15 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!campaign) return reply.status(404).send({ error: "Not found" });
-      if (campaign.status !== "active") {
+      if (campaign.status !== "running") {
         return reply
           .status(400)
-          .send({ error: "Campaign must be in active status" });
+          .send({ error: "Campaign must be in running status" });
+      }
+
+      if (campaign.orkestaiCampaignId) {
+        const client = getVoiceClient();
+        if (client) await client.pauseCampaign(campaign.orkestaiCampaignId);
       }
 
       const updated = await fastify.prisma.voiceCampaign.update({
@@ -339,6 +419,65 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       return reply.send(updated);
+    },
+  );
+
+  // Resume campaign
+  fastify.post(
+    "/:id/resume",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const campaign = await fastify.prisma.voiceCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
+
+      if (!campaign) return reply.status(404).send({ error: "Not found" });
+      if (campaign.status !== "paused") {
+        return reply
+          .status(400)
+          .send({ error: "Campaign must be in paused status" });
+      }
+
+      if (campaign.orkestaiCampaignId) {
+        const client = getVoiceClient();
+        if (client) await client.resumeCampaign(campaign.orkestaiCampaignId);
+      }
+
+      const updated = await fastify.prisma.voiceCampaign.update({
+        where: { id },
+        data: { status: "running" },
+      });
+
+      return reply.send(updated);
+    },
+  );
+
+  // Get campaign results from orkestai-voice
+  fastify.get(
+    "/:id/results",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const campaign = await fastify.prisma.voiceCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
+
+      if (!campaign) return reply.status(404).send({ error: "Not found" });
+
+      if (!campaign.orkestaiCampaignId) {
+        return reply.send({ campaign, stats: null, recipients: [] });
+      }
+
+      const client = getVoiceClient();
+      if (!client) {
+        return reply
+          .status(503)
+          .send({ error: "orkestai-voice not configured" });
+      }
+
+      const results = await client.getCampaignResults(
+        campaign.orkestaiCampaignId,
+      );
+      return reply.send(results);
     },
   );
 

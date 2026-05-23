@@ -10,6 +10,7 @@ import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { getQueue, QUEUES } from "@engage/event-bus";
+import { ensureVoiceServiceRegistration } from "./startup/voice-registration.js";
 
 import redisPlugin from "./plugins/redis.js";
 import prismaPlugin from "./plugins/prisma.js";
@@ -97,6 +98,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(redisPlugin);
   await app.register(prismaPlugin);
   await app.register(aiPlugin);
+  await ensureVoiceServiceRegistration(app.redis);
   await app.register(apiKeyAuthPlugin);
   await app.register(rateLimitApiKeyPlugin);
 

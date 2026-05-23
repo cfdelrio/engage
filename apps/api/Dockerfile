@@ -11,6 +11,7 @@ COPY packages/rules-engine/package.json packages/rules-engine/
 COPY packages/ai/package.json packages/ai/
 COPY packages/channels/package.json packages/channels/
 COPY packages/analytics/package.json packages/analytics/
+COPY packages/providers/orkestai-voice-client/package.json packages/providers/orkestai-voice-client/
 COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
 COPY apps/web/package.json apps/web/
@@ -34,6 +35,7 @@ RUN pnpm --filter @engage/rules-engine build
 RUN pnpm --filter @engage/ai build
 RUN pnpm --filter @engage/channels build
 RUN pnpm --filter @engage/analytics build
+RUN pnpm --filter @engage/orkestai-voice-client build
 RUN pnpm --filter @engage/api build
 
 FROM base AS runner
