@@ -1,35 +1,52 @@
-import * as React from 'react';
+import * as React from "react";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'outline' | 'ghost' | 'destructive';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
+  variant?:
+    | "default"
+    | "secondary"
+    | "outline"
+    | "ghost"
+    | "destructive"
+    | "subtle";
+  size?: "default" | "sm" | "lg" | "icon";
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = '', variant = 'default', size = 'default', ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medium transition';
-    const variantStyles = {
-      default: 'bg-blue-600 text-white hover:bg-blue-700',
-      outline: 'border border-slate-300 bg-white text-slate-900 hover:bg-slate-50',
-      ghost: 'text-slate-700 hover:bg-slate-100',
-      destructive: 'bg-red-600 text-white hover:bg-red-700',
+  (
+    { className = "", variant = "default", size = "default", ...props },
+    ref,
+  ) => {
+    const base =
+      "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 shrink-0";
+
+    const variants: Record<string, string> = {
+      default:
+        "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98]",
+      secondary: "bg-accent text-accent-foreground hover:bg-accent/80",
+      outline:
+        "border border-border bg-card text-foreground hover:bg-accent hover:text-accent-foreground",
+      ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
+      destructive:
+        "bg-destructive text-white shadow-sm hover:bg-destructive/90 active:scale-[0.98]",
+      subtle: "bg-muted text-muted-foreground hover:bg-muted/70",
     };
-    const sizeStyles = {
-      default: 'px-4 py-2 text-sm',
-      sm: 'px-3 py-1 text-xs',
-      lg: 'px-6 py-3 text-base',
-      icon: 'p-2 h-10 w-10',
+
+    const sizes: Record<string, string> = {
+      default: "px-4 py-2 text-sm h-9",
+      sm: "px-3 py-1.5 text-xs h-7",
+      lg: "px-6 py-2.5 text-sm h-11",
+      icon: "h-9 w-9 p-0",
     };
 
     return (
       <button
-        className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
         ref={ref}
+        className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
         {...props}
       />
     );
-  }
+  },
 );
 
-Button.displayName = 'Button';
+Button.displayName = "Button";
 export { Button };
