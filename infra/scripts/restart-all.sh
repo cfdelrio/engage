@@ -84,6 +84,9 @@ if $BUILD_API || $BUILD_WORKER || $BUILD_WEB; then
   echo "📦 Installing dependencies..."
   pnpm install --frozen-lockfile 2>&1 | tail -5
   echo "  ✓ Dependencies up to date"
+  echo "  Generating Prisma client..."
+  pnpm --filter @engage/database db:generate 2>&1 | tail -3
+  echo "  ✓ Prisma client generated"
 fi
 
 # 6. Stop only affected services
