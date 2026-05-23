@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,7 +20,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Phone, CheckCircle, AlertCircle } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 
 interface VoiceMetric {
   date: string;
@@ -33,8 +34,6 @@ interface VoiceCampaignStatsProps {
   campaignId: string;
 }
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 const SENTIMENT_COLORS = {
   positive: "#10b981",
   neutral: "#6b7280",
@@ -47,13 +46,11 @@ export function VoiceCampaignStats({ campaignId }: VoiceCampaignStatsProps) {
     { name: string; value: number }[]
   >([]);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/v1/voice-campaigns/${campaignId}/metrics`,
-        { headers: { "x-api-key": apiKey } },
+      const response = await apiFetch(
+        `/v1/voice-campaigns/${campaignId}/metrics`,
       );
       if (!response.ok) throw new Error("Failed to fetch metrics");
       const data = await response.json();
@@ -73,15 +70,11 @@ export function VoiceCampaignStats({ campaignId }: VoiceCampaignStatsProps) {
     } finally {
       setLoading(false);
     }
-  }, [campaignId, apiKey]);
+  }, [campaignId]);
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     fetchMetrics();
-  }, [apiKey, fetchMetrics]);
+  }, [fetchMetrics]);
 
   if (loading) return <div className="p-4">Loading metrics...</div>;
   if (metrics.length === 0)

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -9,10 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useApiKey } from "@/hooks/useApiKey";
 import { ArrowUpRight } from "lucide-react";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface CampaignMetric {
   id: string;
@@ -45,27 +44,19 @@ const STATUS_COLORS: Record<string, string> = {
 export function CampaignPerformance({ dateRange }: CampaignPerformanceProps) {
   const [data, setData] = useState<CampaignMetric[]>([]);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-
     const params = new URLSearchParams({
       from: dateRange.from.toISOString(),
       to: dateRange.to.toISOString(),
     });
 
-    fetch(`${API_URL}/v1/analytics/campaigns?${params}`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/campaigns?${params}`, {})
       .then((res) => (res.ok ? res.json() : []))
       .then((d: CampaignMetric[]) => setData(d))
       .catch(() => setData([]))
       .finally(() => setLoading(false));
-  }, [apiKey, dateRange]);
+  }, [dateRange]);
 
   return (
     <Card>

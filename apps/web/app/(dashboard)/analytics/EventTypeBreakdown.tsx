@@ -1,11 +1,10 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface EventStat {
   type: string;
@@ -15,21 +14,14 @@ interface EventStat {
 export function EventTypeBreakdown() {
   const [events, setEvents] = useState<EventStat[]>([]);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_URL}/v1/analytics/events`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/events`, {})
       .then((res) => (res.ok ? res.json() : []))
       .then((d: EventStat[]) => setEvents(d))
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
-  }, [apiKey]);
+  }, []);
 
   const maxCount = Math.max(...events.map((e) => e._count), 1);
 

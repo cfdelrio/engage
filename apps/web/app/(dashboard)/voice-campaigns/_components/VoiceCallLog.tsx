@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect, useCallback } from "react";
 import {
   Table,
@@ -18,7 +20,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Phone, Volume2 } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 
 interface VoiceCall {
   id: string;
@@ -37,8 +38,6 @@ interface VoiceCallLogProps {
   campaignId: string;
 }
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 const STATUS_COLORS: Record<string, string> = {
   queued: "bg-gray-100 text-gray-900",
   ringing: "bg-blue-100 text-blue-900",
@@ -52,13 +51,11 @@ export function VoiceCallLog({ campaignId }: VoiceCallLogProps) {
   const [calls, setCalls] = useState<VoiceCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCall, setSelectedCall] = useState<VoiceCall | null>(null);
-  const apiKey = useApiKey();
 
   const fetchCalls = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/v1/voice-campaigns/${campaignId}/calls`,
-        { headers: { "x-api-key": apiKey } },
+      const response = await apiFetch(
+        `/v1/voice-campaigns/${campaignId}/calls`,
       );
       if (!response.ok) throw new Error("Failed to fetch calls");
       const data = await response.json();
@@ -68,15 +65,11 @@ export function VoiceCallLog({ campaignId }: VoiceCallLogProps) {
     } finally {
       setLoading(false);
     }
-  }, [campaignId, apiKey]);
+  }, [campaignId]);
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     fetchCalls();
-  }, [apiKey, fetchCalls]);
+  }, [fetchCalls]);
 
   if (loading) return <div className="p-4">Loading calls...</div>;
   if (calls.length === 0)

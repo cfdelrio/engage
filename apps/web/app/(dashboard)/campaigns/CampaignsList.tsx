@@ -1,14 +1,13 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Trash2, Edit, Play } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface Campaign {
   id: string;
@@ -38,18 +37,11 @@ export function CampaignsList() {
   const [loading, setLoading] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
 
-    fetch(`${API_URL}/v1/campaigns?limit=20`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/campaigns?limit=20`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: CampaignsResponse | null) => {
         if (cancelled) return;
@@ -71,16 +63,14 @@ export function CampaignsList() {
     return () => {
       cancelled = true;
     };
-  }, [apiKey]);
+  }, []);
 
   const loadMore = async () => {
-    if (!nextCursor || !apiKey) return;
+    if (!nextCursor) return;
     try {
-      const res = await fetch(
-        `${API_URL}/v1/campaigns?limit=20&cursor=${nextCursor}`,
-        {
-          headers: { "x-api-key": apiKey },
-        },
+      const res = await apiFetch(
+        `/v1/campaigns?limit=20&cursor=${nextCursor}`,
+        {},
       );
       if (!res.ok) return;
       const data = (await res.json()) as CampaignsResponse;
@@ -95,9 +85,8 @@ export function CampaignsList() {
   const onDelete = async (id: string) => {
     if (!confirm("Delete this campaign?")) return;
     try {
-      const res = await fetch(`${API_URL}/v1/campaigns/${id}`, {
+      const res = await apiFetch(`/v1/campaigns/${id}`, {
         method: "DELETE",
-        headers: { "x-api-key": apiKey },
       });
       if (res.ok) {
         setCampaigns((prev) => prev.filter((c) => c.id !== id));
@@ -174,13 +163,9 @@ export function CampaignsList() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          fetch(
-                            `${API_URL}/v1/campaigns/${campaign.id}/trigger`,
-                            {
-                              method: "POST",
-                              headers: { "x-api-key": apiKey },
-                            },
-                          );
+                          apiFetch(`/v1/campaigns/${campaign.id}/trigger`, {
+                            method: "POST",
+                          });
                         }}
                       >
                         <Play className="h-3 w-3" />

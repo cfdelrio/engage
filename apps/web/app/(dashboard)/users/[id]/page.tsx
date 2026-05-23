@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -26,9 +28,6 @@ import {
   Check,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 const CHANNELS = ["email", "sms", "push", "whatsapp", "voice"] as const;
 
@@ -129,18 +128,13 @@ export default function UserDetailPage(props: {
   const [prefCenterExpiry, setPrefCenterExpiry] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-  const apiKey = useApiKey();
 
   useEffect(() => {
     let cancelled = false;
 
     Promise.all([
-      fetch(`${API_URL}/v1/users/${userId}`, {
-        headers: { "x-api-key": apiKey },
-      }),
-      fetch(`${API_URL}/v1/users/${userId}/engagement`, {
-        headers: { "x-api-key": apiKey },
-      }),
+      apiFetch(`/v1/users/${userId}`),
+      apiFetch(`/v1/users/${userId}/engagement`),
     ])
       .then(async ([userRes, engagementRes]) => {
         if (cancelled) return;
@@ -165,7 +159,7 @@ export default function UserDetailPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [userId, apiKey]);
+  }, [userId]);
 
   const handleTogglePreference = useCallback(
     async (channel: string, currentEnabled: boolean) => {
@@ -175,9 +169,9 @@ export default function UserDetailPage(props: {
       setPrefError(null);
 
       try {
-        const res = await fetch(`${API_URL}/v1/users/${userId}/preferences`, {
+        const res = await apiFetch(`/v1/users/${userId}/preferences`, {
           method: "PUT",
-          headers: { "x-api-key": apiKey, "content-type": "application/json" },
+          headers: { "content-type": "application/json" },
           body: JSON.stringify([
             { channel, category: "all", enabled: newEnabled },
           ]),
@@ -219,19 +213,16 @@ export default function UserDetailPage(props: {
         setPrefSaving(null);
       }
     },
-    [user, userId, apiKey],
+    [user, userId],
   );
 
   const handleGenerateLink = useCallback(async () => {
     setGeneratingLink(true);
     try {
-      const res = await fetch(
-        `${API_URL}/v1/users/${userId}/preferences/token`,
-        {
-          method: "POST",
-          headers: { "x-api-key": apiKey, "content-type": "application/json" },
-        },
-      );
+      const res = await apiFetch(`/v1/users/${userId}/preferences/token`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
       if (!res.ok) throw new Error("Failed to generate link");
       const data = (await res.json()) as {
         token: string;
@@ -248,7 +239,7 @@ export default function UserDetailPage(props: {
     } finally {
       setGeneratingLink(false);
     }
-  }, [userId, apiKey]);
+  }, [userId]);
 
   const handleCopyLink = useCallback(async () => {
     if (!prefCenterUrl) return;

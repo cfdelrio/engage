@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,7 +23,6 @@ import {
   MousePointer,
   AlertCircle,
 } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 
 interface EmailMetric {
   date: string;
@@ -37,18 +38,14 @@ interface EmailCampaignStatsProps {
   campaignId: string;
 }
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 export function EmailCampaignStats({ campaignId }: EmailCampaignStatsProps) {
   const [metrics, setMetrics] = useState<EmailMetric[]>([]);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/v1/email-campaigns/${campaignId}/metrics`,
-        { headers: { "x-api-key": apiKey } },
+      const response = await apiFetch(
+        `/v1/email-campaigns/${campaignId}/metrics`,
       );
       if (!response.ok) throw new Error("Failed to fetch metrics");
       const data = await response.json();
@@ -58,15 +55,11 @@ export function EmailCampaignStats({ campaignId }: EmailCampaignStatsProps) {
     } finally {
       setLoading(false);
     }
-  }, [campaignId, apiKey]);
+  }, [campaignId]);
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     fetchMetrics();
-  }, [apiKey, fetchMetrics]);
+  }, [fetchMetrics]);
 
   if (loading) {
     return (

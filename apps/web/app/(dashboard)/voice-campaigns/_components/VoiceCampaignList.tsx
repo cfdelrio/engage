@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -27,7 +29,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MoreHorizontal, Play, Trash2 } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 
 interface VoiceCampaign {
   id: string;
@@ -35,8 +36,6 @@ interface VoiceCampaign {
   status: string;
   createdAt: string;
 }
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-900",
@@ -51,14 +50,11 @@ export function VoiceCampaignList() {
   const [error, setError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const apiKey = useApiKey();
 
   const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/v1/voice-campaigns`, {
-        headers: { "x-api-key": apiKey },
-      });
+      const response = await apiFetch(`/v1/voice-campaigns`);
       if (!response.ok) throw new Error("Failed to fetch campaigns");
       const data = await response.json();
       setCampaigns(data.campaigns || data || []);
@@ -67,22 +63,17 @@ export function VoiceCampaignList() {
     } finally {
       setLoading(false);
     }
-  }, [apiKey]);
+  }, []);
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     fetchCampaigns();
-  }, [apiKey, fetchCampaigns]);
+  }, [fetchCampaigns]);
 
   const handleDelete = async (id: string) => {
     try {
       setDeleting(true);
-      const response = await fetch(`${API_URL}/v1/voice-campaigns/${id}`, {
+      const response = await apiFetch(`/v1/voice-campaigns/${id}`, {
         method: "DELETE",
-        headers: { "x-api-key": apiKey },
       });
       if (!response.ok) throw new Error("Failed to delete campaign");
       setCampaigns((prev) => prev.filter((c) => c.id !== id));
@@ -96,13 +87,9 @@ export function VoiceCampaignList() {
 
   const handleStart = async (id: string) => {
     try {
-      const response = await fetch(
-        `${API_URL}/v1/voice-campaigns/${id}/start`,
-        {
-          method: "POST",
-          headers: { "x-api-key": apiKey },
-        },
-      );
+      const response = await apiFetch(`/v1/voice-campaigns/${id}/start`, {
+        method: "POST",
+      });
       if (!response.ok) throw new Error("Failed to start campaign");
       await fetchCampaigns();
     } catch (err) {

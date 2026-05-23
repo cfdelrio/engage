@@ -1,14 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useApiKey } from "@/hooks/useApiKey";
-import { CampaignBuilder } from "./CampaignBuilder";
+import { apiFetch } from "@/lib/api-client";
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
+import { useRouter } from "next/navigation";
+import { CampaignBuilder } from "./CampaignBuilder";
 
 export default function CampaignBuilderPage() {
   const router = useRouter();
-  const apiKey = useApiKey();
 
   const handleSave = async (data: {
     name: string;
@@ -23,10 +21,9 @@ export default function CampaignBuilderPage() {
     templateId?: string;
     channels: string[];
   }) => {
-    const response = await fetch(`${API_URL}/v1/campaigns`, {
+    const response = await apiFetch(`/v1/campaigns`, {
       method: "POST",
       headers: {
-        "x-api-key": apiKey,
         "content-type": "application/json",
       },
       body: JSON.stringify({

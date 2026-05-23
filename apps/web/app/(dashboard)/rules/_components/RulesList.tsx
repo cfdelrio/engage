@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +14,6 @@ import {
   ChevronRight,
   Edit,
 } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 
 interface Rule {
   id: string;
@@ -25,27 +26,18 @@ interface Rule {
   cooldownSeconds?: number;
 }
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 export function RulesList() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_URL}/v1/rules`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/rules`, {})
       .then((r) => r.json())
       .then((data: unknown) => setRules(Array.isArray(data) ? data : []))
       .catch(() => setRules([]))
       .finally(() => setLoading(false));
-  }, [apiKey]);
+  }, []);
 
   if (loading) {
     return (

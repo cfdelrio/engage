@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -27,7 +29,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MoreHorizontal, Trash2, Copy } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 
 interface Template {
   id: string;
@@ -42,7 +43,6 @@ interface Template {
   variables?: string[];
 }
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 const CHANNEL_COLORS: Record<string, string> = {
   email: "bg-blue-100 text-blue-900",
   sms: "bg-green-100 text-green-900",
@@ -58,17 +58,12 @@ export function TemplateList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [filter, setFilter] = useState<string>("");
-  const apiKey = useApiKey();
 
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const url = filter
-        ? `${API_URL}/v1/templates?channel=${filter}`
-        : `${API_URL}/v1/templates`;
-      const response = await fetch(url, {
-        headers: { "x-api-key": apiKey },
-      });
+      const url = filter ? `/v1/templates?channel=${filter}` : `/v1/templates`;
+      const response = await apiFetch(url, {});
       if (!response.ok) throw new Error("Failed to fetch templates");
       const data = await response.json();
       setTemplates(data.templates || []);
@@ -77,22 +72,17 @@ export function TemplateList() {
     } finally {
       setLoading(false);
     }
-  }, [apiKey, filter]);
+  }, [filter]);
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     fetchTemplates();
-  }, [apiKey, fetchTemplates]);
+  }, [fetchTemplates]);
 
   const handleDelete = async (id: string) => {
     try {
       setDeleting(true);
-      const response = await fetch(`${API_URL}/v1/templates/${id}`, {
+      const response = await apiFetch(`/v1/templates/${id}`, {
         method: "DELETE",
-        headers: { "x-api-key": apiKey },
       });
       if (!response.ok) throw new Error("Failed to delete template");
       setTemplates((prev) => prev.filter((t) => t.id !== id));
@@ -106,10 +96,9 @@ export function TemplateList() {
 
   const handleDuplicate = async (template: Template) => {
     try {
-      const response = await fetch(`${API_URL}/v1/templates`, {
+      const response = await apiFetch(`/v1/templates`, {
         method: "POST",
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify({

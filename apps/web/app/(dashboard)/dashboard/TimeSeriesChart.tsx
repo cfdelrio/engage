@@ -1,14 +1,13 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useApiKey } from "@/hooks/useApiKey";
 import {
   TimeSeriesChartView,
   type TimeSeriesPoint,
 } from "./TimeSeriesChartView";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface TimeSeriesResponse {
   windowDays: number;
@@ -18,21 +17,14 @@ interface TimeSeriesResponse {
 export function TimeSeriesChart() {
   const [data, setData] = useState<TimeSeriesResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_URL}/v1/analytics/timeseries?windowDays=7`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/timeseries?windowDays=7`, {})
       .then((res) => (res.ok ? res.json() : null))
       .then((d: TimeSeriesResponse | null) => setData(d))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [apiKey]);
+  }, []);
 
   return (
     <Card>

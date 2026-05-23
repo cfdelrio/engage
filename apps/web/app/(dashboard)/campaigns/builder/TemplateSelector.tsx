@@ -1,13 +1,12 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface Template {
   id: string;
@@ -40,15 +39,10 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
     null,
   );
-  const apiKey = useApiKey();
 
   useEffect(() => {
     if (channels.length === 0) {
       setTemplates([]);
-      return;
-    }
-    if (!apiKey) {
-      setLoading(false);
       return;
     }
 
@@ -56,9 +50,7 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
 
     Promise.all(
       channels.map((ch) =>
-        fetch(`${API_URL}/v1/templates?channel=${ch}&limit=100`, {
-          headers: { "x-api-key": apiKey },
-        })
+        apiFetch(`/v1/templates?channel=${ch}&limit=100`, {})
           .then((res) => (res.ok ? res.json() : { templates: [] }))
           .catch(() => ({ templates: [] })),
       ),
@@ -72,7 +64,7 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
         }
       })
       .finally(() => setLoading(false));
-  }, [channels, value, apiKey]);
+  }, [channels, value]);
 
   if (channels.length === 0) {
     return (

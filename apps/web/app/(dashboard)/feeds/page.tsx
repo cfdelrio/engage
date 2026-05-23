@@ -1,13 +1,12 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Globe, Copy, Check } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface Feed {
   id: string;
@@ -23,19 +22,14 @@ export default function FeedsPage() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_URL}/v1/feeds`, { headers: { "x-api-key": apiKey } })
+    apiFetch(`/v1/feeds`)
       .then((res) => (res.ok ? res.json() : []))
       .then((d: Feed[]) => setFeeds(d))
       .catch(() => setFeeds([]))
       .finally(() => setLoading(false));
-  }, [apiKey]);
+  }, []);
 
   const handleCopy = (feed: Feed) => {
     const snippet = `<!-- ORKESTAI ENGAGE — Public Feed Widget -->

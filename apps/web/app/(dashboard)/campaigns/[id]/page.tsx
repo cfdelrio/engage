@@ -1,14 +1,13 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface Campaign {
   id: string;
@@ -40,18 +39,11 @@ export default function CampaignDetailPage(props: {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
 
-    fetch(`${API_URL}/v1/campaigns/${campaignId}`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/campaigns/${campaignId}`, {})
       .then((res) => (res.ok ? res.json() : null))
       .then((data: Campaign | null) => {
         if (cancelled) return;
@@ -71,7 +63,7 @@ export default function CampaignDetailPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, apiKey]);
+  }, [campaignId]);
 
   if (loading) {
     return (
