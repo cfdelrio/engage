@@ -27,9 +27,15 @@ export function LiveEventFeed() {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
+    // When served over HTTPS, use the same origin so WSS goes through nginx
+    // (nginx proxies /v1/* to the API with WebSocket support). This avoids
+    // mixed-content blocks when NEXT_PUBLIC_API_URL points to a plain-HTTP URL.
     const apiUrl =
       process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-    const wsUrl = apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
+    const wsUrl =
+      typeof window !== "undefined" && window.location.protocol === "https:"
+        ? `wss://${window.location.host}`
+        : apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
 
     const connect = () => {
       try {
