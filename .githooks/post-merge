@@ -1,0 +1,11 @@
+#!/bin/bash
+# Git post-merge hook — Auto-deploy after git pull on EC2
+# Install: git config core.hooksPath .githooks
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [[ "$BRANCH" == "claude/event-driven-engagement-platform-Bl7PI" ]]; then
+  echo "🚀 Post-merge: triggering smart restart..."
+  chmod +x infra/scripts/restart-all.sh
+  bash infra/scripts/restart-all.sh
+fi

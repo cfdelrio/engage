@@ -892,6 +892,167 @@ async function main() {
 
   console.log(`Rules: ${rules.length} created/verified`);
 
+  // ─── Campaigns (Generic) ─────────────────────────────────────────────────
+  const campaigns = [
+    {
+      name: "Welcome to ProdeCaballito",
+      type: "event-triggered",
+      status: "draft",
+      channels: ["email"],
+      trigger: { eventType: "prode.welcome" },
+      description: "Welcome email for new users",
+    },
+    {
+      name: "Ranking Update Notification",
+      type: "event-triggered",
+      status: "draft",
+      channels: ["sms", "whatsapp"],
+      trigger: { eventType: "prode.ranking_change.up" },
+      description: "Notify users when they move up in the ranking",
+    },
+    {
+      name: "Weekly Digest",
+      type: "scheduled",
+      status: "draft",
+      channels: ["email"],
+      trigger: { frequency: "weekly", day: "monday", time: "09:00" },
+      description: "Send weekly performance summary",
+    },
+    {
+      name: "Match Kickoff Reminder",
+      type: "event-triggered",
+      status: "active",
+      channels: ["sms"],
+      trigger: { eventType: "prode.kickoff" },
+      description: "Notify users when matches start",
+    },
+  ];
+
+  for (const campaign of campaigns) {
+    await prisma.campaign
+      .create({
+        data: {
+          tenantId: tenant.id,
+          name: campaign.name,
+          type: campaign.type,
+          status: campaign.status,
+          channels: campaign.channels,
+          trigger: campaign.trigger,
+          rules: {},
+          aiConfig: {},
+        },
+      })
+      .catch(() => {});
+  }
+
+  console.log(`Campaigns: ${campaigns.length} created/verified`);
+
+  // ─── Email Campaigns ──────────────────────────────────────────────────────
+  await prisma.emailCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Welcome Email",
+        description: "Automatic welcome email for new users",
+        status: "draft",
+        triggerType: "event",
+        subject: "¡Bienvenido a ProdeCaballito!",
+        bodyHtml:
+          "<h1>Welcome {{user.firstName}}!</h1><p>Thanks for joining ProdeCaballito. Start making predictions now.</p>",
+        bodyText:
+          "Welcome {{user.firstName}}! Thanks for joining ProdeCaballito. Start making predictions now.",
+        fromName: "ProdeCaballito",
+        fromEmail: "notifications@prodecaballito.com",
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  await prisma.emailCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Weekly Rankings",
+        description: "Weekly rankings digest",
+        status: "draft",
+        triggerType: "scheduled",
+        subject: "Your Weekly Rankings - {{meta.date}}",
+        bodyHtml:
+          "<h2>Hello {{user.firstName}}</h2><p>You are ranked #{{user.rank}} this week.</p>",
+        bodyText: "You are ranked #{{user.rank}} this week.",
+        fromName: "ProdeCaballito",
+        fromEmail: "notifications@prodecaballito.com",
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  console.log("Email campaigns: 2 created/verified");
+
+  // ─── SMS Campaigns ────────────────────────────────────────────────────────
+  await prisma.smsCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Match Kickoff Alert",
+        description: "SMS alert when matches start",
+        status: "active",
+        triggerType: "event",
+        body: "¡Arranca el partido {{match.local}} vs {{match.away}}!",
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  await prisma.smsCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Ranking Change Alert",
+        description: "Notify when user's ranking changes",
+        status: "draft",
+        triggerType: "event",
+        body: "¡Subiste a posición {{ranking.new_position}}! Acumulás {{ranking.points}} puntos.",
+        aiGenerated: false,
+      },
+    })
+    .catch(() => {});
+
+  console.log("SMS campaigns: 2 created/verified");
+
+  // ─── WhatsApp Campaigns ───────────────────────────────────────────────────
+  await prisma.whatsAppCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "Result Notification",
+        description: "WhatsApp result notification",
+        status: "draft",
+        triggerType: "event",
+        body: "Resultado: {{match.local}} {{match.goles_local}} - {{match.goles_visitante}} {{match.away}}",
+      },
+    })
+    .catch(() => {});
+
+  console.log("WhatsApp campaigns: 1 created/verified");
+
+  // ─── Push Campaigns ───────────────────────────────────────────────────────
+  await prisma.pushCampaign
+    .create({
+      data: {
+        tenantId: tenant.id,
+        name: "New Leader Alert",
+        description: "Push notification for new leader",
+        status: "draft",
+        triggerType: "event",
+        title: "¡Nuevo líder!",
+        body: "{{user.name}} es el nuevo líder con {{user.points}} puntos",
+      },
+    })
+    .catch(() => {});
+
+  console.log("Push campaigns: 1 created/verified");
+
   // ─── Public Feed ──────────────────────────────────────────────────────────
   await prisma.publicFeed
     .create({

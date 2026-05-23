@@ -15,11 +15,13 @@
 **Before running services**, configure your domain:
 
 1. **Point DNS** to your EC2 instance IP in your domain registrar:
+
    ```
    A record: engage → your-elastic-ip (e.g., 44.223.7.160)
    ```
 
 2. **Run SSL setup** (after DNS propagates, ~5-30 mins):
+
    ```bash
    cd /home/ec2-user/engage
    bash infra/scripts/setup-ssl.sh engage.orkestai.ar
@@ -145,6 +147,7 @@ sudo journalctl -u orkestai-web -f
 ## Quick Troubleshooting
 
 **⚠️ CSS not loading?**
+
 ```bash
 # Check NEXT_PUBLIC_API_URL in orkestai-web.service
 grep NEXT_PUBLIC_API_URL /etc/systemd/system/orkestai-web.service
@@ -199,14 +202,15 @@ redis-cli ping  # Should return PONG
 
 ### After SSL Setup (Recommended)
 
-| Service | URL |
-|---------|-----|
-| Dashboard | https://engage.orkestai.ar |
-| API | https://api.engage.orkestai.ar |
-| Swagger | https://api.engage.orkestai.ar/docs |
-| Bull Board | http://engage.orkestai.ar:3002 |
+| Service    | URL                                 |
+| ---------- | ----------------------------------- |
+| Dashboard  | https://engage.orkestai.ar          |
+| API        | https://api.engage.orkestai.ar      |
+| Swagger    | https://api.engage.orkestai.ar/docs |
+| Bull Board | http://engage.orkestai.ar:3002      |
 
 **Direct IP access** (still works):
+
 ```
 http://YOUR_ELASTIC_IP:3000  (Web, HTTP only)
 http://YOUR_ELASTIC_IP:3001  (API, HTTP only)
@@ -258,4 +262,66 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 # Environment
 NODE_ENV=production
+```
+
+## Auto-Rebuild on Pull (Prevent CSS Breaks)
+
+To prevent CSS/JS breaks when pulling code changes, set up git hooks:
+
+```bash
+# On EC2, run once:
+bash infra/scripts/setup-ec2-hooks.sh
+```
+
+**What happens next:**
+
+- When you `git pull`, if source code changed → automatic rebuild
+- If only docs changed → rebuild skipped
+- Hooks configured in `.githooks/post-merge`
+
+**Manual rebuild anytime:**
+
+```bash
+bash infra/scripts/restart-all.sh
+```
+
+This script:
+
+1. Loads `.env` correctly
+2. Kills old processes
+3. Cleans caches (`.next`, `dist/`)
+4. Rebuilds everything
+5. Starts API → Worker → Web in order
+6. Runs health checks
+7. Shows logs location
+
+## Troubleshooting Deploys
+
+**CSS broken after pull?**
+
+```bash
+bash infra/scripts/restart-all.sh
+```
+
+**Specific app broken?**
+
+```bash
+# Check specific logs
+tail -f ~/api.log      # API errors
+tail -f ~/worker.log   # Worker errors
+tail -f ~/web.log      # Web errors
+```
+
+**Port in use?**
+
+```bash
+fuser -k 3000/tcp     # Kill web
+fuser -k 3001/tcp     # Kill API
+```
+
+**Divergent branches on EC2?**
+
+```bash
+git reset --hard origin/claude/event-driven-engagement-platform-Bl7PI
+bash infra/scripts/restart-all.sh
 ```

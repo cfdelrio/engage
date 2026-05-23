@@ -1,12 +1,12 @@
 [Unit]
 Description=ORKESTAI ENGAGE Web Dashboard
-After=network.target
+After=network.target orkestai-api.service
 
 [Service]
 Type=simple
 User=ec2-user
-WorkingDirectory=/home/ec2-user/engage/apps/web/.next/standalone
-ExecStart=/home/ec2-user/.nvm/versions/node/v22.22.3/bin/node apps/web/server.js
+WorkingDirectory=/home/ec2-user/engage/apps/web
+ExecStart=/home/ec2-user/.nvm/versions/node/v22.22.3/bin/node /home/ec2-user/engage/apps/web/node_modules/next/dist/bin/next start
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -14,8 +14,10 @@ StandardError=journal
 Environment="NODE_ENV=production"
 Environment="HOSTNAME=0.0.0.0"
 Environment="PORT=3000"
-Environment="INTERNAL_API_URL=http://localhost:3001"
-Environment="NEXT_PUBLIC_API_URL=http://localhost:3001"
+Environment="NEXT_PUBLIC_API_URL=https://engage.orkestai.ar"
+Environment="NEXT_PUBLIC_WS_URL=wss://engage.orkestai.ar"
+Environment="NEXTAUTH_URL=https://engage.orkestai.ar"
+Environment="NEXTAUTH_SECRET=dev-secret-change-in-production"
 
 [Install]
 WantedBy=multi-user.target

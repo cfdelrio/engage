@@ -1,0 +1,129 @@
+#!/bin/bash
+set -e
+
+# ORKESTAI ENGAGE — Smart Restart Script
+# Detects what changed since last deploy and only rebuilds what's needed
+# Usage: ./infra/scripts/restart-all.sh
+
+cd /home/ec2-user/engage || { echo "Change directory failed"; exit 1; }
+
+echo "🔄 ORKESTAI ENGAGE — Smart restart..."
+
+# 1. Load environment
+echo "📋 Loading environment..."
+set -a; source .env; set +a
+
+# 2. Detect what changed since last successful deploy
+LAST_DEPLOY=$(cat .last-deploy-commit 2>/dev/null || echo "")
+CURRENT=$(git rev-parse HEAD)
+
+if [ -z "$LAST_DEPLOY" ]; then
+  echo "  No previous deploy found — full rebuild"
+  BUILD_API=true BUILD_WORKER=true BUILD_WEB=true BUILD_INFRA=true
+else
+  CHANGED=$(git diff --name-only "$LAST_DEPLOY" "$CURRENT" 2>/dev/null || echo "")
+  echo "  Changed since last deploy:"
+  echo "$CHANGED" | sed 's/^/    /' | head -20
+
+  BUILD_API=false; BUILD_WORKER=false; BUILD_WEB=false; BUILD_INFRA=false
+
+  while IFS= read -r file; do
+    [[ "$file" =~ ^apps/api/ ]]                                                      && BUILD_API=true
+    [[ "$file" =~ ^apps/worker/ ]]                                                   && BUILD_WORKER=true
+    [[ "$file" =~ ^apps/web/ ]]                                                      && BUILD_WEB=true
+    [[ "$file" =~ ^infra/systemd/ ]]                                                 && BUILD_INFRA=true
+    [[ "$file" =~ ^packages/(ai|channels|event-bus|rules-engine|database|core|analytics)/ ]] && BUILD_API=true && BUILD_WORKER=true
+    [[ "$file" =~ ^packages/core/ ]]                                                 && BUILD_WEB=true
+    [[ "$file" =~ ^pnpm-lock\.yaml$ ]]                                               && BUILD_API=true && BUILD_WORKER=true && BUILD_WEB=true
+  done <<< "$CHANGED"
+fi
+
+echo "  → API: $BUILD_API | Worker: $BUILD_WORKER | Web: $BUILD_WEB | Infra: $BUILD_INFRA"
+
+# 3. Ensure Docker and databases are running
+echo "🐳 Ensuring databases are up..."
+sudo systemctl start docker 2>/dev/null || true
+sleep 1
+if docker compose version > /dev/null 2>&1; then
+  docker compose up --detach postgres redis 2>/dev/null
+elif command -v docker-compose > /dev/null 2>&1; then
+  docker-compose up -d postgres redis 2>/dev/null
+fi
+echo -n "  Waiting for PostgreSQL..."
+for i in $(seq 1 15); do
+  if PGPASSWORD=engage psql -h localhost -U engage -d engage -c "SELECT 1" > /dev/null 2>&1; then
+    echo " ready ✓"; break
+  fi
+  echo -n "."; sleep 2
+done
+
+# 4. Stop only affected services
+echo "🛑 Stopping affected services..."
+$BUILD_API    && sudo systemctl stop orkestai-api    2>/dev/null || true
+$BUILD_WORKER && sudo systemctl stop orkestai-worker 2>/dev/null || true
+$BUILD_WEB    && sudo systemctl stop orkestai-web    2>/dev/null || true
+sleep 2
+
+# 5. Build only what changed
+if $BUILD_API; then
+  echo "🏗️  Building API..."
+  rm -rf apps/api/dist
+  pnpm --filter @engage/api... run build 2>&1 | tail -5
+fi
+
+if $BUILD_WORKER; then
+  echo "🏗️  Building Worker..."
+  rm -rf apps/worker/dist
+  pnpm --filter @engage/worker... run build 2>&1 | tail -5
+fi
+
+if $BUILD_WEB; then
+  echo "🏗️  Building Web..."
+  rm -rf apps/web/.next
+  rm -rf .turbo/cache/*web* 2>/dev/null || true
+  pnpm --filter @engage/web run build 2>&1 | tail -10
+  if [ ! -d "apps/web/.next" ]; then
+    echo "✗ Web build failed"; exit 1
+  fi
+  echo "  ✓ Web build OK"
+fi
+
+# 6. Update systemd services if infra changed
+if $BUILD_INFRA || [ -z "$LAST_DEPLOY" ]; then
+  echo "📦 Updating systemd services..."
+  sudo cp infra/systemd/orkestai-api.service /etc/systemd/system/
+  sudo cp infra/systemd/orkestai-worker.service /etc/systemd/system/
+  sudo cp infra/systemd/orkestai-web.service /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable orkestai-api orkestai-worker orkestai-web 2>/dev/null
+  # If infra changed, restart all services
+  BUILD_API=true; BUILD_WORKER=true; BUILD_WEB=true
+fi
+
+# 7. Start affected services
+echo "🚀 Starting services..."
+if $BUILD_API; then
+  sudo systemctl start orkestai-api; sleep 3
+fi
+if $BUILD_WORKER; then
+  sudo systemctl start orkestai-worker; sleep 2
+fi
+if $BUILD_WEB; then
+  sudo systemctl start orkestai-web; sleep 4
+fi
+
+# 8. Save current commit as last deploy
+echo "$CURRENT" > .last-deploy-commit
+
+# 9. Health checks
+echo "🏥 Health checks..."
+curl -s http://localhost:3001/health > /dev/null \
+  && echo "  ✓ API healthy" \
+  || echo "  ✗ API not responding — sudo journalctl -u orkestai-api -n 20"
+curl -s http://localhost:3000 > /dev/null 2>&1 \
+  && echo "  ✓ Web responding" \
+  || echo "  ✗ Web not responding — sudo journalctl -u orkestai-web -n 20"
+
+echo ""
+echo "🔁 Restart individual: sudo systemctl restart orkestai-web"
+echo "🌐 https://engage.orkestai.ar"

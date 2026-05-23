@@ -11,6 +11,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Check, Key } from "lucide-react";
 import { ApiKeysList } from "./ApiKeysList";
 import { CreateApiKeyDialog } from "./CreateApiKeyDialog";
 import { RotateApiKeyDialog } from "./RotateApiKeyDialog";
@@ -39,9 +41,23 @@ export function ApiKeysManager() {
   const [error, setError] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<CreatedKey | null>(null);
   const [copied, setCopied] = useState(false);
+  const [activeKeyInput, setActiveKeyInput] = useState("");
+  const [activeKeySaved, setActiveKeySaved] = useState(false);
 
   const storedApiKey = useApiKey();
 
+  useEffect(() => {
+    setActiveKeyInput(localStorage.getItem("engage_api_key") || "");
+  }, []);
+
+  const handleSaveActiveKey = () => {
+    localStorage.setItem("engage_api_key", activeKeyInput.trim());
+    setActiveKeySaved(true);
+    setTimeout(() => setActiveKeySaved(false), 2000);
+    window.location.reload();
+  };
+
+  const [createKeyOpen, setCreateKeyOpen] = useState(false);
   const [rotateKeyId, setRotateKeyId] = useState<string | null>(null);
   const [rotateKeyName, setRotateKeyName] = useState("");
   const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
@@ -92,6 +108,8 @@ export function ApiKeysManager() {
   const handleRotate = (keyId: string) => {
     const key = keys.find((k) => k.id === keyId);
     if (key) {
+      setCreateKeyOpen(false);
+      setDeleteKeyId(null);
       setRotateKeyId(keyId);
       setRotateKeyName(key.name);
     }
@@ -122,6 +140,8 @@ export function ApiKeysManager() {
   const handleDelete = (keyId: string) => {
     const key = keys.find((k) => k.id === keyId);
     if (key) {
+      setCreateKeyOpen(false);
+      setRotateKeyId(null);
       setDeleteKeyId(keyId);
       setDeleteKeyName(key.name);
     }
@@ -147,6 +167,45 @@ export function ApiKeysManager() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            <CardTitle className="text-base">Active API Key</CardTitle>
+          </div>
+          <CardDescription>
+            The API key used by this dashboard to authenticate all requests.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              placeholder="oek_..."
+              value={activeKeyInput}
+              onChange={(e) => setActiveKeyInput(e.target.value)}
+              className="font-mono text-sm"
+            />
+            <Button onClick={handleSaveActiveKey} className="shrink-0 gap-2">
+              {activeKeySaved ? (
+                <>
+                  <Check className="h-4 w-4" /> Saved
+                </>
+              ) : (
+                "Save & Reload"
+              )}
+            </Button>
+          </div>
+          {storedApiKey && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Active:{" "}
+              <Badge variant="outline" className="font-mono text-xs">
+                {storedApiKey.slice(0, 12)}…
+              </Badge>
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {createdKey && (
         <Alert className="border-green-200 bg-green-50">
           <AlertDescription className="space-y-3">
@@ -190,7 +249,11 @@ export function ApiKeysManager() {
                 Manage API keys for authenticating requests to your tenant
               </CardDescription>
             </div>
-            <CreateApiKeyDialog onSuccess={handleCreateSuccess} />
+            <CreateApiKeyDialog
+              open={createKeyOpen}
+              onOpenChange={setCreateKeyOpen}
+              onSuccess={handleCreateSuccess}
+            />
           </div>
         </CardHeader>
         <CardContent>

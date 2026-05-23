@@ -39,10 +39,24 @@ interface CreatedKeyData {
 
 interface CreateApiKeyDialogProps {
   onSuccess?: (key: CreatedKeyData) => void;
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
 }
 
-export function CreateApiKeyDialog({ onSuccess }: CreateApiKeyDialogProps) {
-  const [open, setOpen] = useState(false);
+export function CreateApiKeyDialog({
+  onSuccess,
+  onOpenChange,
+  open: controlledOpen,
+}: CreateApiKeyDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (controlledOpen === undefined) {
+      setInternalOpen(newOpen);
+    }
+    onOpenChange?.(newOpen);
+  };
   const [name, setName] = useState("");
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -95,7 +109,7 @@ export function CreateApiKeyDialog({ onSuccess }: CreateApiKeyDialogProps) {
         createdAt: data.createdAt,
         rawKey: data.rawKey,
       });
-      setOpen(false);
+      handleOpenChange(false);
       setName("");
       setPermissions([]);
     } catch (err) {
@@ -106,7 +120,7 @@ export function CreateApiKeyDialog({ onSuccess }: CreateApiKeyDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>Create API Key</Button>
       </DialogTrigger>
@@ -154,7 +168,7 @@ export function CreateApiKeyDialog({ onSuccess }: CreateApiKeyDialogProps) {
         <div className="flex justify-end gap-2">
           <Button
             variant="outline"
-            onClick={() => setOpen(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={loading}
           >
             Cancel
