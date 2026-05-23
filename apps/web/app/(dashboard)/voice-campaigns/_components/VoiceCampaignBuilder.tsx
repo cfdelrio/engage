@@ -105,14 +105,19 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
   const removeStep = (index: number) => {
     setData((prev) => {
       if (prev.flowSteps.length <= 1) return prev;
-      return { ...prev, flowSteps: prev.flowSteps.filter((_, i) => i !== index) };
+      return {
+        ...prev,
+        flowSteps: prev.flowSteps.filter((_, i) => i !== index),
+      };
     });
   };
 
   const setStepOption = (stepIndex: number, key: string, value: string) => {
     const step = data.flowSteps[stepIndex];
     if (!step) return;
-    updateStep(stepIndex, { options: { ...(step.options ?? {}), [key]: value } });
+    updateStep(stepIndex, {
+      options: { ...(step.options ?? {}), [key]: value },
+    });
   };
 
   const addStepOption = (stepIndex: number) => {
@@ -221,6 +226,20 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
           <CardTitle className="text-sm">TTS Configuration</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div>
+            <Label>Voice Service</Label>
+            <Select value="orkestai-voice" onValueChange={() => {}}>
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="orkestai-voice">
+                  orkestai-voice (voice.orkestai.com.ar)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <Label>TTS Provider</Label>
             <Select
