@@ -133,12 +133,12 @@ export class OrkestaiVoiceClient {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
       },
-      body: data !== undefined ? JSON.stringify(data) : undefined,
+      ...(data !== undefined && { body: JSON.stringify(data) }),
     });
     if (!response.ok) {
-      const errorData = await response.json().catch(() => null) as
-        | { error?: { message: string; detail?: string } }
-        | null;
+      const errorData = (await response.json().catch(() => null)) as {
+        error?: { message: string; detail?: string };
+      } | null;
       const message =
         errorData?.error?.message ?? "Unknown error from orkestai-voice";
       const detail = errorData?.error?.detail
