@@ -24,7 +24,14 @@ sleep 2
 echo "🐳 Starting Docker and databases..."
 sudo systemctl start docker 2>/dev/null || true
 sleep 2
-docker compose up -d postgres redis
+# Support both docker compose v2 and docker-compose v1
+if docker compose version > /dev/null 2>&1; then
+  docker compose up --detach postgres redis
+elif command -v docker-compose > /dev/null 2>&1; then
+  docker-compose up -d postgres redis
+else
+  echo "  ⚠ docker compose not found, assuming DB already running"
+fi
 echo -n "  Waiting for PostgreSQL..."
 for i in $(seq 1 15); do
   if PGPASSWORD=engage psql -h localhost -U engage -d engage -c "SELECT 1" > /dev/null 2>&1; then
