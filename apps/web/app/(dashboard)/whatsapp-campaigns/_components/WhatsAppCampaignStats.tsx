@@ -55,7 +55,10 @@ export function WhatsAppCampaignStats({
   }, [campaignId, apiKey]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchMetrics();
   }, [apiKey, fetchMetrics]);
 

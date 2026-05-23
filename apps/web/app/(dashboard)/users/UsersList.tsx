@@ -43,7 +43,10 @@ export function UsersList() {
   }, [search]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     const params = new URLSearchParams({ limit: "50" });
     if (searchTerm) params.set("externalId", searchTerm);
 

@@ -70,7 +70,10 @@ export function VoiceCampaignList() {
   }, [apiKey]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchCampaigns();
   }, [apiKey, fetchCampaigns]);
 

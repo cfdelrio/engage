@@ -27,7 +27,10 @@ export function ChannelBreakdown() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API_URL}/v1/analytics/channels`, {
       headers: { "x-api-key": apiKey },
     })

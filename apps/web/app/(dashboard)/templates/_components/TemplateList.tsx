@@ -80,7 +80,10 @@ export function TemplateList() {
   }, [apiKey, filter]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchTemplates();
   }, [apiKey, fetchTemplates]);
 

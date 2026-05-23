@@ -42,7 +42,10 @@ export function TenantCard() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API_URL}/admin/tenant`, {
       headers: { "x-api-key": apiKey },
     })

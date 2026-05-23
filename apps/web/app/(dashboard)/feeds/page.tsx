@@ -26,7 +26,10 @@ export default function FeedsPage() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API_URL}/v1/feeds`, { headers: { "x-api-key": apiKey } })
       .then((res) => (res.ok ? res.json() : []))
       .then((d: Feed[]) => setFeeds(d))

@@ -71,7 +71,10 @@ export function WhatsAppCampaignList() {
   }, [apiKey]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchCampaigns();
   }, [apiKey, fetchCampaigns]);
 

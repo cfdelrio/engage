@@ -20,7 +20,10 @@ export function MetricsGrid() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API_URL}/v1/analytics/overview`, {
       headers: { "x-api-key": apiKey },
     })

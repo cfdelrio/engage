@@ -76,7 +76,10 @@ export function VoiceCampaignStats({ campaignId }: VoiceCampaignStatsProps) {
   }, [campaignId, apiKey]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchMetrics();
   }, [apiKey, fetchMetrics]);
 
