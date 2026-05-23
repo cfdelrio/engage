@@ -15,12 +15,27 @@ import type {
 export class OrkestaiVoiceClient {
   private baseUrl: string;
   private apiKey: string;
-  private tenantId: string;
+  private _tenantId: string | null;
+  private _tenantIdPromise: Promise<string> | null = null;
 
-  constructor(apiUrl: string, apiKey: string, tenantId: string) {
+  constructor(apiUrl: string, apiKey: string, tenantId?: string) {
     this.baseUrl = apiUrl;
     this.apiKey = apiKey;
-    this.tenantId = tenantId;
+    this._tenantId = tenantId ?? null;
+  }
+
+  private async resolveTenantId(): Promise<string> {
+    if (this._tenantId) return this._tenantId;
+    if (!this._tenantIdPromise) {
+      this._tenantIdPromise = this._request<{ id: string }>(
+        "GET",
+        "/api/me",
+      ).then((res) => {
+        this._tenantId = res.id;
+        return res.id;
+      });
+    }
+    return this._tenantIdPromise;
   }
 
   async createContact(
@@ -30,18 +45,20 @@ export class OrkestaiVoiceClient {
     email?: string,
     metadata?: Record<string, unknown>,
   ): Promise<Contact> {
+    const tenantId = await this.resolveTenantId();
     const response = await this._request<CreateContactResponse>(
       "POST",
-      `/api/tenants/${this.tenantId}/contacts`,
+      `/api/tenants/${tenantId}/contacts`,
       { firstName, lastName, phone, email, metadata },
     );
     return response.contact;
   }
 
   async getContact(contactId: string): Promise<Contact> {
+    const tenantId = await this.resolveTenantId();
     const response = await this._request<{ contact: Contact }>(
       "GET",
-      `/api/tenants/${this.tenantId}/contacts/${contactId}`,
+      `/api/tenants/${tenantId}/contacts/${contactId}`,
     );
     return response.contact;
   }
@@ -53,9 +70,10 @@ export class OrkestaiVoiceClient {
     voiceInstructions?: string,
     description?: string,
   ): Promise<Campaign> {
+    const tenantId = await this.resolveTenantId();
     const response = await this._request<CreateCampaignResponse>(
       "POST",
-      `/api/tenants/${this.tenantId}/campaigns`,
+      `/api/tenants/${tenantId}/campaigns`,
       {
         name,
         description,
@@ -68,11 +86,22 @@ export class OrkestaiVoiceClient {
   }
 
   async listCampaigns(): Promise<Campaign[]> {
+    const tenantId = await this.resolveTenantId();
     const response = await this._request<CampaignListResponse>(
       "GET",
-      `/api/tenants/${this.tenantId}/campaigns`,
+      `/api/tenants/${tenantId}/campaigns`,
     );
-    return response.campaigns;
+    // Normalize metadata fields to top-level for consistent access
+    return response.campaigns.map((c) => {
+      const normalized = { ...c } as Campaign;
+      if (c.metadata?.ttsProvider)
+        normalized.ttsProvider = c.metadata.ttsProvider;
+      if (c.metadata?.elevenLabsVoiceId)
+        normalized.elevenLabsVoiceId = c.metadata.elevenLabsVoiceId;
+      if (c.metadata?.voiceInstructions)
+        normalized.voiceInstructions = c.metadata.voiceInstructions;
+      return normalized;
+    });
   }
 
   async getCampaign(campaignId: string): Promise<Campaign> {

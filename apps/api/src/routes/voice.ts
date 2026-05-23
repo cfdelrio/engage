@@ -6,9 +6,13 @@ import { OrkestaiVoiceClient } from "@engage/orkestai-voice-client";
 function getVoiceClient(): OrkestaiVoiceClient | null {
   const apiUrl = process.env["ORKESTAI_VOICE_API_URL"];
   const apiKey = process.env["ORKESTAI_VOICE_API_KEY"];
-  const tenantId = process.env["ORKESTAI_VOICE_TENANT_ID"];
-  if (!apiUrl || !apiKey || !tenantId) return null;
-  return new OrkestaiVoiceClient(apiUrl, apiKey, tenantId);
+  if (!apiUrl || !apiKey) return null;
+  // tenantId is optional — the client auto-discovers it via GET /api/me
+  return new OrkestaiVoiceClient(
+    apiUrl,
+    apiKey,
+    process.env["ORKESTAI_VOICE_TENANT_ID"],
+  );
 }
 
 const flowStepSchema = z.object({
