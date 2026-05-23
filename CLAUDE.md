@@ -261,6 +261,80 @@ WHERE u.\"externalId\" = 'test_001';"
 | `tsc --force` error                      | `pnpm build --force` pasa flag a tsc          | Usar `pnpm run build` sin `--force`                        |
 | psql auth falla después de `source .env` | `.env` exporta PGPASSWORD incorrecto          | Usar `PGPASSWORD=engage psql ...` explícito                |
 
+## Lecciones aprendidas
+
+### 1. `set -eo pipefail` + `cmd | tail -N` silencia errores reales
+
+`cmd | tail -5` siempre retorna exit code 0 (el de `tail`). Con `set -eo pipefail` el pipeline en sí no falla aunque `cmd` falle internamente. Errores críticos pasan desapercibidos y el script continúa.
+
+**Regla:** Nunca silenciar comandos críticos con `| tail`. Usar `if/else` explícito o capturar el output en una variable.
+
+```bash
+# MAL — error de migrate deploy se swallow
+pnpm db:migrate:deploy 2>&1 | tail -5
+
+# BIEN — falla explícita con fallback
+if pnpm db:migrate:deploy 2>&1 | tail -5; then
+  echo "ok"
+else
+  pnpm exec prisma db push --skip-generate || true
+fi
+```
+
+### 2. Los headers hop-by-hop no se deben forwardear en proxies HTTP
+
+`Connection`, `Keep-Alive`, `Transfer-Encoding`, `Upgrade`, etc. son headers de transporte entre dos nodos, no end-to-end. nginx los agrega al traducir HTTP/2 → HTTP/1.1. Si el proxy de Next.js los forwardea al fetch upstream, `undici` los rechaza con `UND_ERR_INVALID_ARG`.
+
+**Regla:** Todo proxy HTTP debe filtrar hop-by-hop headers antes del fetch upstream:
+
+```typescript
+const HOP_BY_HOP = new Set([
+  "connection",
+  "keep-alive",
+  "te",
+  "trailers",
+  "transfer-encoding",
+  "upgrade",
+  "proxy-authenticate",
+  "proxy-authorization",
+]);
+request.headers.forEach((value, key) => {
+  if (!HOP_BY_HOP.has(key) && key !== "host" && key !== "cookie")
+    headers.set(key, value);
+});
+```
+
+### 3. `systemctl stop` no mata procesos iniciados manualmente
+
+Si alguien arrancó el API con `node dist/index.js &`, `systemctl stop orkestai-api` solo detiene el proceso de systemd. El proceso manual sigue corriendo en el puerto. Al próximo `systemctl start` → `EADDRINUSE` → crash loop.
+
+**Regla:** Antes de `systemctl start` para un servicio con puerto fijo, matar lo que esté en ese puerto:
+
+```bash
+fuser -k 3001/tcp 2>/dev/null || true
+sudo systemctl start orkestai-api
+```
+
+Nunca mezclar arranque manual y systemd para el mismo servicio.
+
+### 4. `z.string().email().optional()` rechaza `""` (string vacío)
+
+`.optional()` acepta `undefined` pero NO `""`. Los forms de React con `defaultValues: { fromEmail: "" }` siempre mandan string vacío en el submit. El servidor recibe `""`, Zod falla la validación de `.email()` → ZodError → 500.
+
+**Regla:** En schemas Zod del servidor, normalizar string vacío a `undefined` antes de validar formato:
+
+```typescript
+fromEmail: z.preprocess(v => (v === "" ? undefined : v), z.string().email().optional()),
+```
+
+Aplica a cualquier campo con validación de formato (`.email()`, `.url()`, `.uuid()`) que el frontend puede mandar como string vacío.
+
+### 5. El turbo cache puede mostrar CI verde con código roto
+
+Si el primer run de CI falla pero hay un segundo run (ej: push trigger + PR trigger simultáneos), el segundo puede ser 100% cache hit y mostrar verde aunque el código real no compila. Los checks "18 cached, 18 total" en un PR merecen desconfianza si hubo un run fallido previo.
+
+**Regla:** Ante la duda, invalidar el cache o verificar que al menos un run compiló desde cero.
+
 ## Seed
 
 ```bash
