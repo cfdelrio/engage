@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export function Dialog({
   children,
@@ -9,8 +9,12 @@ export function Dialog({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  if (!open) return null;
   return (
-    <div data-state={open ? 'open' : 'closed'} onClick={() => open && onOpenChange?.(false)}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={() => onOpenChange?.(false)}
+    >
       {children}
     </div>
   );
@@ -20,30 +24,59 @@ export function DialogTrigger({
   children,
   asChild,
   ...props
-}: React.HTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) {
+}: React.HTMLAttributes<HTMLButtonElement> & {
+  asChild?: boolean;
+  children?: React.ReactNode;
+}) {
   if (asChild && React.isValidElement(children)) {
     return React.cloneElement(children as React.ReactElement, props);
   }
   return <button {...props}>{children}</button>;
 }
 
-export function DialogContent({ className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function DialogContent({
+  className = "",
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`fixed inset-0 z-50 bg-black/50 flex items-center justify-center ${className}`}
+      className={`bg-card rounded-xl shadow-2xl border border-border w-full max-w-lg mx-4 ${className}`}
+      onClick={(e) => e.stopPropagation()}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function DialogHeader({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={`px-6 pt-6 pb-4 ${className}`} {...props} />;
+}
+
+export function DialogTitle({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLHeadingElement>) {
+  return (
+    <h2
+      className={`text-base font-semibold text-foreground ${className}`}
       {...props}
     />
   );
 }
 
-export function DialogHeader({ className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={`border-b px-6 py-4 ${className}`} {...props} />;
-}
-
-export function DialogTitle({ className = '', ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h2 className={`text-lg font-semibold text-slate-900 ${className}`} {...props} />;
-}
-
-export function DialogDescription({ className = '', ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={`text-sm text-slate-600 ${className}`} {...props} />;
+export function DialogDescription({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p
+      className={`text-sm text-muted-foreground mt-1 ${className}`}
+      {...props}
+    />
+  );
 }
