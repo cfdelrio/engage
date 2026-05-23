@@ -59,7 +59,12 @@ export function EmailCampaignList() {
     try {
       setLoading(true);
       const response = await apiFetch(`/v1/email-campaigns`);
-      if (!response.ok) throw new Error("Failed to fetch campaigns");
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(
+          `Failed to fetch campaigns (${response.status})${body ? `: ${body}` : ""}`,
+        );
+      }
       const data = await response.json();
       setCampaigns(data || []);
     } catch (err) {
