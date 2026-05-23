@@ -6,13 +6,9 @@ import { OrkestaiVoiceClient } from "@engage/orkestai-voice-client";
 function getVoiceClient(): OrkestaiVoiceClient | null {
   const apiUrl = process.env["ORKESTAI_VOICE_API_URL"];
   const apiKey = process.env["ORKESTAI_VOICE_API_KEY"];
-  if (!apiUrl || !apiKey) return null;
-  // tenantId is optional — the client auto-discovers it via GET /api/me
-  return new OrkestaiVoiceClient(
-    apiUrl,
-    apiKey,
-    process.env["ORKESTAI_VOICE_TENANT_ID"],
-  );
+  const tenantId = process.env["ORKESTAI_VOICE_TENANT_ID"];
+  if (!apiUrl || !apiKey || !tenantId) return null;
+  return new OrkestaiVoiceClient(apiUrl, apiKey, tenantId);
 }
 
 const flowStepSchema = z.object({
@@ -109,9 +105,15 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
           .send({ error: "Voice integration not configured" });
       }
       try {
-        const campaigns = await client.listCampaigns();
+        const all = await client.listCampaigns();
+        const launchable = ["draft", "paused", "completed"];
+        const campaigns = all.filter((c) => launchable.includes(c.status));
         return reply.send({ campaigns });
       } catch (err) {
+        fastify.log.error(
+          { err },
+          "Failed to fetch remote campaigns from orkestai-voice",
+        );
         return reply.status(502).send({ error: String(err) });
       }
     },

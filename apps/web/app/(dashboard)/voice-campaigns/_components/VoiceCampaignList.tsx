@@ -75,6 +75,7 @@ export function VoiceCampaignList() {
   const [remoteCampaigns, setRemoteCampaigns] = useState<RemoteCampaign[]>([]);
   const [remotLoading, setRemoteLoading] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
+  const [launching, setLaunching] = useState<string | null>(null);
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -153,6 +154,41 @@ export function VoiceCampaignList() {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setImporting(null);
+    }
+  };
+
+  const handleLaunch = async (remote: RemoteCampaign) => {
+    try {
+      setLaunching(remote.id);
+      const importRes = await apiFetch("/v1/voice-campaigns", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: remote.name,
+          description: remote.description,
+          orkestaiCampaignId: remote.id,
+          ttsProvider: remote.ttsProvider ?? "elevenlabs",
+          elevenLabsVoiceId: remote.elevenLabsVoiceId,
+        }),
+      });
+      if (!importRes.ok) throw new Error("Failed to import campaign");
+      const created = await importRes.json();
+
+      const startRes = await apiFetch(
+        `/v1/voice-campaigns/${created.id}/start`,
+        {
+          method: "POST",
+        },
+      );
+      if (!startRes.ok) throw new Error("Failed to launch campaign");
+
+      setImportOpen(false);
+      await fetchCampaigns();
+      router.push(`/voice-campaigns/${created.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLaunching(null);
     }
   };
 
@@ -317,33 +353,40 @@ export function VoiceCampaignList() {
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {remoteCampaigns.map((rc) => (
-                <button
-                  key={rc.id}
-                  onClick={() => handleImport(rc)}
-                  disabled={!!importing}
-                  className="w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors disabled:opacity-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{rc.name}</p>
+                <div key={rc.id} className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{rc.name}</p>
                       {rc.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                           {rc.description}
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge variant="outline" className="text-xs">
-                        {rc.status}
-                      </Badge>
-                      {importing === rc.id && (
-                        <span className="text-xs text-muted-foreground">
-                          Importing...
-                        </span>
-                      )}
-                    </div>
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {rc.status}
+                    </Badge>
                   </div>
-                </button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-7 text-xs"
+                      disabled={!!importing || !!launching}
+                      onClick={() => handleImport(rc)}
+                    >
+                      {importing === rc.id ? "Importing..." : "Import"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 h-7 text-xs"
+                      disabled={!!importing || !!launching}
+                      onClick={() => handleLaunch(rc)}
+                    >
+                      {launching === rc.id ? "Launching..." : "Import & Launch"}
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           )}

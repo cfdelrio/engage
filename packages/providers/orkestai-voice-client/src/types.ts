@@ -117,6 +117,7 @@ export interface CreateFlowResponse {
 
 export interface StartCampaignResponse {
   campaignId: string;
+  campaignName?: string;
   status: "running";
   enqueued: number;
 }
