@@ -24,14 +24,24 @@ export interface VoiceFlow {
   createdAt: string;
 }
 
+export interface CampaignMetadata {
+  ttsProvider?: "elevenlabs" | "openai";
+  elevenLabsVoiceId?: string;
+  voiceInstructions?: string;
+  voice?: string;
+}
+
 export interface Campaign {
   id: string;
   name: string;
   description?: string;
   status: "draft" | "running" | "paused" | "completed";
-  ttsProvider: "elevenlabs" | "openai";
+  ttsProvider?: "elevenlabs" | "openai";
   elevenLabsVoiceId?: string;
   voiceInstructions?: string;
+  metadata?: CampaignMetadata;
+  flow?: VoiceFlow;
+  variables?: Record<string, unknown>;
   startedAt?: string;
   completedAt?: string;
   createdAt: string;
