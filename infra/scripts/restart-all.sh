@@ -87,6 +87,9 @@ if $BUILD_API || $BUILD_WORKER || $BUILD_WEB; then
   echo "  Generating Prisma client..."
   pnpm --filter @engage/database db:generate 2>&1 | tail -3
   echo "  ✓ Prisma client generated"
+  echo "  Running database migrations..."
+  pnpm --filter @engage/database db:migrate:deploy 2>&1 | tail -5
+  echo "  ✓ Migrations applied"
 fi
 
 # 6. Stop only affected services
