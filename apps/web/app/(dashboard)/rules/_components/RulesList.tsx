@@ -222,6 +222,7 @@ export function RulesList() {
     "all" | "active" | "disabled"
   >("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [triggerFilter, setTriggerFilter] = useState<string>("all");
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const [toggleError, setToggleError] = useState<Record<string, string>>({});
 
@@ -268,14 +269,24 @@ export function RulesList() {
     }
   };
 
+  const availableTriggers = [
+    ...new Set(
+      rules.map((r) => getEventType(r.conditions)).filter(Boolean) as string[],
+    ),
+  ].sort();
+
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("all");
     setChannelFilter("all");
+    setTriggerFilter("all");
   };
 
   const hasActiveFilters =
-    search !== "" || statusFilter !== "all" || channelFilter !== "all";
+    search !== "" ||
+    statusFilter !== "all" ||
+    channelFilter !== "all" ||
+    triggerFilter !== "all";
 
   const filtered = rules.filter((rule) => {
     if (
@@ -289,6 +300,11 @@ export function RulesList() {
     if (
       channelFilter !== "all" &&
       !getActionChannels(rule.actions).includes(channelFilter)
+    )
+      return false;
+    if (
+      triggerFilter !== "all" &&
+      getEventType(rule.conditions) !== triggerFilter
     )
       return false;
     return true;
@@ -381,6 +397,33 @@ export function RulesList() {
             );
           })}
         </div>
+
+        {availableTriggers.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground font-medium w-14 shrink-0">
+              Trigger
+            </span>
+            <button type="button" onClick={() => setTriggerFilter("all")}>
+              <Badge
+                variant={triggerFilter === "all" ? "default" : "outline"}
+                className="cursor-pointer"
+              >
+                Todos
+              </Badge>
+            </button>
+            {availableTriggers.map((t) => (
+              <button key={t} type="button" onClick={() => setTriggerFilter(t)}>
+                <Badge
+                  variant={triggerFilter === t ? "default" : "outline"}
+                  className="cursor-pointer gap-1 font-mono"
+                >
+                  <Zap className="h-3 w-3" />
+                  {t}
+                </Badge>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
