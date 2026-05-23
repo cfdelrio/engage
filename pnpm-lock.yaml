@@ -63,6 +63,9 @@ importers:
       '@engage/event-bus':
         specifier: workspace:*
         version: link:../../packages/event-bus
+      '@engage/orkestai-voice-client':
+        specifier: workspace:*
+        version: link:../../packages/providers/orkestai-voice-client
       '@engage/rules-engine':
         specifier: workspace:*
         version: link:../../packages/rules-engine

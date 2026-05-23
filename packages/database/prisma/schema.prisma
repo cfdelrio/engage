@@ -648,6 +648,11 @@ model VoiceCampaign {
   createdBy           String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  orkestaiCampaignId  String?   @unique
+  flowSteps           Json?
+  ttsProvider         String?
+  elevenLabsVoiceId   String?
+  audienceSize        Int       @default(0)
 
   tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   calls   VoiceCall[]
@@ -665,6 +670,7 @@ model VoiceCall {
   phone               String
   status              String    @default("queued")
   twilioCallSid       String?   @unique
+  orkestaiCallId      String?   @unique
   externalId          String?
   startedAt           DateTime?
   answeredAt          DateTime?
@@ -676,6 +682,7 @@ model VoiceCall {
   transcription       String?
   dtmfResponse        String?
   dtmfAction          String?
+  responses           Json      @default("[]")
   terminationReason   String?
   errorCode           String?
   errorMessage        String?
@@ -730,6 +737,22 @@ model VoiceMetric {
   @@unique([voiceCampaignId, date])
   @@index([tenantId, date])
   @@map("voice_metrics")
+}
+
+model WebhookEvent {
+  id               String    @id @default(cuid())
+  tenantId         String
+  source           String    // orkestai-voice, twilio, resend, etc.
+  orkestaiEventId  String
+  eventType        String
+  payload          Json
+  processed        Boolean   @default(false)
+  processedAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@unique([source, orkestaiEventId])
+  @@index([tenantId, source, eventType])
+  @@map("webhook_events")
 }
 
 // ─────────────────────────────────────────────
