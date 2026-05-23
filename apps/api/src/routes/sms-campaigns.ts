@@ -117,7 +117,7 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     return updated;
   });
 
-  // Delete campaign (draft only)
+  // Delete campaign (draft or paused only)
   fastify.delete(
     "/:id",
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -126,10 +126,10 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id, tenantId: request.tenantId },
       });
       if (!campaign) return reply.status(404).send({ error: "Not found" });
-      if (campaign.status !== "draft") {
+      if (campaign.status !== "draft" && campaign.status !== "paused") {
         return reply
           .status(400)
-          .send({ error: "Can only delete draft campaigns" });
+          .send({ error: "Can only delete draft or paused campaigns" });
       }
       await fastify.prisma.smsCampaign.delete({ where: { id } });
       return reply.status(204).send();
