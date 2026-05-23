@@ -84,6 +84,10 @@ export interface CampaignResults {
   }>;
 }
 
+export interface CampaignListResponse {
+  campaigns: Campaign[];
+}
+
 export interface AddRecipientsResponse {
   added: number;
   skipped: number;
