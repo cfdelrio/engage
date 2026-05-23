@@ -11,7 +11,24 @@ echo "🔄 ORKESTAI ENGAGE — Smart restart..."
 
 # 1. Load environment
 echo "📋 Loading environment..."
+if [ ! -f .env ]; then
+  echo "  ✗ .env file not found at $(pwd)/.env — aborting"
+  exit 1
+fi
 set -a; source .env; set +a
+
+# Validate required env vars
+REQUIRED_VARS=(DATABASE_URL REDIS_URL ANTHROPIC_API_KEY RESEND_API_KEY TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN)
+MISSING=()
+for var in "${REQUIRED_VARS[@]}"; do
+  [ -z "${!var}" ] && MISSING+=("$var")
+done
+if [ ${#MISSING[@]} -gt 0 ]; then
+  echo "  ⚠️  Missing env vars: ${MISSING[*]}"
+  echo "  Services will start but channel delivery will fail — check .env"
+else
+  echo "  ✓ All required env vars present"
+fi
 
 # 2. Detect what changed since last successful deploy
 LAST_DEPLOY=$(cat .last-deploy-commit 2>/dev/null || echo "")
