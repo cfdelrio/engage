@@ -11,9 +11,8 @@ Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+EnvironmentFile=-/home/ec2-user/engage/.env
 Environment="NODE_ENV=production"
-Environment="DATABASE_URL=postgresql://engage:engage@localhost:5432/engage"
-Environment="REDIS_URL=redis://localhost:6379"
 
 [Install]
 WantedBy=multi-user.target
