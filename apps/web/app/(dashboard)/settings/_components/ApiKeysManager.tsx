@@ -57,6 +57,7 @@ export function ApiKeysManager() {
     window.location.reload();
   };
 
+  const [createKeyOpen, setCreateKeyOpen] = useState(false);
   const [rotateKeyId, setRotateKeyId] = useState<string | null>(null);
   const [rotateKeyName, setRotateKeyName] = useState("");
   const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
@@ -107,6 +108,8 @@ export function ApiKeysManager() {
   const handleRotate = (keyId: string) => {
     const key = keys.find((k) => k.id === keyId);
     if (key) {
+      setCreateKeyOpen(false);
+      setDeleteKeyId(null);
       setRotateKeyId(keyId);
       setRotateKeyName(key.name);
     }
@@ -137,6 +140,8 @@ export function ApiKeysManager() {
   const handleDelete = (keyId: string) => {
     const key = keys.find((k) => k.id === keyId);
     if (key) {
+      setCreateKeyOpen(false);
+      setRotateKeyId(null);
       setDeleteKeyId(keyId);
       setDeleteKeyName(key.name);
     }
@@ -244,7 +249,11 @@ export function ApiKeysManager() {
                 Manage API keys for authenticating requests to your tenant
               </CardDescription>
             </div>
-            <CreateApiKeyDialog onSuccess={handleCreateSuccess} />
+            <CreateApiKeyDialog
+              open={createKeyOpen}
+              onOpenChange={setCreateKeyOpen}
+              onSuccess={handleCreateSuccess}
+            />
           </div>
         </CardHeader>
         <CardContent>
