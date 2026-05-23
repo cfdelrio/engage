@@ -151,6 +151,8 @@ fi
 # 9. Start affected services
 echo "🚀 Starting services..."
 if $BUILD_API; then
+  # Kill any stale process holding port 3001 (e.g. a manually-started node instance)
+  fuser -k 3001/tcp 2>/dev/null || true; sleep 1
   sudo systemctl start orkestai-api; sleep 3
 fi
 if $BUILD_WORKER; then
