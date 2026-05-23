@@ -36,7 +36,7 @@ export function TabsList({
   className?: string;
 }) {
   return (
-    <div className={`flex gap-2 border-b border-gray-200 ${className}`}>
+    <div className={`flex gap-1 border-b border-border ${className}`}>
       {children}
     </div>
   );
@@ -60,10 +60,10 @@ export function TabsTrigger({
   return (
     <button
       onClick={() => setActiveTab(value)}
-      className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+      className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px transition-colors ${
         isActive
-          ? "border-blue-600 text-blue-600"
-          : "border-transparent text-gray-600 hover:text-gray-900"
+          ? "border-primary text-primary"
+          : "border-transparent text-muted-foreground hover:text-foreground"
       } ${className}`}
     >
       {children}

@@ -1,11 +1,11 @@
 "use client";
 
 import { apiFetch } from "@/lib/api-client";
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -78,9 +78,7 @@ export function CreateApiKeyDialog({
     try {
       const res = await apiFetch(`/admin/api-keys`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ name, permissions }),
       });
 
@@ -111,15 +109,20 @@ export function CreateApiKeyDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-w-md">
+        <DialogClose onClose={() => handleOpenChange(false)} />
+
         <DialogHeader>
           <DialogTitle>Create API Key</DialogTitle>
           <DialogDescription>
             Create a new API key with specific permissions
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
+
+        <div className="border-t border-border" />
+
+        <div className="px-6 py-5 space-y-5">
+          <div className="space-y-1.5">
             <Label htmlFor="name">Name</Label>
             <Input
               id="name"
@@ -130,29 +133,38 @@ export function CreateApiKeyDialog({
             />
           </div>
 
-          <div className="grid gap-3">
+          <div className="space-y-2">
             <Label>Permissions</Label>
-            {PERMISSIONS.map((perm) => (
-              <div key={perm.id} className="flex items-center gap-2">
-                <Checkbox
-                  id={perm.id}
-                  checked={permissions.includes(perm.id)}
-                  onCheckedChange={(checked) =>
-                    handlePermissionChange(perm.id, checked as boolean)
-                  }
-                  disabled={loading}
-                />
-                <Label htmlFor={perm.id} className="font-normal cursor-pointer">
-                  {perm.label}
-                </Label>
-              </div>
-            ))}
+            <div className="bg-muted/40 rounded-lg border border-border p-3 space-y-2.5">
+              {PERMISSIONS.map((perm) => (
+                <div key={perm.id} className="flex items-center gap-3">
+                  <Checkbox
+                    id={perm.id}
+                    checked={permissions.includes(perm.id)}
+                    onCheckedChange={(checked) =>
+                      handlePermissionChange(perm.id, checked as boolean)
+                    }
+                    disabled={loading}
+                  />
+                  <label
+                    htmlFor={perm.id}
+                    className="text-sm text-foreground cursor-pointer select-none"
+                  >
+                    {perm.label}
+                  </label>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {error && <div className="text-sm text-red-500">{error}</div>}
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="border-t border-border" />
+
+        <div className="flex justify-end gap-2 px-6 py-4">
           <Button
             variant="outline"
             onClick={() => handleOpenChange(false)}

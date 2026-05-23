@@ -1,24 +1,40 @@
-import React from 'react';
+"use client";
 
-export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+import React from "react";
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export interface CheckboxProps {
+  id?: string;
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  className?: string;
 }
 
-export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ checked, onCheckedChange, onChange, ...props }, ref) => (
-    <input
+export const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
+  ({ id, checked = false, onCheckedChange, disabled = false, className }, ref) => (
+    <button
       ref={ref}
-      type="checkbox"
-      className="w-4 h-4 border-slate-300 rounded cursor-pointer"
-      checked={checked}
-      onChange={(e) => {
-        onCheckedChange?.(e.target.checked);
-        onChange?.(e);
-      }}
-      {...props}
-    />
-  )
+      id={id}
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => !disabled && onCheckedChange?.(!checked)}
+      className={cn(
+        "h-4 w-4 shrink-0 rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        checked
+          ? "bg-primary border-primary"
+          : "bg-card border-input hover:border-primary/60",
+        disabled && "opacity-50 cursor-not-allowed",
+        className,
+      )}
+    >
+      {checked && (
+        <Check className="h-3 w-3 text-primary-foreground mx-auto stroke-[3]" />
+      )}
+    </button>
+  ),
 );
-
-Checkbox.displayName = 'Checkbox';
+Checkbox.displayName = "Checkbox";

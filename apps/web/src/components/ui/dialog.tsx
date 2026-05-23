@@ -1,4 +1,5 @@
 import React from "react";
+import { X } from "lucide-react";
 
 export function Dialog({
   children,
@@ -41,12 +42,24 @@ export function DialogContent({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`bg-card rounded-xl shadow-2xl border border-border w-full max-w-lg mx-4 ${className}`}
+      className={`relative bg-card rounded-xl shadow-2xl border border-border w-full max-w-lg mx-4 ${className}`}
       onClick={(e) => e.stopPropagation()}
       {...props}
     >
       {children}
     </div>
+  );
+}
+
+export function DialogClose({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      onClick={onClose}
+      className="absolute top-4 right-4 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+      aria-label="Close"
+    >
+      <X className="h-4 w-4" />
+    </button>
   );
 }
 
