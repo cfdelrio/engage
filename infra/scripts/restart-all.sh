@@ -32,7 +32,7 @@ else
     [[ "$file" =~ ^apps/worker/ ]]                                                   && BUILD_WORKER=true
     [[ "$file" =~ ^apps/web/ ]]                                                      && BUILD_WEB=true
     [[ "$file" =~ ^infra/systemd/ ]]                                                 && BUILD_INFRA=true
-    [[ "$file" =~ ^packages/(ai|channels|event-bus|rules-engine|database|core|analytics)/ ]] && BUILD_API=true && BUILD_WORKER=true
+    [[ "$file" =~ ^packages/(ai|channels|event-bus|rules-engine|database|core|analytics|providers)/ ]] && BUILD_API=true && BUILD_WORKER=true
     [[ "$file" =~ ^packages/core/ ]]                                                 && BUILD_WEB=true
     [[ "$file" =~ ^pnpm-lock\.yaml$ ]]                                               && BUILD_API=true && BUILD_WORKER=true && BUILD_WEB=true
   done <<< "$CHANGED"
