@@ -42,15 +42,27 @@ for i in $(seq 1 15); do
   sleep 2
 done
 
-# 3. Clean caches
+# 4. Clean caches
 echo "🗑️  Cleaning caches..."
 rm -rf apps/web/.next
 rm -rf apps/api/dist
 rm -rf apps/worker/dist
+# Clear turbo cache for web to prevent stale cache from skipping the build
+rm -rf .turbo/cache/*web* 2>/dev/null || true
 
-# 4. Full rebuild
-echo "🏗️  Building all apps..."
-pnpm build 2>&1 | tail -20
+# 5. Full rebuild (API + Worker via turbo, Web always fresh)
+echo "🏗️  Building API and Worker..."
+pnpm --filter @engage/api --filter @engage/worker --filter @engage/database --filter @engage/core --filter @engage/channels --filter @engage/event-bus --filter @engage/rules-engine --filter @engage/ai --filter @engage/analytics run build 2>&1 | tail -10
+
+echo "🏗️  Building Web (fresh, no cache)..."
+pnpm --filter @engage/web run build 2>&1 | tail -20
+
+# Verify .next was created
+if [ ! -d "apps/web/.next" ]; then
+  echo "✗ Web build failed — .next directory not found"
+  exit 1
+fi
+echo "  ✓ Web build OK"
 
 # 5. Install/update systemd service files
 echo "📦 Installing systemd services..."
