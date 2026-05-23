@@ -115,14 +115,32 @@ fi
 # 8. Save current commit as last deploy
 echo "$CURRENT" > .last-deploy-commit
 
-# 9. Health checks
+# 9. Health checks — wait up to 30s for each service
 echo "🏥 Health checks..."
-curl -s http://localhost:3001/health > /dev/null \
-  && echo "  ✓ API healthy" \
-  || echo "  ✗ API not responding — sudo journalctl -u orkestai-api -n 20"
-curl -s http://localhost:3000 > /dev/null 2>&1 \
-  && echo "  ✓ Web responding" \
-  || echo "  ✗ Web not responding — sudo journalctl -u orkestai-web -n 20"
+echo -n "  Waiting for API..."
+for i in $(seq 1 15); do
+  if curl -s http://localhost:3001/health > /dev/null 2>&1; then
+    echo " ✓ API healthy"; break
+  fi
+  if [ "$i" -eq 15 ]; then
+    echo " ✗ API not responding"
+    sudo journalctl -u orkestai-api -n 30 --no-pager
+    exit 1
+  fi
+  echo -n "."; sleep 2
+done
+echo -n "  Waiting for Web..."
+for i in $(seq 1 15); do
+  if curl -s http://localhost:3000 > /dev/null 2>&1; then
+    echo " ✓ Web responding"; break
+  fi
+  if [ "$i" -eq 15 ]; then
+    echo " ✗ Web not responding"
+    sudo journalctl -u orkestai-web -n 30 --no-pager
+    exit 1
+  fi
+  echo -n "."; sleep 2
+done
 
 echo ""
 echo "🔁 Restart individual: sudo systemctl restart orkestai-web"

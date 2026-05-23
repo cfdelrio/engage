@@ -11,12 +11,9 @@ Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+EnvironmentFile=-/home/ec2-user/engage/.env
 Environment="NODE_ENV=production"
-Environment="DATABASE_URL=postgresql://engage:engage@localhost:5432/engage"
-Environment="REDIS_URL=redis://localhost:6379"
 Environment="CORS_ORIGINS=https://engage.orkestai.ar,http://localhost:3000"
-Environment="API_JWT_SECRET=dev-secret-this-must-be-at-least-32-chars-long-for-production"
-Environment="ENCRYPTION_KEY=dev-key-this-must-be-exactly-32-bytes-for-aes-256!"
 
 [Install]
 WantedBy=multi-user.target
