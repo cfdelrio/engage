@@ -117,7 +117,7 @@ export function createEventProcessor(
       };
 
       const ruleResults = rulesEngine.evaluate(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         rules.map((r: any) => ({
           id: r.id,
           name: r.name,
@@ -135,7 +135,7 @@ export function createEventProcessor(
       const activeRules: typeof matchedRules = [];
 
       for (const result of matchedRules) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rule = rules.find((r: any) => r.id === result.ruleId);
         if (!rule) continue;
         const onCooldown = await checkAndSetCooldown(
@@ -243,7 +243,7 @@ export function createEventProcessor(
         const channel = campaign.channels[0];
         if (!channel) continue;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (unsubscribes.some((u: any) => u.channel === channel)) continue;
 
         const scheduledFor = new Date();
@@ -351,13 +351,14 @@ export function createEventProcessor(
         if (!channel) continue;
 
         const pref = preferences.find(
-          (p) => p.channel === channel && p.category === "all",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (p: any) => p.channel === channel && p.category === "all",
         );
         if (pref?.enabled === false) continue;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (unsubscribes.some((u: any) => u.channel === channel)) continue;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const channelPref = preferences.find((p: any) => p.channel === channel);
         if (
           channelPref?.quietHoursStart != null &&
@@ -432,9 +433,9 @@ export function createEventProcessor(
           const campaignId = params["campaignId"] as string | undefined;
           if (!campaignId || !user.phone) continue;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if (unsubscribes.some((u: any) => u.channel === "voice")) continue;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const voicePref = preferences.find((p: any) => p.channel === "voice");
           if (
             voicePref?.quietHoursStart != null &&
@@ -489,9 +490,9 @@ export function createEventProcessor(
           const campaignId = params["campaignId"] as string | undefined;
           if (!campaignId || !user.phone) continue;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if (unsubscribes.some((u: any) => u.channel === "whatsapp")) continue;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const waPref = preferences.find((p: any) => p.channel === "whatsapp");
           if (
             waPref?.quietHoursStart != null &&
@@ -541,9 +542,9 @@ export function createEventProcessor(
           const tokens = user.deviceTokens as string[] | null;
           if (!tokens || tokens.length === 0) continue;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if (unsubscribes.some((u: any) => u.channel === "push")) continue;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const pushPref = preferences.find((p: any) => p.channel === "push");
           if (
             pushPref?.quietHoursStart != null &&
