@@ -14,6 +14,7 @@
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
     "test": "turbo test",
+    "validate": "pnpm typecheck && pnpm lint && pnpm exec eslint packages apps --max-warnings 0 && pnpm test",
     "db:generate": "pnpm --filter @engage/database db:generate",
     "db:migrate:dev": "pnpm --filter @engage/database db:migrate:dev",
     "db:seed": "pnpm --filter @engage/database db:seed",
