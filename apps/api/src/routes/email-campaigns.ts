@@ -11,9 +11,18 @@ const createSchema = z.object({
   bodyHtml: z.string().min(1),
   bodyText: z.string().optional(),
   fromName: z.string().optional(),
-  fromEmail: z.string().email().optional(),
-  replyTo: z.string().email().optional(),
-  unsubscribeUrl: z.string().url().optional(),
+  fromEmail: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().email().optional(),
+  ),
+  replyTo: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().email().optional(),
+  ),
+  unsubscribeUrl: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().url().optional(),
+  ),
   triggerType: z
     .enum(["manual", "scheduled", "rule-based", "event-based"])
     .default("manual"),
