@@ -34,6 +34,8 @@ interface VoiceCampaign {
   id: string;
   name: string;
   status: string;
+  audienceSize?: number;
+  orkestaiCampaignId?: string | null;
   createdAt: string;
 }
 
@@ -131,6 +133,7 @@ export function VoiceCampaignList() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Audience</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -151,6 +154,9 @@ export function VoiceCampaignList() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
+                    {campaign.audienceSize ?? 0} contacts
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
                     {new Date(campaign.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
@@ -166,14 +172,28 @@ export function VoiceCampaignList() {
                             View Details
                           </Link>
                         </DropdownMenuItem>
-                        {campaign.status === "draft" && (
-                          <DropdownMenuItem
-                            onClick={() => handleStart(campaign.id)}
-                          >
-                            <Play className="h-4 w-4 mr-2" />
-                            Start
-                          </DropdownMenuItem>
-                        )}
+                        {campaign.status === "draft" &&
+                          (campaign.audienceSize ? (
+                            <DropdownMenuItem
+                              onClick={() => handleStart(campaign.id)}
+                            >
+                              <Play className="h-4 w-4 mr-2" />
+                              Start
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem asChild>
+                              <span
+                                className="pointer-events-none opacity-50 flex items-center"
+                                title="Add audience first in campaign settings"
+                              >
+                                <Play className="h-4 w-4 mr-2" />
+                                Start
+                                <span className="ml-auto text-xs">
+                                  (no audience)
+                                </span>
+                              </span>
+                            </DropdownMenuItem>
+                          ))}
                         {campaign.status === "draft" && (
                           <DropdownMenuItem
                             onClick={() => setDeleteId(campaign.id)}

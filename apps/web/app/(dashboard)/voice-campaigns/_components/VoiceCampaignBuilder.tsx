@@ -4,8 +4,6 @@ import { apiFetch } from "@/lib/api-client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,41 +16,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Save } from "lucide-react";
-import {
-  voiceCampaignSchema,
-  type VoiceCampaignValues,
-} from "@/lib/campaign-schemas";
+import { Plus, Save, Trash2, X } from "lucide-react";
+
+interface FlowStep {
+  id: string;
+  type: "say" | "dtmf_question" | "speech_question" | "goodbye";
+  text: string;
+  options?: Record<string, string>;
+  timeout?: number;
+}
+
+interface CampaignFormData {
+  name: string;
+  description: string;
+  ttsProvider: "elevenlabs" | "openai";
+  elevenLabsVoiceId: string;
+  aiInstructions: string;
+  flowSteps: FlowStep[];
+}
+
+const STEP_TYPE_LABELS: Record<FlowStep["type"], string> = {
+  say: "Say",
+  dtmf_question: "DTMF Question",
+  speech_question: "Speech Question",
+  goodbye: "Goodbye",
+};
+
+function newStep(): FlowStep {
+  return { id: crypto.randomUUID(), type: "say", text: "" };
+}
 
 export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(!!campaignId);
   const [saving, setSaving] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    reset,
-    watch,
-    formState: { errors },
-  } = useForm<VoiceCampaignValues>({
-    resolver: zodResolver(voiceCampaignSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      script: "",
-      languageCode: "en-US",
-      voiceGender: "male",
-      voiceSpeed: 1.0,
-      recordingEnabled: true,
-      dtmfEnabled: false,
-      maxRetries: 2,
-    },
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<CampaignFormData>({
+    name: "",
+    description: "",
+    ttsProvider: "elevenlabs",
+    elevenLabsVoiceId: "",
+    aiInstructions: "",
+    flowSteps: [newStep()],
   });
-
-  const voiceSpeed = watch("voiceSpeed");
 
   useEffect(() => {
     if (!campaignId) return;
@@ -62,42 +68,101 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
         const response = await apiFetch(`/v1/voice-campaigns/${campaignId}`);
         if (!response.ok) throw new Error("Failed to fetch campaign");
         const campaign = await response.json();
-        reset({
-          name: campaign.name,
+        const storedSteps = Array.isArray(campaign.flowSteps)
+          ? (campaign.flowSteps as FlowStep[])
+          : [newStep()];
+        setData({
+          name: campaign.name ?? "",
           description: campaign.description ?? "",
-          script: campaign.script,
-          languageCode: campaign.languageCode ?? "en-US",
-          voiceGender: campaign.voiceGender ?? "male",
-          voiceSpeed: campaign.voiceSpeed ?? 1.0,
-          recordingEnabled: campaign.recordingEnabled ?? true,
-          dtmfEnabled: campaign.dtmfEnabled ?? false,
-          maxRetries: campaign.maxRetries ?? 2,
+          ttsProvider: campaign.ttsProvider ?? "elevenlabs",
+          elevenLabsVoiceId: campaign.elevenLabsVoiceId ?? "",
+          aiInstructions: campaign.aiInstructions ?? "",
+          flowSteps: storedSteps.length > 0 ? storedSteps : [newStep()],
         });
       } catch (err) {
-        setApiError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     };
 
     fetchCampaign();
-  }, [campaignId, reset]);
+  }, [campaignId]);
 
-  const onSubmit = async (data: VoiceCampaignValues) => {
-    setApiError(null);
+  const updateStep = (index: number, patch: Partial<FlowStep>) => {
+    setData((prev) => {
+      const steps = prev.flowSteps.map((s, i) =>
+        i === index ? ({ ...s, ...patch } as FlowStep) : s,
+      );
+      return { ...prev, flowSteps: steps };
+    });
+  };
+
+  const addStep = () => {
+    setData((prev) => ({ ...prev, flowSteps: [...prev.flowSteps, newStep()] }));
+  };
+
+  const removeStep = (index: number) => {
+    setData((prev) => {
+      if (prev.flowSteps.length <= 1) return prev;
+      return { ...prev, flowSteps: prev.flowSteps.filter((_, i) => i !== index) };
+    });
+  };
+
+  const setStepOption = (stepIndex: number, key: string, value: string) => {
+    const step = data.flowSteps[stepIndex];
+    if (!step) return;
+    updateStep(stepIndex, { options: { ...(step.options ?? {}), [key]: value } });
+  };
+
+  const addStepOption = (stepIndex: number) => {
+    const step = data.flowSteps[stepIndex];
+    if (!step) return;
+    const existing = Object.keys(step.options ?? {});
+    const next = String(existing.length + 1);
+    if (!existing.includes(next)) setStepOption(stepIndex, next, "");
+  };
+
+  const removeStepOption = (stepIndex: number, key: string) => {
+    const step = data.flowSteps[stepIndex];
+    if (!step) return;
+    const options = { ...(step.options ?? {}) };
+    delete options[key];
+    updateStep(stepIndex, { options });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data.name.trim()) {
+      setError("Campaign name is required");
+      return;
+    }
+    if (data.flowSteps.some((s) => !s.text.trim())) {
+      setError("All steps must have text");
+      return;
+    }
+
     try {
       setSaving(true);
+      setError(null);
       const method = campaignId ? "PUT" : "POST";
       const url = campaignId
         ? `/v1/voice-campaigns/${campaignId}`
         : `/v1/voice-campaigns`;
 
+      const payload = {
+        name: data.name,
+        description: data.description || undefined,
+        ttsProvider: data.ttsProvider,
+        elevenLabsVoiceId: data.elevenLabsVoiceId || undefined,
+        aiInstructions: data.aiInstructions || undefined,
+        flowSteps: data.flowSteps,
+      };
+
       const response = await apiFetch(url, {
         method,
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(data),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -107,7 +172,7 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
 
       router.push("/voice-campaigns");
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Unknown error");
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -116,164 +181,231 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
   if (loading) return <div className="p-4">Loading campaign...</div>;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-3xl">
-      {apiError && (
-        <div className="p-4 bg-red-50 text-red-600 rounded-lg">{apiError}</div>
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+      {error && (
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg">{error}</div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label>Campaign Name *</Label>
-          <Input
-            {...register("name")}
-            placeholder="e.g., Reactivation Campaign"
-            className="mt-2"
-          />
-          {errors.name && (
-            <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
-          )}
-        </div>
-
-        <div>
-          <Label>Max Retries</Label>
-          <Input
-            type="number"
-            min="0"
-            max="5"
-            {...register("maxRetries", { valueAsNumber: true })}
-            className="mt-2"
-          />
-          {errors.maxRetries && (
-            <p className="text-sm text-red-600 mt-1">
-              {errors.maxRetries.message}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <Label>Description</Label>
-        <Textarea
-          {...register("description")}
-          placeholder="Optional campaign description"
-          className="mt-2 min-h-16"
-        />
-      </div>
-
+      {/* Basic Info */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Voice Script *</CardTitle>
+          <CardTitle className="text-sm">Basic Info</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Textarea
-            {...register("script")}
-            placeholder="The script that will be read during calls (supports {{user.firstName}} template variables)"
-            className="min-h-32 font-mono text-sm"
-          />
-          {errors.script && (
-            <p className="text-sm text-red-600 mt-1">{errors.script.message}</p>
-          )}
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Campaign Name *</Label>
+            <Input
+              value={data.name}
+              onChange={(e) => setData({ ...data, name: e.target.value })}
+              placeholder="e.g., Survey Campaign"
+              className="mt-2"
+            />
+          </div>
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              value={data.description}
+              onChange={(e) =>
+                setData({ ...data, description: e.target.value })
+              }
+              placeholder="Optional campaign description"
+              className="mt-2 min-h-16"
+            />
+          </div>
         </CardContent>
       </Card>
 
+      {/* TTS Configuration */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Voice Configuration</CardTitle>
+          <CardTitle className="text-sm">TTS Configuration</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="language">Language</Label>
-              <Controller
-                name="languageCode"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en-US">English (US)</SelectItem>
-                      <SelectItem value="en-GB">English (UK)</SelectItem>
-                      <SelectItem value="es-ES">Spanish (Spain)</SelectItem>
-                      <SelectItem value="es-MX">Spanish (Mexico)</SelectItem>
-                      <SelectItem value="fr-FR">French</SelectItem>
-                      <SelectItem value="de-DE">German</SelectItem>
-                      <SelectItem value="it-IT">Italian</SelectItem>
-                      <SelectItem value="pt-BR">Portuguese (Brazil)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="gender">Voice Gender</Label>
-              <Controller
-                name="voiceGender"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
+          <div>
+            <Label>TTS Provider</Label>
+            <Select
+              value={data.ttsProvider}
+              onValueChange={(value) =>
+                setData({
+                  ...data,
+                  ttsProvider: value as "elevenlabs" | "openai",
+                })
+              }
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
+                <SelectItem value="openai">OpenAI</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {data.ttsProvider === "elevenlabs" && (
+            <div>
+              <Label>ElevenLabs Voice ID</Label>
+              <Input
+                value={data.elevenLabsVoiceId}
+                onChange={(e) =>
+                  setData({ ...data, elevenLabsVoiceId: e.target.value })
+                }
+                placeholder="p7AwDmKvTdoHTBuueGvP"
+                className="mt-2 font-mono text-sm"
+              />
+            </div>
+          )}
 
           <div>
-            <Label>Voice Speed</Label>
-            <div className="flex items-center gap-4 mt-2">
-              <input
-                type="range"
-                min="0.5"
-                max="2"
-                step="0.1"
-                {...register("voiceSpeed", { valueAsNumber: true })}
-                className="flex-1"
-              />
-              <span className="text-sm font-medium w-12">
-                {(voiceSpeed ?? 1.0).toFixed(1)}x
-              </span>
-            </div>
+            <Label>Voice Instructions</Label>
+            <Textarea
+              value={data.aiInstructions}
+              onChange={(e) =>
+                setData({ ...data, aiInstructions: e.target.value })
+              }
+              placeholder="Hablar con entusiasmo deportivo, tono amigable"
+              className="mt-2 min-h-16"
+            />
           </div>
         </CardContent>
       </Card>
 
+      {/* Call Flow */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Call Options</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-sm">Call Flow</CardTitle>
+          <Button type="button" variant="outline" size="sm" onClick={addStep}>
+            <Plus className="h-4 w-4 mr-1" />
+            Add Step
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="recording"
-              {...register("recordingEnabled")}
-              className="rounded"
-            />
-            <Label htmlFor="recording" className="cursor-pointer">
-              Enable call recording
-            </Label>
-          </div>
+          {data.flowSteps.map((step, index) => (
+            <div
+              key={step.id}
+              className="border rounded-lg p-4 space-y-3 bg-muted/30"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground w-6">
+                  {index + 1}.
+                </span>
+                <Select
+                  value={step.type}
+                  onValueChange={(value) =>
+                    updateStep(index, {
+                      type: value as FlowStep["type"],
+                      options: value === "dtmf_question" ? {} : undefined,
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      Object.entries(STEP_TYPE_LABELS) as [
+                        FlowStep["type"],
+                        string,
+                      ][]
+                    ).map(([type, label]) => (
+                      <SelectItem key={type} value={type}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex-1" />
+                {data.flowSteps.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeStep(index)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="dtmf"
-              {...register("dtmfEnabled")}
-              className="rounded"
-            />
-            <Label htmlFor="dtmf" className="cursor-pointer">
-              Enable DTMF input (IVR menu)
-            </Label>
-          </div>
+              <div>
+                <Label className="text-xs">Text *</Label>
+                <Textarea
+                  value={step.text}
+                  onChange={(e) => updateStep(index, { text: e.target.value })}
+                  placeholder={
+                    step.type === "goodbye"
+                      ? "Gracias por tu tiempo. ¡Hasta pronto!"
+                      : step.type === "dtmf_question"
+                        ? "Presioná 1 para Sí, 2 para No"
+                        : "Hola, te llamamos de ORKESTAI..."
+                  }
+                  className="mt-1 min-h-16 text-sm"
+                />
+              </div>
+
+              {step.type === "dtmf_question" && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">DTMF Options</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => addStepOption(index)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Option
+                    </Button>
+                  </div>
+                  {Object.entries(step.options ?? {}).map(([key, value]) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="text-xs font-mono bg-muted rounded px-2 py-1 w-8 text-center">
+                        {key}
+                      </span>
+                      <Input
+                        value={value}
+                        onChange={(e) =>
+                          setStepOption(index, key, e.target.value)
+                        }
+                        placeholder="e.g., Sí"
+                        className="h-7 text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground"
+                        onClick={() => removeStepOption(index, key)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(step.type === "dtmf_question" ||
+                step.type === "speech_question") && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">
+                    Timeout (s)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="3"
+                    max="30"
+                    value={step.timeout ?? 10}
+                    onChange={(e) =>
+                      updateStep(index, { timeout: parseInt(e.target.value) })
+                    }
+                    className="h-7 w-20 text-xs"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
         </CardContent>
       </Card>
 
