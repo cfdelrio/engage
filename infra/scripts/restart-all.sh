@@ -20,6 +20,21 @@ echo "🛑 Stopping services..."
 sudo systemctl stop orkestai-web orkestai-worker orkestai-api 2>/dev/null || true
 sleep 2
 
+# 3. Ensure Docker and databases are running
+echo "🐳 Starting Docker and databases..."
+sudo systemctl start docker 2>/dev/null || true
+sleep 2
+docker compose up -d postgres redis
+echo -n "  Waiting for PostgreSQL..."
+for i in $(seq 1 15); do
+  if PGPASSWORD=engage psql -h localhost -U engage -d engage -c "SELECT 1" > /dev/null 2>&1; then
+    echo " ready ✓"
+    break
+  fi
+  echo -n "."
+  sleep 2
+done
+
 # 3. Clean caches
 echo "🗑️  Cleaning caches..."
 rm -rf apps/web/.next
