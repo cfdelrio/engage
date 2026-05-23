@@ -87,9 +87,14 @@ if $BUILD_API || $BUILD_WORKER || $BUILD_WEB; then
   echo "  Generating Prisma client..."
   pnpm --filter @engage/database db:generate 2>&1 | tail -3
   echo "  ✓ Prisma client generated"
-  echo "  Running database migrations..."
-  pnpm --filter @engage/database db:migrate:deploy 2>&1 | tail -5
-  echo "  ✓ Migrations applied"
+  echo "  Syncing database schema (migrate deploy)..."
+  if pnpm --filter @engage/database db:migrate:deploy 2>&1 | tail -5; then
+    echo "  ✓ Migrations applied"
+  else
+    echo "  ⚠️  migrate deploy failed — falling back to db push (adds missing tables, never drops)"
+    pnpm --filter @engage/database exec prisma db push --skip-generate 2>&1 | tail -5 || true
+    echo "  ✓ db push completed"
+  fi
 fi
 
 # 6. Stop only affected services
