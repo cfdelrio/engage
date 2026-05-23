@@ -22,6 +22,7 @@ const flowStepSchema = z.object({
 const createVoiceCampaignSchema = z.object({
   name: z.string().min(1).max(256),
   description: z.string().optional(),
+  orkestaiCampaignId: z.string().optional(),
   script: z.string().optional().default(""),
   ttsProvider: z
     .enum(["elevenlabs", "openai"])
@@ -93,6 +94,25 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
+  // List remote campaigns from orkestai-voice (must be before /:id)
+  fastify.get(
+    "/remote",
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const client = getVoiceClient();
+      if (!client) {
+        return reply
+          .status(503)
+          .send({ error: "Voice integration not configured" });
+      }
+      try {
+        const campaigns = await client.listCampaigns();
+        return reply.send({ campaigns });
+      } catch (err) {
+        return reply.status(502).send({ error: String(err) });
+      }
+    },
+  );
+
   // Create campaign
   fastify.post("/", async (request: FastifyRequest, reply: FastifyReply) => {
     const body = createVoiceCampaignSchema.parse(request.body);
@@ -101,6 +121,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         tenantId: request.tenantId,
         name: body.name,
         description: body.description,
+        orkestaiCampaignId: body.orkestaiCampaignId ?? null,
         script: body.script,
         ttsProvider: body.ttsProvider,
         elevenLabsVoiceId: body.elevenLabsVoiceId,
@@ -383,12 +404,12 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
 
       type FlowStep = z.infer<typeof flowStepSchema>;
       const storedSteps = campaign.flowSteps as FlowStep[] | null;
-      const steps = body?.steps ??
-        storedSteps ?? [
-          { id: "s1", type: "say" as const, text: campaign.script || "Hello" },
-        ];
+      const steps = body?.steps ?? storedSteps ?? null;
 
-      await client.defineCampaignFlow(orkestaiCampaignId, steps);
+      // Skip defineCampaignFlow for imported campaigns (flow already defined in orkestai-voice)
+      if (steps) {
+        await client.defineCampaignFlow(orkestaiCampaignId, steps);
+      }
 
       const startResult = await client.startCampaign(orkestaiCampaignId);
 
@@ -397,7 +418,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         data: {
           status: "running",
           startAt: new Date(),
-          flowSteps: asJson(steps),
+          ...(steps && { flowSteps: asJson(steps) }),
         },
       });
 

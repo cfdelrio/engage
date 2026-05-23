@@ -6,6 +6,7 @@ import type {
   VoiceFlow,
   FlowStep,
   CampaignResults,
+  CampaignListResponse,
   AddRecipientsResponse,
   CreateCampaignResponse,
   CreateContactResponse,
@@ -70,6 +71,14 @@ export class OrkestaiVoiceClient {
       },
     );
     return response.campaign;
+  }
+
+  async listCampaigns(): Promise<Campaign[]> {
+    const response = await this._request<CampaignListResponse>(
+      "GET",
+      `/api/tenants/${this.tenantId}/campaigns`,
+    );
+    return response.campaigns;
   }
 
   async getCampaign(campaignId: string): Promise<Campaign> {
