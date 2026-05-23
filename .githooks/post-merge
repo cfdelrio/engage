@@ -1,23 +1,11 @@
 #!/bin/bash
-# Git post-merge hook — Auto-rebuild after pull/merge to prevent CSS breaks
+# Git post-merge hook — Auto-deploy after git pull on EC2
 # Install: git config core.hooksPath .githooks
 
-set -e
-
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-CHANGED_FILES=$(git diff --name-only HEAD@{1} HEAD)
 
-echo "📊 Post-merge hook: checking if rebuild needed..."
-
-# Check if any app source changed (not just node_modules or docs)
-if echo "$CHANGED_FILES" | grep -qE "^(apps|packages|pnpm-lock\.yaml|\.env)"; then
-  echo "🔄 Changes detected in source code. Rebuilding..."
-
-  # Only rebuild if we're on the dev branch (not during local merges of other branches)
-  if [[ "$BRANCH" == "claude/event-driven-engagement-platform-Bl7PI" ]]; then
-    pnpm build
-    echo "✅ Build completed successfully"
-  fi
-else
-  echo "✓ No source changes, skipping rebuild"
+if [[ "$BRANCH" == "claude/event-driven-engagement-platform-Bl7PI" ]]; then
+  echo "🚀 Post-merge: triggering smart restart..."
+  chmod +x infra/scripts/restart-all.sh
+  bash infra/scripts/restart-all.sh
 fi
