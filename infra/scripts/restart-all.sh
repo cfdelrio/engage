@@ -79,14 +79,21 @@ for i in $(seq 1 15); do
   echo -n "."; sleep 2
 done
 
-# 4. Stop only affected services
+# 4. Sync node_modules with lockfile (handles added/removed dependencies)
+if $BUILD_API || $BUILD_WORKER || $BUILD_WEB; then
+  echo "📦 Installing dependencies..."
+  pnpm install --frozen-lockfile 2>&1 | tail -5
+  echo "  ✓ Dependencies up to date"
+fi
+
+# 6. Stop only affected services
 echo "🛑 Stopping affected services..."
 $BUILD_API    && sudo systemctl stop orkestai-api    2>/dev/null || true
 $BUILD_WORKER && sudo systemctl stop orkestai-worker 2>/dev/null || true
 $BUILD_WEB    && sudo systemctl stop orkestai-web    2>/dev/null || true
 sleep 2
 
-# 5. Build only what changed
+# 7. Build only what changed
 if $BUILD_API; then
   echo "🏗️  Building API..."
   rm -rf apps/api/dist
@@ -118,7 +125,7 @@ if $BUILD_WEB; then
   echo "  ✓ Web build OK"
 fi
 
-# 6. Update systemd services if infra changed
+# 8. Update systemd services if infra changed
 if $BUILD_INFRA || [ -z "$LAST_DEPLOY" ]; then
   echo "📦 Updating systemd services..."
   sudo cp infra/systemd/orkestai-api.service /etc/systemd/system/
@@ -130,7 +137,7 @@ if $BUILD_INFRA || [ -z "$LAST_DEPLOY" ]; then
   BUILD_API=true; BUILD_WORKER=true; BUILD_WEB=true
 fi
 
-# 7. Start affected services
+# 9. Start affected services
 echo "🚀 Starting services..."
 if $BUILD_API; then
   sudo systemctl start orkestai-api; sleep 3
@@ -142,10 +149,10 @@ if $BUILD_WEB; then
   sudo systemctl start orkestai-web; sleep 4
 fi
 
-# 8. Save current commit as last deploy
+# 10. Save current commit as last deploy
 echo "$CURRENT" > .last-deploy-commit
 
-# 9. Health checks — solo para servicios que fueron (re)iniciados
+# 11. Health checks — solo para servicios que fueron (re)iniciados
 echo "🏥 Health checks..."
 if ! $BUILD_API && ! $BUILD_WEB; then
   echo "  No services restarted — skipping health checks"
