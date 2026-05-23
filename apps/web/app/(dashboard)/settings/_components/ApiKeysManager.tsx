@@ -249,11 +249,9 @@ export function ApiKeysManager() {
                 Manage API keys for authenticating requests to your tenant
               </CardDescription>
             </div>
-            <CreateApiKeyDialog
-              open={createKeyOpen}
-              onOpenChange={setCreateKeyOpen}
-              onSuccess={handleCreateSuccess}
-            />
+            <Button onClick={() => setCreateKeyOpen(true)}>
+              Create API Key
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -276,6 +274,12 @@ export function ApiKeysManager() {
           )}
         </CardContent>
       </Card>
+
+      <CreateApiKeyDialog
+        open={createKeyOpen}
+        onOpenChange={setCreateKeyOpen}
+        onSuccess={handleCreateSuccess}
+      />
 
       <RotateApiKeyDialog
         open={rotateKeyId !== null}

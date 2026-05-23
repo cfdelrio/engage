@@ -8,7 +8,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,24 +37,18 @@ interface CreatedKeyData {
 }
 
 interface CreateApiKeyDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onSuccess?: (key: CreatedKeyData) => void;
-  onOpenChange?: (open: boolean) => void;
-  open?: boolean;
 }
 
 export function CreateApiKeyDialog({
-  onSuccess,
+  open,
   onOpenChange,
-  open: controlledOpen,
+  onSuccess,
 }: CreateApiKeyDialogProps) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = controlledOpen ?? internalOpen;
-
   const handleOpenChange = (newOpen: boolean) => {
-    if (controlledOpen === undefined) {
-      setInternalOpen(newOpen);
-    }
-    onOpenChange?.(newOpen);
+    onOpenChange(newOpen);
   };
   const [name, setName] = useState("");
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -121,9 +114,6 @@ export function CreateApiKeyDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>Create API Key</Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Create API Key</DialogTitle>

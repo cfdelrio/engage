@@ -71,7 +71,10 @@ export function VoiceCallLog({ campaignId }: VoiceCallLogProps) {
   }, [campaignId, apiKey]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchCalls();
   }, [apiKey, fetchCalls]);
 

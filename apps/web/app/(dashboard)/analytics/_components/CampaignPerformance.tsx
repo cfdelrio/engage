@@ -48,7 +48,10 @@ export function CampaignPerformance({ dateRange }: CampaignPerformanceProps) {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
 
     const params = new URLSearchParams({
       from: dateRange.from.toISOString(),

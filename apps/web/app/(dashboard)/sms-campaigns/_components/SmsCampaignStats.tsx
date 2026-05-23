@@ -52,7 +52,10 @@ export function SmsCampaignStats({ campaignId }: SmsCampaignStatsProps) {
   }, [campaignId, apiKey]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchMetrics();
   }, [apiKey, fetchMetrics]);
 

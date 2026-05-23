@@ -53,7 +53,10 @@ export function PushCampaignStats({ campaignId }: PushCampaignStatsProps) {
   }, [campaignId, apiKey]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchMetrics();
   }, [apiKey, fetchMetrics]);
 

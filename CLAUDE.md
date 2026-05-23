@@ -9,11 +9,68 @@
 - **Frontend**: Next.js 15 (puerto 3000)
 - **Infra local**: Docker Compose (Postgres + Redis)
 
+## Git Workflow (Gitflow)
+
+### Ramas principales
+
+- **`main`** — código en **producción** (estable)
+  - Solo mergea código desde `release/*` o `hotfix/*`
+  - GitHub Actions auto-deploya a EC2 en cada push
+- **`develop`** — rama de **integración** (pre-release)
+  - Todas las features/bugfixes se mergean aquí
+  - Staging/testing antes de liberar a producción
+
+### Ramas de soporte
+
+- **`feature/*`** — nuevas features (ej: `feature/campaigns-dashboard`)
+  - Se crean desde `develop`
+  - PR a `develop` (pasa CI, review, merge)
+- **`bugfix/*`** — arreglos de bugs (ej: `bugfix/modal-overlap`)
+  - Se crean desde `develop`
+  - PR a `develop` (igual que features)
+- **`hotfix/*`** — arreglos **críticos** en producción (ej: `hotfix/502-error`)
+  - Se crean desde `main`
+  - PR a `main` (urgent fixes, no espera release)
+  - Se merge de vuelta a `develop`
+
+### Flujo típico
+
+```bash
+# 1. Crear feature desde develop
+git checkout develop && git pull origin develop
+git checkout -b feature/new-feature
+
+# 2. Hacer cambios, commits
+git add . && git commit -m "mensaje"
+git push -u origin feature/new-feature
+
+# 3. Crear PR en GitHub → develop
+# (CI corre automáticamente)
+# (Review, fixes, merge)
+
+# 4. Preparar release (cuando está listo)
+git checkout develop && git pull origin develop
+git checkout -b release/v1.2.0
+
+# 5. Merge release a main (producción)
+# (GitHub Actions auto-deploya a EC2)
+
+# 6. Merge de vuelta a develop
+```
+
+### Reglas
+
+- ✅ Todas las features **por PR a `develop`**
+- ✅ Código **solo llega a producción vía `main`**
+- ✅ GitHub Actions **auto-deploya en pushes a `main`**
+- ✅ **Sin commits directos a `main` o `develop`** (siempre PR)
+
 ## EC2 de producción
 
 - **Path**: `/home/ec2-user/engage`
-- **Branch**: `claude/event-driven-engagement-platform-Bl7PI`
-- **IP**: `44.223.7.160` (engage.orkestai.ar)
+- **Branch**: `main` (auto-desplegado en cada push)
+- **IP**: `44.223.7.160` (https://engage.orkestai.ar)
+- **Deploy**: GitHub Actions `deploy.yml` en cada push a `main` → `restart-all.sh`
 
 ### Iniciar servicios en EC2
 
@@ -30,10 +87,19 @@ fuser -k 3001/tcp 2>/dev/null; sleep 2
 NODE_ENV=production node apps/api/dist/index.js >> ~/api.log 2>&1 &
 ```
 
-### Build en EC2
+### Build y Deploy en EC2
+
+**Automático**: GitHub Actions dispara en cada push a `main`
 
 ```bash
-git fetch origin && git reset --hard origin/claude/event-driven-engagement-platform-Bl7PI
+# Script que ejecuta GitHub Actions:
+bash infra/scripts/restart-all.sh
+```
+
+Si necesitás hacer cambios manuales (dev):
+
+```bash
+git fetch origin && git reset --hard origin/develop
 pnpm build   # turbo build completo
 # O por paquete específico (sin --force):
 pnpm --filter @engage/channels run build

@@ -18,7 +18,10 @@ export function EventTypeBreakdown() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API_URL}/v1/analytics/events`, {
       headers: { "x-api-key": apiKey },
     })

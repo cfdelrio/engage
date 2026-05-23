@@ -21,7 +21,10 @@ export function TimeSeriesChart() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API_URL}/v1/analytics/timeseries?windowDays=7`, {
       headers: { "x-api-key": apiKey },
     })

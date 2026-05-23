@@ -20,7 +20,10 @@ export function AIPerformance() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API_URL}/v1/analytics/ai-performance`, {
       headers: { "x-api-key": apiKey },
     })

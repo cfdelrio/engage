@@ -34,12 +34,15 @@ export function RulesList() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API_URL}/v1/rules`, {
       headers: { "x-api-key": apiKey },
     })
       .then((r) => r.json())
-      .then((data: Rule[]) => setRules(data))
+      .then((data: unknown) => setRules(Array.isArray(data) ? data : []))
       .catch(() => setRules([]))
       .finally(() => setLoading(false));
   }, [apiKey]);

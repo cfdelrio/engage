@@ -5,9 +5,9 @@ echo "🚀 ORKESTAI Deploy - Selective"
 
 cd /home/ec2-user/engage
 
-# Fetch latest
+# Fetch latest and sync to remote
 git fetch origin main
-git pull origin main
+git reset --hard origin/main
 
 # Detect what changed (compare with previous HEAD)
 echo "📝 Detecting changes..."

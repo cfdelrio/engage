@@ -47,7 +47,10 @@ export function TemplateSelector({ channels, value, onChange }: Props) {
       setTemplates([]);
       return;
     }
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
 

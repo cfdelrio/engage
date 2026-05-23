@@ -74,7 +74,10 @@ export function SmsCampaignList() {
   }, [apiKey]);
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     fetchCampaigns();
   }, [apiKey, fetchCampaigns]);
 

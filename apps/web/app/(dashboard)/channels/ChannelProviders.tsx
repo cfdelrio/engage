@@ -33,7 +33,10 @@ export function ChannelProviders() {
   const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
 
     fetch(`${API_URL}/v1/providers`, {
