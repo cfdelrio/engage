@@ -157,9 +157,7 @@ export function CreateApiKeyDialog({
             </div>
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <div className="border-t border-border" />
