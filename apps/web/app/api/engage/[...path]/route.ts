@@ -17,9 +17,21 @@ async function handler(
   const { path } = await ctx.params;
   const upstreamUrl = `${ENGAGE_API_URL}/${path.join("/")}${request.nextUrl.search}`;
 
+  const HOP_BY_HOP = new Set([
+    "connection",
+    "keep-alive",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+    "proxy-authenticate",
+    "proxy-authorization",
+  ]);
+
   const headers = new Headers();
   request.headers.forEach((value, key) => {
-    if (key !== "host" && key !== "cookie") headers.set(key, value);
+    if (key !== "host" && key !== "cookie" && !HOP_BY_HOP.has(key))
+      headers.set(key, value);
   });
   headers.set("x-api-key", apiKey);
 
