@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import {
   Card,
@@ -13,9 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface Tenant {
   id: string;
@@ -39,16 +38,9 @@ export function TenantCard() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_URL}/admin/tenant`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/admin/tenant`, {})
       .then((res) => (res.ok ? res.json() : null))
       .then((data: Tenant | null) => {
         if (data) {
@@ -58,15 +50,14 @@ export function TenantCard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [apiKey]);
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/admin/tenant`, {
+      const res = await apiFetch(`/admin/tenant`, {
         method: "PUT",
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify({ name }),

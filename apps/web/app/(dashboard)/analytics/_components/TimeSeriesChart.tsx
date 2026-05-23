@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -8,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useApiKey } from "@/hooks/useApiKey";
 import dynamic from "next/dynamic";
 
 const LineChart = dynamic(() => import("recharts").then((m) => m.LineChart), {
@@ -38,8 +39,6 @@ const ResponsiveContainer = dynamic(
   { ssr: false },
 );
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 interface TimeSeriesDataPoint {
   date: string;
   sent: number;
@@ -55,27 +54,19 @@ interface TimeSeriesChartProps {
 export function TimeSeriesChart({ dateRange }: TimeSeriesChartProps) {
   const [data, setData] = useState<TimeSeriesDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-
     const params = new URLSearchParams({
       from: dateRange.from.toISOString(),
       to: dateRange.to.toISOString(),
     });
 
-    fetch(`${API_URL}/v1/analytics/timeseries?${params}`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/timeseries?${params}`, {})
       .then((res) => (res.ok ? res.json() : []))
       .then((d: TimeSeriesDataPoint[]) => setData(d))
       .catch(() => setData([]))
       .finally(() => setLoading(false));
-  }, [apiKey, dateRange]);
+  }, [dateRange]);
 
   return (
     <Card>

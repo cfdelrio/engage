@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -18,9 +20,6 @@ import {
 } from "@/components/ui/select";
 import { TemplatePreview } from "./TemplatePreview";
 import { Save } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface TemplateData {
   name: string;
@@ -59,7 +58,6 @@ const SAMPLE_VARIABLES: Record<string, Record<string, string>> = {
 
 export function TemplateEditor({ templateId }: { templateId?: string }) {
   const router = useRouter();
-  const apiKey = useApiKey();
   const [loading, setLoading] = useState(!!templateId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,13 +70,11 @@ export function TemplateEditor({ templateId }: { templateId?: string }) {
   });
 
   useEffect(() => {
-    if (!templateId || !apiKey) return;
+    if (!templateId) return;
 
     const fetchTemplate = async () => {
       try {
-        const response = await fetch(`${API_URL}/v1/templates/${templateId}`, {
-          headers: { "x-api-key": apiKey },
-        });
+        const response = await apiFetch(`/v1/templates/${templateId}`);
         if (!response.ok) throw new Error("Failed to fetch template");
         const template = await response.json();
         setData({
@@ -96,7 +92,7 @@ export function TemplateEditor({ templateId }: { templateId?: string }) {
     };
 
     fetchTemplate();
-  }, [templateId, apiKey]);
+  }, [templateId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,14 +108,11 @@ export function TemplateEditor({ templateId }: { templateId?: string }) {
     try {
       setSaving(true);
       const method = templateId ? "PUT" : "POST";
-      const url = templateId
-        ? `${API_URL}/v1/templates/${templateId}`
-        : `${API_URL}/v1/templates`;
+      const url = templateId ? `/v1/templates/${templateId}` : `/v1/templates`;
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method,
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify(data),

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -9,9 +11,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface KPIData {
   totalSent: number;
@@ -35,23 +34,18 @@ interface KPICardsProps {
 
 export function KPICards({ dateRange }: KPICardsProps) {
   const [data, setData] = useState<KPIData | null>(null);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) return;
-
     const params = new URLSearchParams({
       from: dateRange.from.toISOString(),
       to: dateRange.to.toISOString(),
     });
 
-    fetch(`${API_URL}/v1/analytics/overview?${params}`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/overview?${params}`, {})
       .then((res) => (res.ok ? res.json() : null))
       .then((d: KPIData | null) => setData(d))
       .catch(() => setData(null));
-  }, [apiKey, dateRange]);
+  }, [dateRange]);
 
   const kpis = [
     {

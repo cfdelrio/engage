@@ -1,13 +1,12 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface Provider {
   id: string;
@@ -30,18 +29,11 @@ export function ChannelProviders() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
 
-    fetch(`${API_URL}/v1/providers`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/providers`, {})
       .then((res) => (res.ok ? res.json() : null))
       .then((data: Provider[] | null) => {
         if (cancelled) return;
@@ -61,14 +53,13 @@ export function ChannelProviders() {
     return () => {
       cancelled = true;
     };
-  }, [apiKey]);
+  }, []);
 
   const handleToggleActive = async (providerId: string, newActive: boolean) => {
     try {
-      const res = await fetch(`${API_URL}/v1/providers/${providerId}`, {
+      const res = await apiFetch(`/v1/providers/${providerId}`, {
         method: "PUT",
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify({ isActive: newActive }),
@@ -87,10 +78,9 @@ export function ChannelProviders() {
 
   const handleSetDefault = async (providerId: string) => {
     try {
-      const res = await fetch(`${API_URL}/v1/providers/${providerId}`, {
+      const res = await apiFetch(`/v1/providers/${providerId}`, {
         method: "PUT",
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify({ isDefault: true }),

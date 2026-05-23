@@ -1,10 +1,9 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface ChannelData {
   channel: string;
@@ -24,21 +23,14 @@ const CHANNEL_EMOJIS: Record<string, string> = {
 export function ChannelBreakdown() {
   const [data, setData] = useState<ChannelData[]>([]);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_URL}/v1/analytics/channels`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/channels`, {})
       .then((res) => (res.ok ? res.json() : []))
       .then((d: ChannelData[]) => setData(d))
       .catch(() => setData([]))
       .finally(() => setLoading(false));
-  }, [apiKey]);
+  }, []);
 
   const byChannel = data.reduce<
     Record<string, { sent: number; delivered: number }>

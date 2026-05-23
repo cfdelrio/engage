@@ -18,8 +18,7 @@ import { CreateApiKeyDialog } from "./CreateApiKeyDialog";
 import { RotateApiKeyDialog } from "./RotateApiKeyDialog";
 import { DeleteApiKeyDialog } from "./DeleteApiKeyDialog";
 import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
+import { apiFetch } from "@/lib/api-client";
 
 interface ApiKey {
   id: string;
@@ -46,15 +45,17 @@ export function ApiKeysManager() {
 
   const storedApiKey = useApiKey();
 
-  useEffect(() => {
-    setActiveKeyInput(localStorage.getItem("engage_api_key") || "");
-  }, []);
-
-  const handleSaveActiveKey = () => {
-    localStorage.setItem("engage_api_key", activeKeyInput.trim());
-    setActiveKeySaved(true);
-    setTimeout(() => setActiveKeySaved(false), 2000);
-    window.location.reload();
+  const handleSaveActiveKey = async () => {
+    const res = await fetch("/api/session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ apiKey: activeKeyInput.trim() }),
+    });
+    if (res.ok) {
+      setActiveKeySaved(true);
+      setTimeout(() => setActiveKeySaved(false), 2000);
+      window.location.reload();
+    }
   };
 
   const [createKeyOpen, setCreateKeyOpen] = useState(false);
@@ -67,9 +68,7 @@ export function ApiKeysManager() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/admin/api-keys`, {
-        headers: { "x-api-key": storedApiKey },
-      });
+      const res = await apiFetch("/admin/api-keys");
       if (!res.ok) throw new Error("Failed to fetch API keys");
       setKeys(await res.json());
     } catch (err) {
@@ -116,9 +115,8 @@ export function ApiKeysManager() {
   };
 
   const handleRotateConfirm = async (keyId: string) => {
-    const res = await fetch(`${API_URL}/admin/api-keys/${keyId}/rotate`, {
+    const res = await apiFetch(`/admin/api-keys/${keyId}/rotate`, {
       method: "POST",
-      headers: { "x-api-key": storedApiKey },
     });
     if (!res.ok) throw new Error("Failed to rotate API key");
 
@@ -148,9 +146,8 @@ export function ApiKeysManager() {
   };
 
   const handleDeleteConfirm = async (keyId: string) => {
-    const res = await fetch(`${API_URL}/admin/api-keys/${keyId}`, {
+    const res = await apiFetch(`/admin/api-keys/${keyId}`, {
       method: "DELETE",
-      headers: { "x-api-key": storedApiKey },
     });
     if (!res.ok) throw new Error("Failed to delete API key");
     setDeleteKeyId(null);

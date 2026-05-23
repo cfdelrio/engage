@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,6 @@ import type { ConditionGroupNode } from "./ConditionGroup";
 import { ActionsList } from "./ActionsList";
 import { RulePreview } from "./RulePreview";
 import { Save } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 
 interface RuleData {
   name: string;
@@ -29,11 +30,8 @@ interface RuleData {
   cooldownSeconds?: number;
 }
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 export function RuleBuilder({ ruleId }: { ruleId?: string }) {
   const router = useRouter();
-  const apiKey = useApiKey();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rule, setRule] = useState<RuleData>({
@@ -67,14 +65,11 @@ export function RuleBuilder({ ruleId }: { ruleId?: string }) {
     try {
       setLoading(true);
       const method = ruleId ? "PUT" : "POST";
-      const url = ruleId
-        ? `${API_URL}/v1/rules/${ruleId}`
-        : `${API_URL}/v1/rules`;
+      const url = ruleId ? `/v1/rules/${ruleId}` : `/v1/rules`;
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method,
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify(rule),

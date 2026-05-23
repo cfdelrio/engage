@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -27,7 +29,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MoreHorizontal, Play, Pause, Trash2 } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 
 interface SmsCampaign {
   id: string;
@@ -39,8 +40,6 @@ interface SmsCampaign {
   startAt?: string;
   _count?: { deliveries: number };
 }
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-900",
@@ -55,14 +54,11 @@ export function SmsCampaignList() {
   const [error, setError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const apiKey = useApiKey();
 
   const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/v1/sms-campaigns`, {
-        headers: { "x-api-key": apiKey },
-      });
+      const response = await apiFetch(`/v1/sms-campaigns`, {});
       if (!response.ok) throw new Error("Failed to fetch campaigns");
       const data = await response.json();
       setCampaigns(data || []);
@@ -71,22 +67,17 @@ export function SmsCampaignList() {
     } finally {
       setLoading(false);
     }
-  }, [apiKey]);
+  }, []);
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     fetchCampaigns();
-  }, [apiKey, fetchCampaigns]);
+  }, [fetchCampaigns]);
 
   const handleDelete = async (id: string) => {
     try {
       setDeleting(true);
-      const response = await fetch(`${API_URL}/v1/sms-campaigns/${id}`, {
+      const response = await apiFetch(`/v1/sms-campaigns/${id}`, {
         method: "DELETE",
-        headers: { "x-api-key": apiKey },
       });
       if (!response.ok) throw new Error("Failed to delete campaign");
       setCampaigns((prev) => prev.filter((c) => c.id !== id));
@@ -100,9 +91,8 @@ export function SmsCampaignList() {
 
   const handleStart = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/v1/sms-campaigns/${id}/start`, {
+      const response = await apiFetch(`/v1/sms-campaigns/${id}/start`, {
         method: "POST",
-        headers: { "x-api-key": apiKey },
       });
       if (!response.ok) throw new Error("Failed to start campaign");
       await fetchCampaigns();
@@ -113,9 +103,8 @@ export function SmsCampaignList() {
 
   const handlePause = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/v1/sms-campaigns/${id}/pause`, {
+      const response = await apiFetch(`/v1/sms-campaigns/${id}/pause`, {
         method: "POST",
-        headers: { "x-api-key": apiKey },
       });
       if (!response.ok) throw new Error("Failed to pause campaign");
       await fetchCampaigns();

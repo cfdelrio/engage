@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -9,7 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useApiKey } from "@/hooks/useApiKey";
 import dynamic from "next/dynamic";
 
 const BarChart = dynamic(() => import("recharts").then((m) => m.BarChart), {
@@ -39,8 +40,6 @@ const ResponsiveContainer = dynamic(
   { ssr: false },
 );
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 interface ChannelMetric {
   channel: string;
   sent: number;
@@ -67,27 +66,19 @@ const CHANNEL_COLORS: Record<string, string> = {
 export function ChannelComparison({ dateRange }: ChannelComparisonProps) {
   const [data, setData] = useState<ChannelMetric[]>([]);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-
     const params = new URLSearchParams({
       from: dateRange.from.toISOString(),
       to: dateRange.to.toISOString(),
     });
 
-    fetch(`${API_URL}/v1/analytics/channels-detailed?${params}`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/channels-detailed?${params}`, {})
       .then((res) => (res.ok ? res.json() : []))
       .then((d: ChannelMetric[]) => setData(d))
       .catch(() => setData([]))
       .finally(() => setLoading(false));
-  }, [apiKey, dateRange]);
+  }, [dateRange]);
 
   return (
     <div className="space-y-6">

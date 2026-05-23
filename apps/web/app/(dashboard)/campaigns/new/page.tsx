@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -7,9 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 export default function NewCampaignPage() {
   const router = useRouter();
@@ -18,7 +17,6 @@ export default function NewCampaignPage() {
   const [channels, setChannels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const apiKey = useApiKey();
 
   const handleChannelChange = (channel: string, checked: boolean) => {
     if (checked) {
@@ -34,10 +32,9 @@ export default function NewCampaignPage() {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/v1/campaigns`, {
+      const res = await apiFetch(`/v1/campaigns`, {
         method: "POST",
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify({

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -18,17 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Save } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
 import {
   emailCampaignSchema,
   type EmailCampaignValues,
 } from "@/lib/campaign-schemas";
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 export function EmailCampaignBuilder({ campaignId }: { campaignId?: string }) {
   const router = useRouter();
-  const apiKey = useApiKey();
   const [loading, setLoading] = useState(!!campaignId);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -58,14 +56,11 @@ export function EmailCampaignBuilder({ campaignId }: { campaignId?: string }) {
   const triggerType = watch("triggerType");
 
   useEffect(() => {
-    if (!campaignId || !apiKey) return;
+    if (!campaignId) return;
 
     const fetchCampaign = async () => {
       try {
-        const response = await fetch(
-          `${API_URL}/v1/email-campaigns/${campaignId}`,
-          { headers: { "x-api-key": apiKey } },
-        );
+        const response = await apiFetch(`/v1/email-campaigns/${campaignId}`);
         if (!response.ok) throw new Error("Failed to fetch campaign");
         const campaign = await response.json();
         reset({
@@ -88,7 +83,7 @@ export function EmailCampaignBuilder({ campaignId }: { campaignId?: string }) {
     };
 
     fetchCampaign();
-  }, [campaignId, apiKey, reset]);
+  }, [campaignId, reset]);
 
   const onSubmit = async (data: EmailCampaignValues) => {
     setApiError(null);
@@ -96,13 +91,12 @@ export function EmailCampaignBuilder({ campaignId }: { campaignId?: string }) {
       setSaving(true);
       const method = campaignId ? "PUT" : "POST";
       const url = campaignId
-        ? `${API_URL}/v1/email-campaigns/${campaignId}`
-        : `${API_URL}/v1/email-campaigns`;
+        ? `/v1/email-campaigns/${campaignId}`
+        : `/v1/email-campaigns`;
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method,
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify(data),

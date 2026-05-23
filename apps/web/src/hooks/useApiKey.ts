@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 
 export function useApiKey(): string {
-  const [apiKey, setApiKey] = useState<string>(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem("engage_api_key") || "";
-  });
+  const [prefix, setPrefix] = useState<string>("");
 
   useEffect(() => {
-    const key = localStorage.getItem("engage_api_key") || "";
-    setApiKey(key);
+    fetch("/api/session")
+      .then(
+        (r) => r.json() as Promise<{ authenticated: boolean; prefix?: string }>,
+      )
+      .then((s) => setPrefix(s.prefix ?? ""))
+      .catch(() => {});
   }, []);
 
-  return apiKey;
+  return prefix;
 }

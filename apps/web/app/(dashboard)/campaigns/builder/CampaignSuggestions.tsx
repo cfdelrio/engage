@@ -1,12 +1,12 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface CampaignSuggestion {
   campaignName: string;
@@ -40,12 +40,9 @@ export function CampaignSuggestions({
     setLoading(true);
     setError(null);
     try {
-      const apiKey = localStorage.getItem("engage_api_key") ?? "";
-
-      const response = await fetch(`${API_URL}/v1/campaigns/suggest`, {
+      const response = await apiFetch(`/v1/campaigns/suggest`, {
         method: "POST",
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify({

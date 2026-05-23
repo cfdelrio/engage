@@ -1,11 +1,10 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Send, Users, Zap, TrendingUp } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface OverviewData {
   totalDeliveries: number;
@@ -17,21 +16,14 @@ interface OverviewData {
 export function MetricsGrid() {
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_URL}/v1/analytics/overview`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/overview`, {})
       .then((res) => (res.ok ? res.json() : null))
       .then((d: OverviewData | null) => setData(d))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [apiKey]);
+  }, []);
 
   if (loading) {
     return (

@@ -1,12 +1,11 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Brain } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface AIStats {
   total: number;
@@ -17,21 +16,14 @@ interface AIStats {
 export function AIPerformance() {
   const [stats, setStats] = useState<AIStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const apiKey = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_URL}/v1/analytics/ai-performance`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/analytics/ai-performance`, {})
       .then((res) => (res.ok ? res.json() : null))
       .then((d: AIStats | null) => setStats(d))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [apiKey]);
+  }, []);
 
   return (
     <Card>

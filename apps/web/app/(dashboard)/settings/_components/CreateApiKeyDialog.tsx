@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 const PERMISSIONS = [
   { id: "events:write", label: "Send events" },
@@ -54,7 +53,6 @@ export function CreateApiKeyDialog({
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const apiKey = useApiKey();
 
   const handlePermissionChange = (permissionId: string, checked: boolean) => {
     setPermissions((prev) =>
@@ -78,10 +76,9 @@ export function CreateApiKeyDialog({
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/admin/api-keys`, {
+      const res = await apiFetch(`/admin/api-keys`, {
         method: "POST",
         headers: {
-          "x-api-key": apiKey,
           "content-type": "application/json",
         },
         body: JSON.stringify({ name, permissions }),

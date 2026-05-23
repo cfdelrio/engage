@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,9 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mail, Phone, Search } from "lucide-react";
-import { useApiKey } from "@/hooks/useApiKey";
-
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 interface User {
   id: string;
@@ -35,7 +34,6 @@ export function UsersList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const apiKey = useApiKey();
 
   useEffect(() => {
     const handler = setTimeout(() => setSearchTerm(search), 250);
@@ -43,18 +41,12 @@ export function UsersList() {
   }, [search]);
 
   useEffect(() => {
-    if (!apiKey) {
-      setLoading(false);
-      return;
-    }
     const params = new URLSearchParams({ limit: "50" });
     if (searchTerm) params.set("externalId", searchTerm);
 
     let cancelled = false;
     setLoading(true);
-    fetch(`${API_URL}/v1/users?${params.toString()}`, {
-      headers: { "x-api-key": apiKey },
-    })
+    apiFetch(`/v1/users?${params.toString()}`, {})
       .then((res) => (res.ok ? res.json() : null))
       .then((data: UsersResponse | null) => {
         if (cancelled) return;
@@ -78,16 +70,14 @@ export function UsersList() {
     return () => {
       cancelled = true;
     };
-  }, [searchTerm, apiKey]);
+  }, [searchTerm]);
 
   const loadMore = async () => {
-    if (!nextCursor || !apiKey) return;
+    if (!nextCursor) return;
     const params = new URLSearchParams({ limit: "50", cursor: nextCursor });
     if (searchTerm) params.set("externalId", searchTerm);
     try {
-      const res = await fetch(`${API_URL}/v1/users?${params.toString()}`, {
-        headers: { "x-api-key": apiKey },
-      });
+      const res = await apiFetch(`/v1/users?${params.toString()}`, {});
       if (!res.ok) return;
       const data = (await res.json()) as UsersResponse;
       setUsers((prev) => [...prev, ...data.users]);
