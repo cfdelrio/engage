@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +30,16 @@ interface ActionEditorProps {
   onRemove: () => void;
 }
 
+const CHANNELS = ["email", "sms", "push", "whatsapp", "voice"] as const;
+
+const CHANNEL_LABELS: Record<string, string> = {
+  email: "Email",
+  sms: "SMS",
+  push: "Push",
+  whatsapp: "WhatsApp",
+  voice: "Voice",
+};
+
 export function ActionEditor({
   action,
   actionTypes,
@@ -36,6 +48,122 @@ export function ActionEditor({
 }: ActionEditorProps) {
   const actionType = actionTypes.find((t) => t.value === action.type);
   const paramFields = actionType?.params || [];
+
+  const [templates, setTemplates] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+
+  useEffect(() => {
+    if (action.type !== "SEND_NOTIFICATION") {
+      setTemplates([]);
+      return;
+    }
+    const ch = action.params.channel as string | undefined;
+    const url = `/v1/templates?limit=200${ch ? `&channel=${ch}` : ""}`;
+    apiFetch(url, {})
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (data && typeof data === "object" && "templates" in data) {
+          setTemplates(
+            (data as { templates: Array<{ id: string; name: string }> })
+              .templates,
+          );
+        }
+      })
+      .catch(() => {});
+  }, [action.type, action.params.channel]);
+
+  const renderParamField = (param: string) => {
+    const label = param
+      .replace(/([A-Z])/g, " $1")
+      .replace(/^./, (str) => str.toUpperCase());
+
+    if (action.type === "SEND_NOTIFICATION" && param === "channel") {
+      return (
+        <div key={param}>
+          <Label className="text-xs text-muted-foreground">{label}</Label>
+          <Select
+            value={String(action.params.channel ?? "")}
+            onValueChange={(v) =>
+              onChange({
+                ...action,
+                params: {
+                  ...action.params,
+                  channel: v || undefined,
+                  templateId: undefined,
+                },
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar canal..." />
+            </SelectTrigger>
+            <SelectContent>
+              {CHANNELS.map((ch) => (
+                <SelectItem key={ch} value={ch}>
+                  {CHANNEL_LABELS[ch]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    if (action.type === "SEND_NOTIFICATION" && param === "templateId") {
+      const currentChannel = action.params.channel as string | undefined;
+      return (
+        <div key={param}>
+          <Label className="text-xs text-muted-foreground">{label}</Label>
+          <Select
+            value={String(action.params.templateId ?? "")}
+            onValueChange={(v) =>
+              onChange({
+                ...action,
+                params: { ...action.params, templateId: v || undefined },
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={
+                  currentChannel
+                    ? "Seleccionar template..."
+                    : "Elegí canal primero"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {templates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    return (
+      <div key={param}>
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        <Input
+          placeholder={`Enter ${param}`}
+          value={String(action.params[param] ?? "")}
+          onChange={(e) =>
+            onChange({
+              ...action,
+              params: {
+                ...action.params,
+                [param]: e.target.value || undefined,
+              },
+            })
+          }
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -70,28 +198,7 @@ export function ActionEditor({
 
       {paramFields.length > 0 && (
         <div className="grid grid-cols-2 gap-4 pl-4 border-l-2 border-gray-300">
-          {paramFields.map((param) => (
-            <div key={param}>
-              <Label className="text-xs text-muted-foreground">
-                {param
-                  .replace(/([A-Z])/g, " $1")
-                  .replace(/^./, (str) => str.toUpperCase())}
-              </Label>
-              <Input
-                placeholder={`Enter ${param}`}
-                value={String(action.params[param] ?? "")}
-                onChange={(e) =>
-                  onChange({
-                    ...action,
-                    params: {
-                      ...action.params,
-                      [param]: e.target.value || undefined,
-                    },
-                  })
-                }
-              />
-            </div>
-          ))}
+          {paramFields.map((param) => renderParamField(param))}
         </div>
       )}
     </div>
