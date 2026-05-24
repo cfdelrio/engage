@@ -400,11 +400,10 @@ export function VoiceCampaignList() {
           {!selectedRemote ? (
             <>
               <DialogHeader>
-                <DialogTitle>Importar campaña de voz</DialogTitle>
+                <DialogTitle>Disparar desde orkestai-voice</DialogTitle>
                 <DialogDescription>
-                  Seleccioná una campaña ya construida en orkestai-voice.
-                  Después, crea una regla o evento en ENGAGE para dispararla
-                  automáticamente.
+                  Seleccioná una campaña para disparar ahora o importarla a
+                  ENGAGE.
                 </DialogDescription>
               </DialogHeader>
               {remoteLoading ? (
@@ -448,8 +447,8 @@ export function VoiceCampaignList() {
                       <div className="flex items-center gap-2 shrink-0">
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="h-8 text-xs text-muted-foreground"
+                          variant="outline"
+                          className="h-8 text-xs"
                           disabled={!!importing}
                           onClick={() => handleImport(rc)}
                         >
