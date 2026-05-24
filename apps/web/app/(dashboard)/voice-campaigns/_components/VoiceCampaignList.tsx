@@ -367,7 +367,7 @@ export function VoiceCampaignList() {
                                 </span>
                               </DropdownMenuItem>
                             ))}
-                          {campaign.status === "draft" && (
+                          {campaign.status !== "running" && (
                             <DropdownMenuItem
                               onClick={() => setDeleteId(campaign.id)}
                               className="text-red-600"
