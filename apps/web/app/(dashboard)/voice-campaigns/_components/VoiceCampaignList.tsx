@@ -139,21 +139,10 @@ export function VoiceCampaignList() {
     }
   };
 
-  const selectForLaunch = async (rc: RemoteCampaign) => {
+  const selectForLaunch = (rc: RemoteCampaign) => {
     setSelectedRemote(rc);
-    setAudienceLoading(true);
     setAudienceCount(null);
-    try {
-      const res = await apiFetch("/v1/voice-campaigns/audience-preview");
-      if (res.ok) {
-        const data = await res.json();
-        setAudienceCount(data);
-      }
-    } catch {
-      // non-critical
-    } finally {
-      setAudienceLoading(false);
-    }
+    // useEffect handles the audience fetch when selectedRemote changes
   };
 
   // Re-fetch audience count when consent toggle changes
@@ -432,44 +421,47 @@ export function VoiceCampaignList() {
                   No se encontraron campañas en orkestai-voice.
                 </p>
               ) : (
-                <div className="space-y-2 max-h-80 overflow-y-auto">
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                   {remoteCampaigns.map((rc) => (
                     <div
                       key={rc.id}
-                      className="rounded-lg border p-3 space-y-2"
+                      className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
                           <p className="font-medium text-sm truncate">
                             {rc.name}
                           </p>
-                          {rc.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                              {rc.description}
-                            </p>
-                          )}
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] shrink-0 px-1.5"
+                          >
+                            {rc.status}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {rc.status}
-                        </Badge>
+                        {rc.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                            {rc.description}
+                          </p>
+                        )}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <Button
                           size="sm"
-                          className="flex-1 h-7 text-xs gap-1"
-                          onClick={() => selectForLaunch(rc)}
-                        >
-                          <Zap className="h-3 w-3" />
-                          Disparar ahora
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
+                          variant="ghost"
+                          className="h-8 text-xs text-muted-foreground"
                           disabled={!!importing}
                           onClick={() => handleImport(rc)}
                         >
                           {importing === rc.id ? "Importando..." : "Importar"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={() => selectForLaunch(rc)}
+                        >
+                          <Zap className="h-3 w-3" />
+                          Disparar ahora
                         </Button>
                       </div>
                     </div>
