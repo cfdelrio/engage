@@ -5,10 +5,10 @@ import { OrkestaiVoiceClient } from "@engage/orkestai-voice-client";
 
 function getVoiceClient(): OrkestaiVoiceClient | null {
   const apiUrl = process.env["ORKESTAI_VOICE_API_URL"];
-  const apiKey = process.env["ORKESTAI_VOICE_API_KEY"];
-  const tenantId = process.env["ORKESTAI_VOICE_TENANT_ID"];
-  if (!apiUrl || !apiKey || !tenantId) return null;
-  return new OrkestaiVoiceClient(apiUrl, apiKey, tenantId);
+  const token = process.env["ORKESTAI_VOICE_TENANT_ID"]; // ok_... opaque API token
+  const tenantUUID = process.env["ORKESTAI_VOICE_TENANT_UUID"]; // UUID used in URL paths
+  if (!apiUrl || !token || !tenantUUID) return null;
+  return new OrkestaiVoiceClient(apiUrl, token, tenantUUID);
 }
 
 const flowStepSchema = z.object({
