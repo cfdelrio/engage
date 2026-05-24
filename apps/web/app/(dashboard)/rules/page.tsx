@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Zap } from "lucide-react";
+import { Zap, Sparkles } from "lucide-react";
 import { RulesList } from "./_components/RulesList";
 
 export const dynamic = "force-dynamic";
@@ -16,12 +16,20 @@ export default function RulesPage() {
             events and user actions
           </p>
         </div>
-        <Link href="/rules/new">
-          <Button className="gap-2">
-            <Zap className="h-4 w-4" />
-            New Rule
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/rules/ai-new">
+            <Button variant="outline" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              Build with AI
+            </Button>
+          </Link>
+          <Link href="/rules/new">
+            <Button className="gap-2">
+              <Zap className="h-4 w-4" />
+              New Rule
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <RulesList />
