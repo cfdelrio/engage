@@ -422,7 +422,6 @@ export function RulesList() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [aiQuery, runAiQuery]);
-
   const availableTriggers = [
     ...new Set(
       rules.map((r) => getEventType(r.conditions)).filter(Boolean) as string[],

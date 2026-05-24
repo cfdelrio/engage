@@ -218,11 +218,9 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         await fastify.prisma.voiceCampaign.delete({
           where: { id: campaign.id },
         });
-        return reply
-          .status(400)
-          .send({
-            error: "No se pudo crear ningún contacto en orkestai-voice",
-          });
+        return reply.status(400).send({
+          error: "No se pudo crear ningún contacto en orkestai-voice",
+        });
       }
 
       const result = await client.addRecipients(

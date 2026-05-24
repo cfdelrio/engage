@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import React from "react";
+import { AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent } from "./dialog";
 
 export function AlertDialog({
@@ -40,8 +41,8 @@ export function AlertDialogContent({
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { children?: ReactNode }) {
   return (
-    <DialogContent className={`bg-white ${className}`} {...props}>
-      {children}
+    <DialogContent className={`max-w-sm ${className}`} {...props}>
+      <div className="px-6 pt-6 pb-5 space-y-4">{children}</div>
     </DialogContent>
   );
 }
@@ -53,7 +54,7 @@ export function AlertDialogHeader({
   children?: ReactNode;
   className?: string;
 }) {
-  return <div className={`mb-4 ${className}`}>{children}</div>;
+  return <div className={className}>{children}</div>;
 }
 
 export function AlertDialogTitle({
@@ -63,7 +64,16 @@ export function AlertDialogTitle({
   children?: ReactNode;
   className?: string;
 }) {
-  return <h2 className={`text-lg font-bold ${className}`}>{children}</h2>;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+        <AlertTriangle className="h-4 w-4 text-destructive" />
+      </div>
+      <h2 className={`text-base font-semibold text-foreground ${className}`}>
+        {children}
+      </h2>
+    </div>
+  );
 }
 
 export function AlertDialogDescription({
@@ -74,7 +84,25 @@ export function AlertDialogDescription({
   className?: string;
 }) {
   return (
-    <p className={`text-sm text-gray-600 mb-4 ${className}`}>{children}</p>
+    <p className={`text-sm text-muted-foreground pl-12 ${className}`}>
+      {children}
+    </p>
+  );
+}
+
+export function AlertDialogFooter({
+  children,
+  className = "",
+}: {
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex justify-end gap-2 pt-4 border-t border-border ${className}`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -90,9 +118,10 @@ export function AlertDialogAction({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 ${className}`}
+      className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-destructive text-white hover:bg-destructive/90 disabled:opacity-50 disabled:pointer-events-none ${className}`}
       {...props}
     >
       {children}
@@ -111,8 +140,9 @@ export function AlertDialogCancel({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 ${className}`}
+      className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-input bg-background text-foreground hover:bg-accent disabled:opacity-50 ${className}`}
       {...props}
     >
       {children}

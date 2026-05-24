@@ -27,6 +27,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
@@ -577,16 +578,15 @@ export function VoiceCampaignList() {
             Esta acción no se puede deshacer. La campaña será eliminada
             permanentemente.
           </AlertDialogDescription>
-          <div className="flex justify-end gap-2">
+          <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteId && handleDelete(deleteId)}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
             >
               {deleting ? "Eliminando..." : "Eliminar"}
             </AlertDialogAction>
-          </div>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
