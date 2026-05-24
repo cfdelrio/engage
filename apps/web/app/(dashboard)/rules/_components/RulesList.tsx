@@ -1,7 +1,7 @@
 "use client";
 
 import { apiFetch } from "@/lib/api-client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import {
   Bell,
   Phone,
   Search,
+  Bot,
   X,
 } from "lucide-react";
 
@@ -48,6 +49,18 @@ interface Rule {
   conditions: ConditionGroupNode;
   actions: RuleAction[];
   cooldownSeconds?: number;
+}
+
+interface RuleStat {
+  total: number;
+  matched: number;
+  matchRate: number;
+  lastExecutedAt: string | null;
+}
+
+interface AIResult {
+  answer: string;
+  matchedIds: Set<string> | null;
 }
 
 function getActionChannels(actions: RuleAction[]): string[] {
@@ -225,12 +238,31 @@ export function RulesList() {
   const [triggerFilter, setTriggerFilter] = useState<string>("all");
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const [toggleError, setToggleError] = useState<Record<string, string>>({});
+  const [ruleStats, setRuleStats] = useState<Record<string, RuleStat> | null>(
+    null,
+  );
 
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiResult, setAiResult] = useState<AIResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load rules and stats on mount
   useEffect(() => {
-    apiFetch(`/v1/rules`, {})
-      .then((r) => r.json())
-      .then((data: unknown) => setRules(Array.isArray(data) ? data : []))
-      .catch(() => setRules([]))
+    void Promise.all([
+      apiFetch("/v1/rules", {})
+        .then((r) => r.json())
+        .then((data: unknown) => setRules(Array.isArray(data) ? data : [])),
+      apiFetch("/v1/rules/stats", {})
+        .then((r) => r.json())
+        .then((data: unknown) => {
+          if (data && typeof data === "object" && "stats" in data) {
+            setRuleStats((data as { stats: Record<string, RuleStat> }).stats);
+          }
+        }),
+    ])
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -268,6 +300,68 @@ export function RulesList() {
       });
     }
   };
+
+  const runAiQuery = useCallback(
+    async (question: string) => {
+      if (!question.trim() || rules.length === 0) {
+        setAiResult(null);
+        return;
+      }
+      setAiLoading(true);
+      try {
+        const serializedRules = rules.map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          conditions: r.conditions,
+          actions: r.actions,
+          enabled: r.enabled,
+          priority: r.priority,
+        }));
+        const res = await apiFetch("/v1/ai/rules/interpret/query", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            question,
+            rules: serializedRules,
+            stats: ruleStats ?? undefined,
+          }),
+        });
+        if (!res.ok) {
+          setAiResult({ answer: "Error al consultar AI.", matchedIds: null });
+          return;
+        }
+        const data = (await res.json()) as {
+          answer: string;
+          matchedRuleIds: string[] | null;
+        };
+        setAiResult({
+          answer: data.answer,
+          matchedIds: data.matchedRuleIds ? new Set(data.matchedRuleIds) : null,
+        });
+      } catch {
+        setAiResult({ answer: "Error al consultar AI.", matchedIds: null });
+      } finally {
+        setAiLoading(false);
+      }
+    },
+    [rules, ruleStats],
+  );
+
+  // Debounce AI query
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!aiQuery.trim()) {
+      setAiResult(null);
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      void runAiQuery(aiQuery);
+    }, 500);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [aiQuery, runAiQuery]);
 
   const availableTriggers = [
     ...new Set(
@@ -324,6 +418,41 @@ export function RulesList() {
 
   return (
     <div className="space-y-4">
+      {/* AI search bar */}
+      <div className="space-y-2">
+        <div className="relative">
+          <Bot className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            placeholder="Buscar con AI: ej. reglas que envían WhatsApp al top 3…"
+            className="pl-9 pr-9"
+          />
+          {aiQuery && (
+            <button
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setAiQuery("");
+                setAiResult(null);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {(aiLoading || aiResult) && (
+          <div className="text-sm px-1">
+            {aiLoading ? (
+              <span className="text-muted-foreground italic">
+                Consultando AI…
+              </span>
+            ) : aiResult ? (
+              <span className="text-muted-foreground">{aiResult.answer}</span>
+            ) : null}
+          </div>
+        )}
+      </div>
+
       {/* Filter bar */}
       <div className="space-y-3">
         <div className="relative">
@@ -464,9 +593,17 @@ export function RulesList() {
             const channels = getActionChannels(rule.actions);
             const eventType = getEventType(rule.conditions);
             const isExpanded = expanded.has(rule.id);
+            const stat = ruleStats?.[rule.id];
+            const dimmed =
+              aiResult?.matchedIds !== null &&
+              aiResult?.matchedIds !== undefined &&
+              !aiResult.matchedIds.has(rule.id);
 
             return (
-              <Card key={rule.id} className="overflow-hidden">
+              <Card
+                key={rule.id}
+                className={`overflow-hidden transition-opacity ${dimmed ? "opacity-40" : ""}`}
+              >
                 <CardHeader
                   className="cursor-pointer py-4 hover:bg-muted/50 transition-colors"
                   onClick={() =>
@@ -488,7 +625,7 @@ export function RulesList() {
                       disabled={toggling.has(rule.id)}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleToggle(rule.id, rule.enabled);
+                        void handleToggle(rule.id, rule.enabled);
                       }}
                       className="flex-shrink-0 disabled:opacity-40 transition-opacity"
                     >
@@ -545,6 +682,11 @@ export function RulesList() {
                           {rule.cooldownSeconds / 3600}h
                         </Badge>
                       )}
+                      {stat && (
+                        <Badge variant="outline" className="text-xs tabular-nums">
+                          {stat.total} exec
+                        </Badge>
+                      )}
                       <Link
                         href={`/rules/${rule.id}`}
                         onClick={(e) => e.stopPropagation()}
@@ -568,6 +710,20 @@ export function RulesList() {
 
                 {isExpanded && (
                   <CardContent className="pt-0 pb-4">
+                    {stat && (
+                      <div className="flex gap-4 text-xs text-muted-foreground mb-3">
+                        <span>
+                          {stat.total} ejecuciones ·{" "}
+                          {Math.round(stat.matchRate * 100)}% match
+                        </span>
+                        {stat.lastExecutedAt && (
+                          <span>
+                            Última:{" "}
+                            {new Date(stat.lastExecutedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <div className="space-y-2">
                       {/* IF block */}
                       <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3">

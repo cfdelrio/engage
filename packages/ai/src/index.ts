@@ -7,3 +7,5 @@ export * from "./providers/anthropic.js";
 export * from "./providers/openai.js";
 export * from "./providers/mock.js";
 export * from "./rule-interpreter.js";
+export * from "./utils/sanitize.js";
+export * from "./rule-analyst.js";

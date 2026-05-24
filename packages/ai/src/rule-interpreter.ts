@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AIProviderRegistry } from "./provider-registry.js";
 import type { AIProviderName } from "@engage/core";
+import { assertNoInjection } from "./utils/sanitize.js";
 
 // --- Zod schemas (mirrors rules.ts shapes; local to avoid cross-package coupling) ---
 
@@ -72,16 +73,6 @@ const RULE_INTERPRETATION_SCHEMA = z.object({
 });
 
 export type RuleInterpretation = z.infer<typeof RULE_INTERPRETATION_SCHEMA>;
-
-const INJECTION_PATTERNS = [
-  /ignore previous instructions/i,
-  /you are now/i,
-  /system:\s/i,
-  /<\/s>/,
-  /\[INST\]/,
-  /###\s*human/i,
-  /###\s*assistant/i,
-];
 
 const SYSTEM_PROMPT = `You are a rules engine interpreter for ORKESTAI ENGAGE, a B2B engagement automation platform.
 Your ONLY job is to convert natural language rule descriptions into structured JSON rule definitions.
@@ -185,15 +176,7 @@ export class RuleInterpreter {
   }
 
   sanitizeInput(input: string): void {
-    for (const pattern of INJECTION_PATTERNS) {
-      if (pattern.test(input)) {
-        const err = new Error(
-          "Input rejected: contains disallowed pattern",
-        ) as Error & { code: string };
-        err.code = "INJECTION_DETECTED";
-        throw err;
-      }
-    }
+    assertNoInjection(input);
   }
 
   private validateOutput(raw: string): RuleInterpretation {
