@@ -25,7 +25,7 @@ export default async function SmsCampaignDetailPage({
             Back
           </Button>
         </Link>
-        <h1 className="text-4xl font-bold">SMS Campaign</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">SMS Campaign</h1>
       </div>
 
       <Tabs defaultValue="settings" className="w-full">

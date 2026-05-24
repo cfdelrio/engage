@@ -14,7 +14,9 @@ export default function NewRulePage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Create New Rule</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">
+            Create New Rule
+          </h1>
           <p className="text-muted-foreground mt-1">
             Build engagement automation rules with visual condition and action
             builders

@@ -97,7 +97,9 @@ export default function CampaignDetailPage(props: {
             Back
           </Button>
         </Link>
-        <h1 className="text-4xl font-bold mt-2">{campaign.name}</h1>
+        <h1 className="text-[26px] font-bold tracking-tight mt-2">
+          {campaign.name}
+        </h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

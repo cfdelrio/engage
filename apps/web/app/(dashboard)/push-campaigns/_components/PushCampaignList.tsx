@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { CampaignStatusBadge } from "@/components/ui/campaign-status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,13 +39,6 @@ interface PushCampaign {
   status: string;
   createdAt: string;
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-900",
-  active: "bg-green-100 text-green-900",
-  paused: "bg-yellow-100 text-yellow-900",
-  completed: "bg-blue-100 text-blue-900",
-};
 
 export function PushCampaignList() {
   const [campaigns, setCampaigns] = useState<PushCampaign[]>([]);
@@ -149,7 +142,7 @@ export function PushCampaignList() {
                 <TableRow key={campaign.id}>
                   <TableCell>
                     <Link href={`/push-campaigns/${campaign.id}`}>
-                      <span className="text-blue-600 hover:underline">
+                      <span className="text-primary hover:underline">
                         {campaign.name}
                       </span>
                     </Link>
@@ -158,9 +151,7 @@ export function PushCampaignList() {
                     {campaign.title}
                   </TableCell>
                   <TableCell>
-                    <Badge className={STATUS_COLORS[campaign.status] || ""}>
-                      {campaign.status}
-                    </Badge>
+                    <CampaignStatusBadge status={campaign.status} />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(campaign.createdAt).toLocaleDateString()}

@@ -27,7 +27,7 @@ export default async function VoiceCampaignDetailPage({
             Back
           </Button>
         </Link>
-        <h1 className="text-4xl font-bold">Voice Campaign</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">Voice Campaign</h1>
       </div>
 
       <Tabs defaultValue="settings" className="w-full">

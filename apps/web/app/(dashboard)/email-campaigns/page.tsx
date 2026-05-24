@@ -10,7 +10,9 @@ export default function EmailCampaignsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold">Email Campaigns</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">
+            Email Campaigns
+          </h1>
           <p className="text-muted-foreground mt-2">
             Create and manage email campaigns with delivery tracking and
             engagement metrics.

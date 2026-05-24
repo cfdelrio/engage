@@ -172,7 +172,7 @@ export function TemplateList() {
                 <TableRow key={template.id}>
                   <TableCell>
                     <Link href={`/templates/${template.id}`}>
-                      <span className="text-blue-600 hover:underline">
+                      <span className="text-primary hover:underline">
                         {template.name}
                       </span>
                     </Link>

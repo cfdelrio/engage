@@ -14,7 +14,9 @@ export default function NewEmailCampaignPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Create Email Campaign</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">
+            Create Email Campaign
+          </h1>
           <p className="text-muted-foreground mt-1">
             Set up a new email campaign with custom content and delivery
             triggers.

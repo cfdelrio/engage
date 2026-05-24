@@ -68,7 +68,9 @@ export default function NewCampaignPage() {
             Back
           </Button>
         </Link>
-        <h1 className="text-4xl font-bold mt-2">New Campaign</h1>
+        <h1 className="text-[26px] font-bold tracking-tight mt-2">
+          New Campaign
+        </h1>
       </div>
 
       <Card className="max-w-2xl">

@@ -287,7 +287,9 @@ export default function UserDetailPage(props: {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold font-mono">{user.externalId}</h1>
+          <h1 className="text-[26px] font-bold tracking-tight font-mono">
+            {user.externalId}
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Created{" "}
             {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}

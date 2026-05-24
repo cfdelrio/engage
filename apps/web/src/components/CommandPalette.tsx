@@ -159,7 +159,7 @@ export function CommandPalette({ open, onClose }: Props) {
 
   const grouped = filtered.reduce<Record<string, Command[]>>((acc, cmd) => {
     if (!acc[cmd.group]) acc[cmd.group] = [];
-    acc[cmd.group].push(cmd);
+    (acc[cmd.group] as Command[]).push(cmd);
     return acc;
   }, {});
 
