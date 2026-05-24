@@ -22,7 +22,14 @@ import {
   Search,
   Bot,
   X,
+  FileText,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface SingleCondition {
   field: string;
@@ -58,6 +65,14 @@ interface RuleStat {
   lastExecutedAt: string | null;
 }
 
+interface TemplatePreview {
+  id: string;
+  name: string;
+  channel: string;
+  subject?: string;
+  body: string;
+}
+
 interface AIResult {
   answer: string;
   matchedIds: Set<string> | null;
@@ -84,7 +99,8 @@ function getEventType(group: ConditionGroupNode): string | null {
       if (r) return r;
     } else {
       const s = c as SingleCondition;
-      if (s.field === "event.type" && s.operator === "eq") return String(s.value);
+      if (s.field === "event.type" && s.operator === "eq")
+        return String(s.value);
     }
   }
   return null;
@@ -104,16 +120,17 @@ const OP_LABELS: Record<string, string> = {
   changed: "changed",
 };
 
-const CHANNEL_CONFIG: Record<
-  string,
-  { icon: React.ReactNode; label: string }
-> = {
-  email: { icon: <Mail className="h-3 w-3" />, label: "Email" },
-  sms: { icon: <MessageSquare className="h-3 w-3" />, label: "SMS" },
-  push: { icon: <Bell className="h-3 w-3" />, label: "Push" },
-  whatsapp: { icon: <MessageSquare className="h-3 w-3" />, label: "WhatsApp" },
-  voice: { icon: <Phone className="h-3 w-3" />, label: "Voice" },
-};
+const CHANNEL_CONFIG: Record<string, { icon: React.ReactNode; label: string }> =
+  {
+    email: { icon: <Mail className="h-3 w-3" />, label: "Email" },
+    sms: { icon: <MessageSquare className="h-3 w-3" />, label: "SMS" },
+    push: { icon: <Bell className="h-3 w-3" />, label: "Push" },
+    whatsapp: {
+      icon: <MessageSquare className="h-3 w-3" />,
+      label: "WhatsApp",
+    },
+    voice: { icon: <Phone className="h-3 w-3" />, label: "Voice" },
+  };
 
 const ALL_CHANNELS = ["email", "sms", "push", "whatsapp", "voice"];
 
@@ -177,11 +194,17 @@ function ConditionTree({
   );
 }
 
-function ActionList({ actions }: { actions: RuleAction[] }) {
+function ActionList({
+  actions,
+  templateMap,
+  onPreview,
+}: {
+  actions: RuleAction[];
+  templateMap: Record<string, TemplatePreview>;
+  onPreview: (tpl: TemplatePreview) => void;
+}) {
   if (!actions?.length) {
-    return (
-      <p className="text-xs text-muted-foreground italic">Sin acciones</p>
-    );
+    return <p className="text-xs text-muted-foreground italic">Sin acciones</p>;
   }
 
   return (
@@ -200,8 +223,13 @@ function ActionList({ actions }: { actions: RuleAction[] }) {
                   : null;
         const channelCfg = channel ? CHANNEL_CONFIG[channel] : null;
         const relevantParams = Object.entries(action.params)
-          .filter(([k]) => !["tenantId"].includes(k))
+          .filter(([k]) => !["tenantId", "templateId"].includes(k))
           .slice(0, 3);
+        const templateId =
+          action.type === "SEND_NOTIFICATION"
+            ? (action.params as { templateId?: string }).templateId
+            : undefined;
+        const tpl = templateId ? templateMap[templateId] : undefined;
 
         return (
           <li key={i} className="text-xs">
@@ -218,6 +246,21 @@ function ActionList({ actions }: { actions: RuleAction[] }) {
                   </span>
                 ))}
               </div>
+            )}
+            {tpl && (
+              <button
+                type="button"
+                onClick={() => onPreview(tpl)}
+                className="ml-4 mt-1 block"
+              >
+                <Badge
+                  variant="outline"
+                  className="gap-1 text-xs cursor-pointer hover:bg-muted"
+                >
+                  <FileText className="h-3 w-3" />
+                  {tpl.name}
+                </Badge>
+              </button>
             )}
           </li>
         );
@@ -242,13 +285,18 @@ export function RulesList() {
     null,
   );
 
+  const [templateMap, setTemplateMap] = useState<
+    Record<string, TemplatePreview>
+  >({});
+  const [previewTpl, setPreviewTpl] = useState<TemplatePreview | null>(null);
+
   const [aiQuery, setAiQuery] = useState("");
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load rules and stats on mount
+  // Load rules, stats, and templates on mount
   useEffect(() => {
     void Promise.all([
       apiFetch("/v1/rules", {})
@@ -259,6 +307,18 @@ export function RulesList() {
         .then((data: unknown) => {
           if (data && typeof data === "object" && "stats" in data) {
             setRuleStats((data as { stats: Record<string, RuleStat> }).stats);
+          }
+        }),
+      apiFetch("/v1/templates?limit=200", {})
+        .then((r) => r.json())
+        .then((data: unknown) => {
+          if (data && typeof data === "object" && "templates" in data) {
+            const map: Record<string, TemplatePreview> = {};
+            for (const t of (data as { templates: TemplatePreview[] })
+              .templates) {
+              map[t.id] = t;
+            }
+            setTemplateMap(map);
           }
         }),
     ])
@@ -470,11 +530,7 @@ export function RulesList() {
             Estado
           </span>
           {(["all", "active", "disabled"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStatusFilter(s)}
-            >
+            <button key={s} type="button" onClick={() => setStatusFilter(s)}>
               <Badge
                 variant={statusFilter === s ? "default" : "outline"}
                 className="cursor-pointer gap-1"
@@ -683,7 +739,10 @@ export function RulesList() {
                         </Badge>
                       )}
                       {stat && (
-                        <Badge variant="outline" className="text-xs tabular-nums">
+                        <Badge
+                          variant="outline"
+                          className="text-xs tabular-nums"
+                        >
                           {stat.total} exec
                         </Badge>
                       )}
@@ -746,7 +805,11 @@ export function RulesList() {
                         <p className="text-[10px] font-semibold text-green-700 uppercase tracking-wide mb-2">
                           THEN
                         </p>
-                        <ActionList actions={rule.actions} />
+                        <ActionList
+                          actions={rule.actions}
+                          templateMap={templateMap}
+                          onPreview={setPreviewTpl}
+                        />
                       </div>
                     </div>
                   </CardContent>
@@ -756,6 +819,27 @@ export function RulesList() {
           })}
         </div>
       )}
+
+      <Dialog open={!!previewTpl} onOpenChange={() => setPreviewTpl(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{previewTpl?.name}</DialogTitle>
+          </DialogHeader>
+          {previewTpl?.subject && (
+            <p className="text-sm font-medium border-b pb-2">
+              {previewTpl.subject}
+            </p>
+          )}
+          <pre className="text-xs bg-muted rounded p-4 whitespace-pre-wrap max-h-96 overflow-auto">
+            {previewTpl?.body}
+          </pre>
+          <Link href="/templates">
+            <Button variant="outline" size="sm">
+              Ver todos los templates →
+            </Button>
+          </Link>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
