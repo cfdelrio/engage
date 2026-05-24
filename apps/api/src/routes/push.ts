@@ -16,6 +16,10 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     imageUrl: z.string().optional(),
     actionUrl: z.string().optional(),
     priority: z.enum(["high", "normal"]).default("high"),
+    triggerType: z
+      .enum(["manual", "scheduled", "rule-based", "event-based"])
+      .default("manual"),
+    eventType: z.string().optional(),
     audienceFilter: z.record(z.unknown()).optional(),
     maxRetries: z.number().int().default(2),
   });
@@ -64,6 +68,8 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         imageUrl: body.imageUrl,
         actionUrl: body.actionUrl,
         priority: body.priority,
+        triggerType: body.triggerType,
+        eventType: body.eventType,
         audienceFilter: asJson(body.audienceFilter ?? {}),
         maxRetries: body.maxRetries,
       },
@@ -113,6 +119,8 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         imageUrl: body.imageUrl,
         actionUrl: body.actionUrl,
         priority: body.priority,
+        triggerType: body.triggerType,
+        eventType: body.eventType,
         audienceFilter: body.audienceFilter
           ? asJson(body.audienceFilter)
           : undefined,
@@ -328,11 +336,11 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const stats = {
         sent: notifications.length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delivered: notifications.filter((n: any) => n.deliveredAt).length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         opened: notifications.filter((n: any) => n.openedAt).length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         failed: notifications.filter((n: any) => n.failedAt).length,
       };
 

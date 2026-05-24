@@ -12,6 +12,7 @@ const createSchema = z.object({
   triggerType: z
     .enum(["manual", "scheduled", "rule-based", "event-based"])
     .default("manual"),
+  eventType: z.string().optional(),
   aiGenerated: z.boolean().default(false),
   aiInstructions: z.string().optional(),
   audienceFilter: z.record(z.unknown()).optional().default({}),
@@ -45,6 +46,7 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         body: body.body,
         fromNumber: body.fromNumber,
         triggerType: body.triggerType,
+        eventType: body.eventType,
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
         audienceFilter: asJson(body.audienceFilter),
@@ -97,6 +99,7 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         ...(body.body && { body: body.body }),
         ...(body.fromNumber !== undefined && { fromNumber: body.fromNumber }),
         ...(body.triggerType && { triggerType: body.triggerType }),
+        ...(body.eventType !== undefined && { eventType: body.eventType }),
         ...(body.aiGenerated !== undefined && {
           aiGenerated: body.aiGenerated,
         }),

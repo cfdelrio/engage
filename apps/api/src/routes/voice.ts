@@ -33,6 +33,7 @@ const createVoiceCampaignSchema = z.object({
   triggerType: z
     .enum(["manual", "scheduled", "rule-based", "event-based"])
     .default("manual"),
+  eventType: z.string().optional(),
   voiceConfig: z
     .object({
       language: z.string().default("es-ES"),
@@ -133,6 +134,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         elevenLabsVoiceId: body.elevenLabsVoiceId,
         ...(body.flowSteps && { flowSteps: asJson(body.flowSteps) }),
         triggerType: body.triggerType,
+        eventType: body.eventType,
         voiceConfig: asJson(body.voiceConfig),
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
@@ -241,6 +243,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         }),
         ...(body.flowSteps && { flowSteps: asJson(body.flowSteps) }),
         ...(body.triggerType && { triggerType: body.triggerType }),
+        ...(body.eventType !== undefined && { eventType: body.eventType }),
         ...(body.voiceConfig && { voiceConfig: asJson(body.voiceConfig) }),
         ...(body.aiGenerated !== undefined && {
           aiGenerated: body.aiGenerated,

@@ -24,6 +24,10 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       .optional(),
     aiGenerated: z.boolean().default(false),
     aiInstructions: z.string().optional(),
+    triggerType: z
+      .enum(["manual", "scheduled", "rule-based", "event-based"])
+      .default("manual"),
+    eventType: z.string().optional(),
     audienceFilter: z.record(z.unknown()).optional(),
     maxRetries: z.number().int().default(2),
   });
@@ -74,6 +78,8 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         buttons: asJson(body.buttons ?? []),
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
+        triggerType: body.triggerType,
+        eventType: body.eventType,
         audienceFilter: asJson(body.audienceFilter ?? {}),
         maxRetries: body.maxRetries,
       },
@@ -125,6 +131,8 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         buttons: body.buttons ? asJson(body.buttons) : undefined,
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
+        triggerType: body.triggerType,
+        eventType: body.eventType,
         audienceFilter: body.audienceFilter
           ? asJson(body.audienceFilter)
           : undefined,
@@ -340,11 +348,11 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const stats = {
         sent: messages.length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delivered: messages.filter((m: any) => m.deliveredAt).length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         read: messages.filter((m: any) => m.readAt).length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         failed: messages.filter((m: any) => m.failedAt).length,
       };
 

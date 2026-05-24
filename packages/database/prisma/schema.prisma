@@ -632,6 +632,7 @@ model VoiceCampaign {
   description         String?
   status              String    @default("draft")
   triggerType         String    @default("manual")
+  eventType           String?
   voiceConfig         Json      @default("{}")
   script              String
   aiGenerated         Boolean   @default(false)
@@ -766,6 +767,7 @@ model WhatsAppCampaign {
   description       String?
   status            String    @default("draft")
   triggerType       String    @default("manual")
+  eventType         String?
   body              String
   headerType        String?
   headerValue       String?
@@ -865,6 +867,7 @@ model PushCampaign {
   description       String?
   status            String    @default("draft")
   triggerType       String    @default("manual")
+  eventType         String?
   title             String
   body              String
   imageUrl          String?
@@ -944,6 +947,7 @@ model EmailCampaign {
   description    String?
   status         String    @default("draft")
   triggerType    String    @default("manual")
+  eventType      String?
   subject        String
   bodyHtml       String
   bodyText       String?
@@ -1028,6 +1032,7 @@ model SmsCampaign {
   description    String?
   status         String    @default("draft")
   triggerType    String    @default("manual")
+  eventType      String?
   body           String
   fromNumber     String?
   aiGenerated    Boolean   @default(false)
