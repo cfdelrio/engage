@@ -33,11 +33,20 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogClose,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { MoreHorizontal, Play, Trash2, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  MoreHorizontal,
+  Play,
+  Trash2,
+  Download,
+  Zap,
+  Users,
+} from "lucide-react";
 
 interface RemoteCampaign {
   id: string;
@@ -76,6 +85,9 @@ export function VoiceCampaignList() {
   const [remoteCampaigns, setRemoteCampaigns] = useState<RemoteCampaign[]>([]);
   const [remotLoading, setRemoteLoading] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
+  const [fireTarget, setFireTarget] = useState<VoiceCampaign | null>(null);
+  const [fireConsentOnly, setFireConsentOnly] = useState(false);
+  const [firing, setFiring] = useState(false);
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -152,15 +164,30 @@ export function VoiceCampaignList() {
     }
   };
 
-  const handleStart = async (id: string) => {
+  const openFireConfirm = (campaign: VoiceCampaign) => {
+    setFireTarget(campaign);
+    setFireConsentOnly(false);
+  };
+
+  const handleConfirmFire = async () => {
+    if (!fireTarget) return;
+    setFiring(true);
     try {
-      const response = await apiFetch(`/v1/voice-campaigns/${id}/start`, {
-        method: "POST",
-      });
+      const response = await apiFetch(
+        `/v1/voice-campaigns/${fireTarget.id}/start`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ consentOnly: fireConsentOnly }),
+        },
+      );
       if (!response.ok) throw new Error("Failed to start campaign");
+      setFireTarget(null);
       await fetchCampaigns();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setFiring(false);
     }
   };
 
@@ -253,10 +280,10 @@ export function VoiceCampaignList() {
                           {campaign.status === "draft" &&
                             (campaign.audienceSize ? (
                               <DropdownMenuItem
-                                onClick={() => handleStart(campaign.id)}
+                                onClick={() => openFireConfirm(campaign)}
                               >
-                                <Play className="h-4 w-4 mr-2" />
-                                Start
+                                <Zap className="h-4 w-4 mr-2" />
+                                Disparar
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem asChild>
@@ -343,6 +370,90 @@ export function VoiceCampaignList() {
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Fire confirmation dialog */}
+      <Dialog
+        open={!!fireTarget}
+        onOpenChange={(open) => !open && setFireTarget(null)}
+      >
+        <DialogContent className="max-w-md p-0 overflow-hidden">
+          <div className="flex items-start justify-between px-6 pt-5 pb-4">
+            <div>
+              <DialogTitle className="text-base font-semibold">
+                {fireTarget?.name}
+              </DialogTitle>
+              <DialogDescription className="mt-0.5">
+                Confirmá la audiencia antes de disparar.
+              </DialogDescription>
+            </div>
+            <DialogClose onClose={() => setFireTarget(null)} />
+          </div>
+
+          <div className="border-t border-border" />
+
+          <div className="px-6 py-4 bg-muted/40">
+            <div className="flex items-center gap-2 mb-2 text-muted-foreground">
+              <Users className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wide">
+                Audiencia de ENGAGE
+              </span>
+            </div>
+            <p className="text-2xl font-bold tabular-nums">
+              {fireTarget?.audienceSize ?? 0}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              usuarios se van a llamar
+            </p>
+          </div>
+
+          <div className="border-t border-border" />
+
+          <div className="px-6 py-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="consentOnly"
+                checked={fireConsentOnly}
+                onCheckedChange={(v) => setFireConsentOnly(!!v)}
+              />
+              <div>
+                <label
+                  htmlFor="consentOnly"
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Solo usuarios con consentimiento
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Filtra por{" "}
+                  <code className="bg-muted px-1 py-0.5 rounded text-[11px]">
+                    phone_consent: true
+                  </code>{" "}
+                  en los metadatos del usuario
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border" />
+
+          <div className="flex justify-end gap-2 px-6 py-4">
+            <Button
+              variant="outline"
+              onClick={() => setFireTarget(null)}
+              disabled={firing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmFire}
+              disabled={firing}
+              className="gap-2"
+            >
+              <Zap className="h-4 w-4" />
+              {firing ? "Disparando..." : "Confirmar y Disparar"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
