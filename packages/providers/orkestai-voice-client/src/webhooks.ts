@@ -1,6 +1,12 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import type {
   WebhookPayload,
+  CallStartedWebhookData,
+  CallAnsweredWebhookData,
+  CallFailedWebhookData,
+  CallNoAnswerWebhookData,
+  DtmfReceivedWebhookData,
+  TranscriptCreatedWebhookData,
   CallCompletedWebhookData,
   CampaignCompletedWebhookData,
 } from "./types.js";
@@ -48,6 +54,68 @@ export function parseWebhookPayload(body: unknown): WebhookPayload {
     tenantId: payload.tenantId,
     data: payload.data as Record<string, unknown>,
   };
+}
+
+export function isCallStartedEvent(
+  data: unknown,
+): data is CallStartedWebhookData {
+  if (typeof data !== "object" || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.callId === "string" &&
+    typeof obj.campaignId === "string" &&
+    typeof obj.recipientId === "string" &&
+    typeof obj.phone === "string" &&
+    typeof obj.startedAt === "string"
+  );
+}
+
+export function isCallAnsweredEvent(
+  data: unknown,
+): data is CallAnsweredWebhookData {
+  if (typeof data !== "object" || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.callId === "string" &&
+    typeof obj.campaignId === "string" &&
+    typeof obj.answeredAt === "string"
+  );
+}
+
+export function isCallFailedEvent(
+  data: unknown,
+): data is CallFailedWebhookData {
+  if (typeof data !== "object" || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return typeof obj.callId === "string" && typeof obj.campaignId === "string";
+}
+
+export function isCallNoAnswerEvent(
+  data: unknown,
+): data is CallNoAnswerWebhookData {
+  if (typeof data !== "object" || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return typeof obj.callId === "string" && typeof obj.campaignId === "string";
+}
+
+export function isDtmfReceivedEvent(
+  data: unknown,
+): data is DtmfReceivedWebhookData {
+  if (typeof data !== "object" || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.callId === "string" &&
+    typeof obj.campaignId === "string" &&
+    typeof obj.key === "string"
+  );
+}
+
+export function isTranscriptCreatedEvent(
+  data: unknown,
+): data is TranscriptCreatedWebhookData {
+  if (typeof data !== "object" || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return typeof obj.callId === "string" && typeof obj.transcript === "string";
 }
 
 export function isCallCompletedEvent(

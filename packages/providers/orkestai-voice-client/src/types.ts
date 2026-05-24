@@ -131,14 +131,63 @@ export interface ApiError {
 
 export interface WebhookPayload {
   event:
+    | "call.started"
     | "call.answered"
     | "call.completed"
     | "call.failed"
+    | "call.busy"
     | "call.no_answer"
+    | "dtmf.received"
+    | "transcript.created"
     | "campaign.completed";
   timestamp: string;
   tenantId: string;
   data: Record<string, unknown>;
+}
+
+export interface CallStartedWebhookData {
+  callId: string;
+  campaignId: string;
+  recipientId: string;
+  phone: string;
+  startedAt: string;
+}
+
+export interface CallAnsweredWebhookData {
+  callId: string;
+  campaignId: string;
+  recipientId: string;
+  answeredAt: string;
+}
+
+export interface CallFailedWebhookData {
+  callId: string;
+  campaignId: string;
+  recipientId: string;
+  failedAt: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+export interface CallNoAnswerWebhookData {
+  callId: string;
+  campaignId: string;
+  recipientId: string;
+  endedAt: string;
+}
+
+export interface DtmfReceivedWebhookData {
+  callId: string;
+  campaignId: string;
+  stepId: string;
+  key: string;
+  value: string;
+}
+
+export interface TranscriptCreatedWebhookData {
+  callId: string;
+  campaignId: string;
+  transcript: string;
 }
 
 export interface CallCompletedWebhookData {
