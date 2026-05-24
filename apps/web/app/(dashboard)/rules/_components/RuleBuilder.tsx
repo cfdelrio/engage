@@ -2,7 +2,7 @@
 
 import { apiFetch } from "@/lib/api-client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,33 @@ export function RuleBuilder({ ruleId }: { ruleId?: string }) {
     actions: [],
     cooldownSeconds: undefined,
   });
+
+  // Prefill from AI Rule Builder ("Edit manually" flow)
+  useEffect(() => {
+    if (ruleId) return;
+    try {
+      const raw = localStorage.getItem("ai-prefill-rule");
+      if (!raw) return;
+      localStorage.removeItem("ai-prefill-rule");
+      const prefill = JSON.parse(raw) as Partial<RuleData>;
+      setRule((prev) => ({
+        ...prev,
+        ...(prefill.name && { name: prefill.name }),
+        ...(prefill.description !== undefined && {
+          description: prefill.description,
+        }),
+        ...(prefill.conditions && {
+          conditions: prefill.conditions as RuleData["conditions"],
+        }),
+        ...(prefill.actions && { actions: prefill.actions }),
+        ...(prefill.cooldownSeconds != null && {
+          cooldownSeconds: prefill.cooldownSeconds,
+        }),
+      }));
+    } catch {
+      // ignore malformed prefill data
+    }
+  }, [ruleId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

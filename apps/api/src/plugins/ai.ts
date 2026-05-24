@@ -5,12 +5,16 @@ import {
   AnthropicProvider,
   OpenAIProvider,
   MockAIProvider,
+  RuleInterpreter,
+  RuleAnalyst,
 } from "@engage/ai";
 import type { AIProviderName } from "@engage/core";
 
 declare module "fastify" {
   interface FastifyInstance {
     aiLayer: AIOrchestrationLayer;
+    ruleInterpreter: RuleInterpreter;
+    ruleAnalyst: RuleAnalyst;
   }
 }
 
@@ -47,10 +51,16 @@ const aiPlugin: FastifyPluginAsync = async (fastify) => {
   });
 
   const aiLayer = new AIOrchestrationLayer(aiRegistry);
+  const ruleInterpreter = new RuleInterpreter(aiRegistry);
+  const ruleAnalyst = new RuleAnalyst(aiRegistry);
 
   fastify.decorate("aiLayer", aiLayer);
+  fastify.decorate("ruleInterpreter", ruleInterpreter);
+  fastify.decorate("ruleAnalyst", ruleAnalyst);
 
-  fastify.log.info(`AI layer initialized with provider: ${defaultProvider}`);
+  fastify.log.info(
+    `AI layer initialized with provider: ${defaultProvider}, ruleInterpreter: ${ruleInterpreter ? "ready" : "failed"}`,
+  );
 };
 
 export default aiPlugin;

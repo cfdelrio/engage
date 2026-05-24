@@ -50,6 +50,7 @@ export function EmailCampaignBuilder({ campaignId }: { campaignId?: string }) {
       fromEmail: "",
       replyTo: "",
       triggerType: "manual",
+      eventType: "",
     },
   });
 
@@ -73,6 +74,7 @@ export function EmailCampaignBuilder({ campaignId }: { campaignId?: string }) {
           fromEmail: campaign.fromEmail ?? "",
           replyTo: campaign.replyTo ?? "",
           triggerType: campaign.triggerType,
+          eventType: campaign.eventType ?? "",
           scheduledFor: campaign.scheduledFor,
         });
       } catch (err) {
@@ -164,6 +166,25 @@ export function EmailCampaignBuilder({ campaignId }: { campaignId?: string }) {
             )}
           />
         </div>
+
+        {triggerType === "event-based" && (
+          <div>
+            <Label>Event Type *</Label>
+            <Input
+              {...register("eventType")}
+              placeholder="e.g., user.signup, order.completed"
+              className="mt-2"
+            />
+            {errors.eventType && (
+              <p className="text-sm text-red-600 mt-1">
+                {errors.eventType.message}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              The exact event name that triggers this campaign
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col justify-end">
           <Button type="submit" disabled={saving} className="gap-2">

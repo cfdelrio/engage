@@ -74,7 +74,6 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
 
       // ─── Frequency cap ────────────────────────────────────────────────────
       const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, channel);
-      const currentCount = parseInt((await redis.get(capKey)) ?? "0", 10);
       const tenant = await db.tenant.findUniqueOrThrow({
         where: { id: tenantId },
       });
@@ -82,16 +81,28 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       const maxPerHour =
         (settings["maxFrequencyPerHour"] as number | undefined) ?? 2;
 
-      if (currentCount >= maxPerHour) {
+      // Atomic check-and-increment: returns new count, sets TTL on first write
+      const newCount = await redis.eval(
+        `
+        local current = redis.call("GET", KEYS[1])
+        if current and tonumber(current) >= tonumber(ARGV[1]) then
+          return tonumber(current)
+        end
+        local val = redis.call("INCR", KEYS[1])
+        if val == 1 then
+          redis.call("EXPIRE", KEYS[1], ARGV[2])
+        end
+        return val
+        `,
+        1,
+        capKey,
+        maxPerHour.toString(),
+        "3600",
+      );
+
+      if ((newCount as number) > maxPerHour) {
         await suppress("frequency_cap");
         return;
-      }
-
-      const ttl = await redis.ttl(capKey);
-      if (ttl < 0) {
-        await redis.setex(capKey, 3600, "1");
-      } else {
-        await redis.incr(capKey);
       }
 
       // ─── WhatsApp consent check ───────────────────────────────────────────
@@ -157,18 +168,27 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         ? db.template.findFirst({ where: { id: templateId, tenantId } })
         : db.template.findFirst({ where: { tenantId, channel } }));
 
-      let renderedSubject = "";
-      let renderedBody = event.type;
+      if (!template) {
+        console.warn(
+          `[delivery-scheduler] No template found for channel=${channel}, tenantId=${tenantId}, templateId=${templateId ?? "unspecified"}`,
+        );
+        await suppress("no_template_available");
+        return;
+      }
 
-      if (template) {
-        try {
-          renderedSubject = template.subject
-            ? Handlebars.compile(template.subject)(userPayload)
-            : "";
-          renderedBody = Handlebars.compile(template.body)(userPayload);
-        } catch {
-          renderedBody = template.body;
-        }
+      let renderedSubject = "";
+      let renderedBody = template.body;
+
+      try {
+        renderedSubject = template.subject
+          ? Handlebars.compile(template.subject)(userPayload)
+          : "";
+        renderedBody = Handlebars.compile(template.body)(userPayload);
+      } catch (err) {
+        console.error(
+          `[delivery-scheduler] Template render error: ${err}. Using raw template body.`,
+        );
+        renderedBody = template.body;
       }
 
       // ─── Determine recipient ──────────────────────────────────────────────

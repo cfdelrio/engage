@@ -88,6 +88,11 @@ export function LiveEventFeed() {
   }, []);
 
   useEffect(() => {
+    let destroyed = false;
+
+    // When served over HTTPS, use the same origin so WSS goes through nginx
+    // (nginx proxies /v1/* to the API with WebSocket support). This avoids
+    // mixed-content blocks when NEXT_PUBLIC_API_URL points to a plain-HTTP URL.
     const apiUrl =
       process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
     const wsUrl =
@@ -96,13 +101,14 @@ export function LiveEventFeed() {
         : apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
 
     const connect = () => {
+      if (destroyed) return;
       try {
         const ws = new WebSocket(`${wsUrl}/v1/events/stream`);
         wsRef.current = ws;
         ws.onopen = () => setConnected(true);
         ws.onclose = () => {
           setConnected(false);
-          setTimeout(connect, 3000);
+          if (!destroyed) setTimeout(connect, 3000);
         };
         ws.onerror = () => ws.close();
         ws.onmessage = (msg) => {
@@ -115,12 +121,15 @@ export function LiveEventFeed() {
           }
         };
       } catch {
-        setTimeout(connect, 3000);
+        if (!destroyed) setTimeout(connect, 3000);
       }
     };
 
     connect();
-    return () => wsRef.current?.close();
+    return () => {
+      destroyed = true;
+      wsRef.current?.close();
+    };
   }, []);
 
   return (

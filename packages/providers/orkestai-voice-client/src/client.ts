@@ -72,7 +72,17 @@ export class OrkestaiVoiceClient {
       "GET",
       `/api/tenants/${this.tenantId}/campaigns`,
     );
-    return response.campaigns;
+    // Normalize metadata fields to top-level for consistent access
+    return response.campaigns.map((c) => {
+      const normalized = { ...c } as Campaign;
+      if (c.metadata?.ttsProvider)
+        normalized.ttsProvider = c.metadata.ttsProvider;
+      if (c.metadata?.elevenLabsVoiceId)
+        normalized.elevenLabsVoiceId = c.metadata.elevenLabsVoiceId;
+      if (c.metadata?.voiceInstructions)
+        normalized.voiceInstructions = c.metadata.voiceInstructions;
+      return normalized;
+    });
   }
 
   async getCampaign(campaignId: string): Promise<Campaign> {
@@ -111,6 +121,7 @@ export class OrkestaiVoiceClient {
     const response = await this._request<StartCampaignResponse>(
       "POST",
       `/api/campaigns/${campaignId}/start`,
+      { sandbox: false },
     );
     return response;
   }

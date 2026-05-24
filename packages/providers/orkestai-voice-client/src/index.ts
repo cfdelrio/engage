@@ -2,6 +2,12 @@ export { OrkestaiVoiceClient } from "./client.js";
 export {
   verifyWebhookSignature,
   parseWebhookPayload,
+  isCallStartedEvent,
+  isCallAnsweredEvent,
+  isCallFailedEvent,
+  isCallNoAnswerEvent,
+  isDtmfReceivedEvent,
+  isTranscriptCreatedEvent,
   isCallCompletedEvent,
   isCampaignCompletedEvent,
 } from "./webhooks.js";
@@ -21,6 +27,12 @@ export type {
   StartCampaignResponse,
   ApiError,
   WebhookPayload,
+  CallStartedWebhookData,
+  CallAnsweredWebhookData,
+  CallFailedWebhookData,
+  CallNoAnswerWebhookData,
+  DtmfReceivedWebhookData,
+  TranscriptCreatedWebhookData,
   CallCompletedWebhookData,
   CampaignCompletedWebhookData,
 } from "./types.js";

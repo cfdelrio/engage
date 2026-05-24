@@ -359,8 +359,12 @@ async function main() {
   const tplMap: Record<string, string> = {};
 
   for (const tpl of WA_TEMPLATES) {
-    const created = await prisma.template
-      .create({
+    const existing = await prisma.template.findFirst({
+      where: { tenantId: tenant.id, name: tpl.name },
+    });
+    const t =
+      existing ??
+      (await prisma.template.create({
         data: {
           tenantId: tenant.id,
           name: tpl.name,
@@ -371,18 +375,17 @@ async function main() {
           variables: [],
           version: 1,
         },
-      })
-      .catch(async () =>
-        prisma.template.findFirst({
-          where: { tenantId: tenant.id, name: tpl.name },
-        }),
-      );
-    if (created) tplMap[tpl.name] = created.id;
+      }));
+    if (t) tplMap[tpl.name] = t.id;
   }
 
   for (const tpl of EMAIL_TEMPLATES) {
-    const created = await prisma.template
-      .create({
+    const existing = await prisma.template.findFirst({
+      where: { tenantId: tenant.id, name: tpl.name },
+    });
+    const t =
+      existing ??
+      (await prisma.template.create({
         data: {
           tenantId: tenant.id,
           name: tpl.name,
@@ -392,18 +395,17 @@ async function main() {
           variables: [],
           version: 1,
         },
-      })
-      .catch(async () =>
-        prisma.template.findFirst({
-          where: { tenantId: tenant.id, name: tpl.name },
-        }),
-      );
-    if (created) tplMap[tpl.name] = created.id;
+      }));
+    if (t) tplMap[tpl.name] = t.id;
   }
 
   for (const tpl of SMS_TEMPLATES) {
-    const created = await prisma.template
-      .create({
+    const existing = await prisma.template.findFirst({
+      where: { tenantId: tenant.id, name: tpl.name },
+    });
+    const t =
+      existing ??
+      (await prisma.template.create({
         data: {
           tenantId: tenant.id,
           name: tpl.name,
@@ -413,13 +415,8 @@ async function main() {
           variables: [],
           version: 1,
         },
-      })
-      .catch(async () =>
-        prisma.template.findFirst({
-          where: { tenantId: tenant.id, name: tpl.name },
-        }),
-      );
-    if (created) tplMap[tpl.name] = created.id;
+      }));
+    if (t) tplMap[tpl.name] = t.id;
   }
 
   console.log(`Templates: ${Object.keys(tplMap).length} created/verified`);
@@ -875,8 +872,11 @@ async function main() {
   ];
 
   for (const rule of rules) {
-    await prisma.rule
-      .create({
+    const exists = await prisma.rule.findFirst({
+      where: { tenantId: tenant.id, name: rule.name },
+    });
+    if (!exists) {
+      await prisma.rule.create({
         data: {
           tenantId: tenant.id,
           name: rule.name,
@@ -886,8 +886,8 @@ async function main() {
           actions: rule.actions,
           cooldownSeconds: rule.cooldownSeconds,
         },
-      })
-      .catch(() => {});
+      });
+    }
   }
 
   console.log(`Rules: ${rules.length} created/verified`);
@@ -929,8 +929,11 @@ async function main() {
   ];
 
   for (const campaign of campaigns) {
-    await prisma.campaign
-      .create({
+    const exists = await prisma.campaign.findFirst({
+      where: { tenantId: tenant.id, name: campaign.name },
+    });
+    if (!exists) {
+      await prisma.campaign.create({
         data: {
           tenantId: tenant.id,
           name: campaign.name,
@@ -941,18 +944,17 @@ async function main() {
           rules: {},
           aiConfig: {},
         },
-      })
-      .catch(() => {});
+      });
+    }
   }
 
   console.log(`Campaigns: ${campaigns.length} created/verified`);
 
   // ─── Email Campaigns ──────────────────────────────────────────────────────
-  await prisma.emailCampaign
-    .create({
-      data: {
-        tenantId: tenant.id,
-        name: "Welcome Email",
+  for (const [name, data] of [
+    [
+      "Welcome Email",
+      {
         description: "Automatic welcome email for new users",
         status: "draft",
         triggerType: "event",
@@ -965,14 +967,10 @@ async function main() {
         fromEmail: "notifications@prodecaballito.com",
         aiGenerated: false,
       },
-    })
-    .catch(() => {});
-
-  await prisma.emailCampaign
-    .create({
-      data: {
-        tenantId: tenant.id,
-        name: "Weekly Rankings",
+    ],
+    [
+      "Weekly Rankings",
+      {
         description: "Weekly rankings digest",
         status: "draft",
         triggerType: "scheduled",
@@ -984,45 +982,58 @@ async function main() {
         fromEmail: "notifications@prodecaballito.com",
         aiGenerated: false,
       },
-    })
-    .catch(() => {});
+    ],
+  ] as const) {
+    const exists = await prisma.emailCampaign.findFirst({
+      where: { tenantId: tenant.id, name },
+    });
+    if (!exists) {
+      await prisma.emailCampaign.create({
+        data: { tenantId: tenant.id, name, ...data },
+      });
+    }
+  }
 
   console.log("Email campaigns: 2 created/verified");
 
   // ─── SMS Campaigns ────────────────────────────────────────────────────────
-  await prisma.smsCampaign
-    .create({
-      data: {
-        tenantId: tenant.id,
-        name: "Match Kickoff Alert",
-        description: "SMS alert when matches start",
-        status: "active",
-        triggerType: "event",
-        body: "¡Arranca el partido {{match.local}} vs {{match.away}}!",
-        aiGenerated: false,
-      },
-    })
-    .catch(() => {});
-
-  await prisma.smsCampaign
-    .create({
-      data: {
-        tenantId: tenant.id,
-        name: "Ranking Change Alert",
-        description: "Notify when user's ranking changes",
-        status: "draft",
-        triggerType: "event",
-        body: "¡Subiste a posición {{ranking.new_position}}! Acumulás {{ranking.points}} puntos.",
-        aiGenerated: false,
-      },
-    })
-    .catch(() => {});
+  for (const [name, body, status] of [
+    [
+      "Match Kickoff Alert",
+      "¡Arranca el partido {{match.local}} vs {{match.away}}!",
+      "active",
+    ],
+    [
+      "Ranking Change Alert",
+      "¡Subiste a posición {{ranking.new_position}}! Acumulás {{ranking.points}} puntos.",
+      "draft",
+    ],
+  ] as const) {
+    const exists = await prisma.smsCampaign.findFirst({
+      where: { tenantId: tenant.id, name },
+    });
+    if (!exists) {
+      await prisma.smsCampaign.create({
+        data: {
+          tenantId: tenant.id,
+          name,
+          status,
+          triggerType: "event",
+          body,
+          aiGenerated: false,
+        },
+      });
+    }
+  }
 
   console.log("SMS campaigns: 2 created/verified");
 
   // ─── WhatsApp Campaigns ───────────────────────────────────────────────────
-  await prisma.whatsAppCampaign
-    .create({
+  const waExists = await prisma.whatsAppCampaign.findFirst({
+    where: { tenantId: tenant.id, name: "Result Notification" },
+  });
+  if (!waExists) {
+    await prisma.whatsAppCampaign.create({
       data: {
         tenantId: tenant.id,
         name: "Result Notification",
@@ -1031,14 +1042,17 @@ async function main() {
         triggerType: "event",
         body: "Resultado: {{match.local}} {{match.goles_local}} - {{match.goles_visitante}} {{match.away}}",
       },
-    })
-    .catch(() => {});
+    });
+  }
 
   console.log("WhatsApp campaigns: 1 created/verified");
 
   // ─── Push Campaigns ───────────────────────────────────────────────────────
-  await prisma.pushCampaign
-    .create({
+  const pushExists = await prisma.pushCampaign.findFirst({
+    where: { tenantId: tenant.id, name: "New Leader Alert" },
+  });
+  if (!pushExists) {
+    await prisma.pushCampaign.create({
       data: {
         tenantId: tenant.id,
         name: "New Leader Alert",
@@ -1048,14 +1062,17 @@ async function main() {
         title: "¡Nuevo líder!",
         body: "{{user.name}} es el nuevo líder con {{user.points}} puntos",
       },
-    })
-    .catch(() => {});
+    });
+  }
 
   console.log("Push campaigns: 1 created/verified");
 
   // ─── Public Feed ──────────────────────────────────────────────────────────
-  await prisma.publicFeed
-    .create({
+  const feedExists = await prisma.publicFeed.findFirst({
+    where: { tenantId: tenant.id, slug: "prodecaballito-updates" },
+  });
+  if (!feedExists) {
+    await prisma.publicFeed.create({
       data: {
         tenantId: tenant.id,
         slug: "prodecaballito-updates",
@@ -1064,8 +1081,8 @@ async function main() {
         config: {},
         isPublic: true,
       },
-    })
-    .catch(() => {});
+    });
+  }
 
   console.log("Public feed created/verified");
 

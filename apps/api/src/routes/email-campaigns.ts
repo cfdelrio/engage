@@ -26,6 +26,7 @@ const createSchema = z.object({
   triggerType: z
     .enum(["manual", "scheduled", "rule-based", "event-based"])
     .default("manual"),
+  eventType: z.string().optional(),
   aiGenerated: z.boolean().default(false),
   aiInstructions: z.string().optional(),
   audienceFilter: z.record(z.unknown()).optional().default({}),
@@ -64,6 +65,7 @@ const emailCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         replyTo: body.replyTo,
         unsubscribeUrl: body.unsubscribeUrl,
         triggerType: body.triggerType,
+        eventType: body.eventType,
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
         audienceFilter: asJson(body.audienceFilter),
@@ -123,6 +125,7 @@ const emailCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
           unsubscribeUrl: body.unsubscribeUrl,
         }),
         ...(body.triggerType && { triggerType: body.triggerType }),
+        ...(body.eventType !== undefined && { eventType: body.eventType }),
         ...(body.aiGenerated !== undefined && {
           aiGenerated: body.aiGenerated,
         }),

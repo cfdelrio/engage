@@ -17,6 +17,7 @@ export const emailCampaignSchema = z.object({
   fromEmail: z.string().email("Invalid email").optional().or(z.literal("")),
   replyTo: z.string().email("Invalid email").optional().or(z.literal("")),
   triggerType: triggerTypeSchema,
+  eventType: z.string().optional(),
   scheduledFor: z.string().optional(),
 });
 
@@ -29,6 +30,7 @@ export const smsCampaignSchema = z.object({
     .max(1600, "Message cannot exceed 1600 characters"),
   fromNumber: z.string().optional(),
   triggerType: triggerTypeSchema,
+  eventType: z.string().optional(),
   scheduledFor: z.string().optional(),
 });
 
@@ -40,19 +42,19 @@ export const pushCampaignSchema = z.object({
   imageUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
   actionUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
   priority: z.enum(["high", "normal"]),
+  triggerType: triggerTypeSchema,
+  eventType: z.string().optional(),
 });
 
 export const whatsAppCampaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
   description: z.string().optional(),
-  message: z
+  body: z
     .string()
     .min(1, "Message is required")
     .max(4096, "Message must be 4096 characters or less"),
-  mediaUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
-  buttonText: z.string().optional(),
-  buttonUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
   triggerType: triggerTypeSchema,
+  eventType: z.string().optional(),
 });
 
 export const voiceCampaignSchema = z.object({
@@ -74,10 +76,13 @@ export const voiceCampaignSchema = z.object({
   recordingEnabled: z.boolean(),
   dtmfEnabled: z.boolean(),
   maxRetries: z.number().int().min(0).max(5),
+  triggerType: triggerTypeSchema,
+  eventType: z.string().optional(),
 });
 
 export type EmailCampaignValues = z.infer<typeof emailCampaignSchema>;
 export type SmsCampaignValues = z.infer<typeof smsCampaignSchema>;
 export type PushCampaignValues = z.infer<typeof pushCampaignSchema>;
 export type WhatsAppCampaignValues = z.infer<typeof whatsAppCampaignSchema>;
+
 export type VoiceCampaignValues = z.infer<typeof voiceCampaignSchema>;

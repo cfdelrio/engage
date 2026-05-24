@@ -1,6 +1,9 @@
-import type { AIDecision, EventContext } from "@engage/core";
+import type { AIDecision, EventContext, AIProviderName } from "@engage/core";
 import type { AIProviderRegistry } from "./provider-registry.js";
-import type { AIProviderName } from "@engage/core";
+import type {
+  AICompletionRequest,
+  AICompletionResponse,
+} from "./provider.interface.js";
 
 const DECISION_SCHEMA = {
   type: "object",
@@ -211,6 +214,20 @@ Respond with JSON:
       };
     } catch (err) {
       console.error("[AIOrchestrationLayer] campaign suggestion failed:", err);
+      return null;
+    }
+  }
+
+  async complete(
+    request: AICompletionRequest,
+    tenantId?: string,
+    providerName?: AIProviderName,
+  ): Promise<AICompletionResponse | null> {
+    const provider = this.registry.resolve(tenantId ?? "", providerName);
+    try {
+      return await provider.complete(request);
+    } catch (err) {
+      console.error("[AIOrchestrationLayer] completion failed:", err);
       return null;
     }
   }

@@ -12,6 +12,7 @@ const createSchema = z.object({
   triggerType: z
     .enum(["manual", "scheduled", "rule-based", "event-based"])
     .default("manual"),
+  eventType: z.string().optional(),
   aiGenerated: z.boolean().default(false),
   aiInstructions: z.string().optional(),
   audienceFilter: z.record(z.unknown()).optional().default({}),
@@ -45,6 +46,7 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         body: body.body,
         fromNumber: body.fromNumber,
         triggerType: body.triggerType,
+        eventType: body.eventType,
         aiGenerated: body.aiGenerated,
         aiInstructions: body.aiInstructions,
         audienceFilter: asJson(body.audienceFilter),
@@ -97,6 +99,7 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         ...(body.body && { body: body.body }),
         ...(body.fromNumber !== undefined && { fromNumber: body.fromNumber }),
         ...(body.triggerType && { triggerType: body.triggerType }),
+        ...(body.eventType !== undefined && { eventType: body.eventType }),
         ...(body.aiGenerated !== undefined && {
           aiGenerated: body.aiGenerated,
         }),
@@ -117,7 +120,7 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     return updated;
   });
 
-  // Delete campaign (draft only)
+  // Delete campaign (draft or paused only)
   fastify.delete(
     "/:id",
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -126,10 +129,10 @@ const smsCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id, tenantId: request.tenantId },
       });
       if (!campaign) return reply.status(404).send({ error: "Not found" });
-      if (campaign.status !== "draft") {
+      if (campaign.status !== "draft" && campaign.status !== "paused") {
         return reply
           .status(400)
-          .send({ error: "Can only delete draft campaigns" });
+          .send({ error: "Can only delete draft or paused campaigns" });
       }
       await fastify.prisma.smsCampaign.delete({ where: { id } });
       return reply.status(204).send();
