@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import type {
   Contact,
   Campaign,
@@ -12,27 +11,6 @@ import type {
   CreateFlowResponse,
   StartCampaignResponse,
 } from "./types.js";
-
-function b64url(s: string): string {
-  return Buffer.from(s)
-    .toString("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-}
-
-function makeJwt(secret: string, sub: string): string {
-  const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-  const now = Math.floor(Date.now() / 1000);
-  const payload = b64url(JSON.stringify({ sub, iat: now, exp: now + 3600 }));
-  const sig = createHmac("sha256", secret)
-    .update(`${header}.${payload}`)
-    .digest("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-  return `${header}.${payload}.${sig}`;
-}
 
 export class OrkestaiVoiceClient {
   private baseUrl: string;
@@ -172,7 +150,7 @@ export class OrkestaiVoiceClient {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers: {
-        Authorization: `Bearer ${makeJwt(this.apiKey, this.tenantId)}`,
+        Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
       },
       ...(data !== undefined && { body: JSON.stringify(data) }),
