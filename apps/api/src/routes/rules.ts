@@ -93,6 +93,52 @@ const rulesRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
+  fastify.get("/stats", async (request) => {
+    const tenantId = request.tenantId;
+
+    const executions = await fastify.prisma.ruleExecution.findMany({
+      where: { tenantId },
+      select: { ruleId: true, matched: true, executedAt: true },
+      orderBy: { executedAt: "desc" },
+    });
+
+    const statsMap = new Map<
+      string,
+      { total: number; matched: number; lastExecutedAt: Date | null }
+    >();
+    for (const exec of executions) {
+      const entry = statsMap.get(exec.ruleId) ?? {
+        total: 0,
+        matched: 0,
+        lastExecutedAt: null,
+      };
+      entry.total += 1;
+      if (exec.matched) entry.matched += 1;
+      if (entry.lastExecutedAt === null) entry.lastExecutedAt = exec.executedAt;
+      statsMap.set(exec.ruleId, entry);
+    }
+
+    const stats: Record<
+      string,
+      {
+        total: number;
+        matched: number;
+        matchRate: number;
+        lastExecutedAt: string | null;
+      }
+    > = {};
+    for (const [ruleId, entry] of statsMap) {
+      stats[ruleId] = {
+        total: entry.total,
+        matched: entry.matched,
+        matchRate: entry.total > 0 ? entry.matched / entry.total : 0,
+        lastExecutedAt: entry.lastExecutedAt?.toISOString() ?? null,
+      };
+    }
+
+    return { stats };
+  });
+
   fastify.get("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const rule = await fastify.prisma.rule.findFirst({

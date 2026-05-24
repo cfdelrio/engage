@@ -1,5 +1,5 @@
 import type { Job } from "bullmq";
-import { PrismaClient } from "@engage/database";
+import { prisma } from "@engage/database";
 import Handlebars from "handlebars";
 import { FirebasePushProvider } from "@engage/channels";
 
@@ -14,8 +14,6 @@ interface PushNotificationJob {
   actionUrl?: string;
   priority: string;
 }
-
-const prisma = new PrismaClient();
 
 export async function processPushNotification(job: Job<PushNotificationJob>) {
   const {

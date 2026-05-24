@@ -38,8 +38,15 @@ import providersRoutes from "./routes/providers.js";
 import templatesRoutes from "./routes/templates.js";
 import deliveriesRoutes from "./routes/deliveries.js";
 import embedRoutes from "./routes/embed.js";
+import aiRulesRoutes from "./routes/ai-rules.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
+  if (!process.env["INTERNAL_API_URL"]) {
+    throw new Error(
+      "INTERNAL_API_URL environment variable is required (used for Twilio callbacks and service-to-service communication)",
+    );
+  }
+
   const app = Fastify({
     logger:
       process.env["NODE_ENV"] === "test"
@@ -191,6 +198,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(providersRoutes, { prefix: "/v1/providers" });
   await app.register(templatesRoutes, { prefix: "/v1/templates" });
   await app.register(deliveriesRoutes, { prefix: "/v1/deliveries" });
+  await app.register(aiRulesRoutes, { prefix: "/v1/ai/rules/interpret" });
   await app.register(webhooksRoutes, { prefix: "/webhooks" });
   await app.register(adminRoutes, { prefix: "/admin" });
   await app.register(embedRoutes, { prefix: "/embed" });
