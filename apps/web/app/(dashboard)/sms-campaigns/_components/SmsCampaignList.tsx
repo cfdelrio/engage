@@ -26,6 +26,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MoreHorizontal, Play, Pause, Trash2 } from "lucide-react";
@@ -239,16 +240,15 @@ export function SmsCampaignList() {
             This action cannot be undone. The campaign will be permanently
             deleted.
           </AlertDialogDescription>
-          <div className="flex justify-end gap-2">
+          <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteId && handleDelete(deleteId)}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
             >
               {deleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
-          </div>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
