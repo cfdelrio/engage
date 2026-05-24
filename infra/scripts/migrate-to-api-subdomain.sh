@@ -24,18 +24,13 @@ sed -i "s|NEXT_PUBLIC_API_URL=\"https://$DOMAIN\"|NEXT_PUBLIC_API_URL=\"https://
 sed -i "s|NEXT_PUBLIC_WS_URL=\"wss://$DOMAIN\"|NEXT_PUBLIC_WS_URL=\"wss://$API_DOMAIN\"|g" /home/ec2-user/engage/.env
 
 echo "🔐 Updating SSL certificate to include both domains..."
-# Request new cert if not already present for both domains
-EXISTING_CERT=$(certbot certificates 2>/dev/null | grep -E "Domains:.*$DOMAIN" || echo "")
-if [ -z "$EXISTING_CERT" ] || ! echo "$EXISTING_CERT" | grep -q "$API_DOMAIN"; then
-  echo "📧 Obtaining new certificate with both domains..."
-  sudo certbot certonly --standalone -d "$DOMAIN" -d "$API_DOMAIN" \
-    --non-interactive --agree-tos --email cfdelrio@gmail.com --keep-until-expiring \
-    --expand --force-renewal 2>/dev/null || \
-  sudo certbot certonly --standalone -d "$DOMAIN" -d "$API_DOMAIN" \
-    --non-interactive --agree-tos --email cfdelrio@gmail.com
-else
-  echo "✅ Certificate already includes both domains"
-fi
+# Request new cert with both domains (expand existing if needed)
+echo "📧 Obtaining new certificate with both domains..."
+sudo certbot certonly --standalone -d "$DOMAIN" -d "$API_DOMAIN" \
+  --non-interactive --agree-tos --email cfdelrio@gmail.com \
+  --expand --force-renewal 2>/dev/null || \
+sudo certbot certonly --standalone -d "$DOMAIN" -d "$API_DOMAIN" \
+  --non-interactive --agree-tos --email cfdelrio@gmail.com --expand
 
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 KEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
