@@ -966,6 +966,83 @@ async function main() {
 
   console.log(`Campaigns: ${campaigns.length} created/verified`);
 
+  // ─── Voice Campaigns ──────────────────────────────────────────────────────
+  const voiceSurveyFlowSteps = [
+    {
+      id: "s1",
+      type: "say",
+      text: "Hola, te llama ProdeCaballito. Gracias por participar del torneo. Te hacemos una pregunta rápida.",
+    },
+    {
+      id: "s2",
+      type: "dtmf_question",
+      text: "¿Cómo calificás tu experiencia con el prode esta semana? Presioná 1 para excelente, 2 para buena, o 3 para regular.",
+      options: { "1": "excelente", "2": "buena", "3": "regular" },
+      timeout: 10,
+    },
+    {
+      id: "s3",
+      type: "say",
+      text: "¡Muchas gracias por tu respuesta! Seguí apostando y que gane el mejor. ¡Hasta pronto!",
+    },
+  ];
+
+  const existingVoiceSurvey = await prisma.voiceCampaign.findFirst({
+    where: { tenantId: tenant.id, name: "Encuesta de voz - ProdeCaballito" },
+  });
+
+  let voiceSurveyCampaignId: string;
+  if (!existingVoiceSurvey) {
+    const vc = await prisma.voiceCampaign.create({
+      data: {
+        tenantId: tenant.id,
+        name: "Encuesta de voz - ProdeCaballito",
+        description:
+          "Encuesta de satisfacción por llamada para usuarios del prode. Disparada por regla event-based.",
+        status: "draft",
+        triggerType: "event-based",
+        eventType: "prode.voice_survey",
+        flowSteps: voiceSurveyFlowSteps,
+        ttsProvider: "elevenlabs",
+        aiInstructions:
+          "Hablá con entusiasmo futbolero argentino, amigable y cercano. Sé breve y claro.",
+        script: "",
+        voiceConfig: {},
+        audienceFilter: {},
+        audienceSize: 0,
+        stats: {
+          sent: 0,
+          answered: 0,
+          completed: 0,
+          failed: 0,
+          avgDuration: 0,
+        },
+      },
+    });
+    voiceSurveyCampaignId = vc.id;
+  } else {
+    voiceSurveyCampaignId = existingVoiceSurvey.id;
+  }
+
+  // Wire the voice_survey rule to use START_VOICE_CAMPAIGN with the campaign ID
+  await prisma.rule.updateMany({
+    where: {
+      tenantId: tenant.id,
+      name: "PC: voice_survey → Voice (TODO: validate script)",
+    },
+    data: {
+      enabled: true,
+      actions: [
+        {
+          type: "START_VOICE_CAMPAIGN",
+          params: { campaignId: voiceSurveyCampaignId },
+        },
+      ],
+    },
+  });
+
+  console.log(`Voice campaigns: 1 created/verified`);
+
   // ─── Email Campaigns ──────────────────────────────────────────────────────
   for (const [name, data] of [
     [
