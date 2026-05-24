@@ -17,6 +17,7 @@ import {
   TwilioWhatsAppChannelProvider,
 } from "@engage/channels";
 import { createWorker, QUEUES, getRedis } from "@engage/event-bus";
+import { logger } from "./logger.js";
 import { createEventProcessor } from "./processors/event-processor.js";
 import { createDeliveryScheduler } from "./processors/delivery-scheduler.js";
 import { createChannelDeliveryWorker } from "./processors/channel-delivery.js";
@@ -37,7 +38,7 @@ async function main() {
   const redis = getRedis();
 
   await db.$connect();
-  console.log("[worker] Database connected");
+  logger.info("Database connected");
 
   // ─── AI Provider Registry ─────────────────────────────────────────────────
   const aiProviders = new Map();
@@ -144,13 +145,13 @@ async function main() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const registeredProviders = [...(channelRegistry as any)["providers"].keys()];
   if (registeredProviders.length === 0) {
-    console.warn(
-      "[worker] WARNING: No channel providers registered. Check RESEND_API_KEY / TWILIO_* env vars. Deliveries will fail until providers are available.",
+    logger.warn(
+      "No channel providers registered. Check RESEND_API_KEY / TWILIO_* env vars. Deliveries will fail until providers are available.",
     );
   } else {
-    console.log(
-      `[worker] Channel providers registered: ${registeredProviders.join(", ")}`,
-    );
+    logger.info("Channel providers registered", {
+      providers: registeredProviders,
+    });
   }
 
   // ─── Workers ──────────────────────────────────────────────────────────────
@@ -212,18 +213,18 @@ async function main() {
 
   for (const worker of allWorkers) {
     worker.on("failed", (job, err) => {
-      console.error(`[worker] Job ${job?.id} failed:`, err.message);
+      logger.error("Job failed", { jobId: job?.id, error: err.message });
     });
     worker.on("completed", (job) => {
-      console.log(`[worker] Job ${job.id} completed`);
+      logger.info("Job completed", { jobId: job.id });
     });
   }
 
-  console.log(`[worker] Started ${allWorkers.length} workers`);
-  console.log(`[worker] AI provider: ${defaultProvider}`);
+  logger.info("Workers started", { count: allWorkers.length });
+  logger.info("AI provider", { provider: defaultProvider });
 
   const shutdown = async (signal: string) => {
-    console.log(`[worker] ${signal} received, shutting down...`);
+    logger.info("Shutting down", { signal });
     await Promise.all(allWorkers.map((w) => w.close()));
     await redis.quit();
     await db.$disconnect();
@@ -235,6 +236,8 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[worker] Fatal error:", err);
+  logger.error("Fatal error", {
+    error: err instanceof Error ? err.message : String(err),
+  });
   process.exit(1);
 });
