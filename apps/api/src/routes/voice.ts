@@ -447,6 +447,80 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // Trigger a single-user voice call for event/rule-driven campaigns
+  fastify.post(
+    "/:id/trigger",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const { userId } = z.object({ userId: z.string() }).parse(request.body);
+
+      const [campaign, user] = await Promise.all([
+        fastify.prisma.voiceCampaign.findFirst({
+          where: { id, tenantId: request.tenantId },
+        }),
+        fastify.prisma.user.findFirst({
+          where: { id: userId, tenantId: request.tenantId },
+        }),
+      ]);
+
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
+      if (!user?.phone)
+        return reply.status(400).send({ error: "User has no phone number" });
+
+      const client = getVoiceClient();
+      if (!client)
+        return reply
+          .status(503)
+          .send({ error: "orkestai-voice not configured (missing env vars)" });
+
+      type FlowStep = z.infer<typeof flowStepSchema>;
+      const flowSteps = campaign.flowSteps as FlowStep[] | null;
+      if (!flowSteps || flowSteps.length === 0)
+        return reply
+          .status(400)
+          .send({ error: "Campaign has no flow steps defined" });
+
+      // Create an ephemeral campaign in orkestai-voice for this one user
+      const created = await client.createCampaign(
+        campaign.name,
+        (campaign.ttsProvider as "elevenlabs" | "openai") ?? "elevenlabs",
+        campaign.elevenLabsVoiceId ?? undefined,
+        campaign.aiInstructions ?? undefined,
+        campaign.description ?? undefined,
+      );
+
+      await client.defineCampaignFlow(created.id, flowSteps);
+
+      const meta = user.metadata as Record<string, unknown> | null;
+      const firstName = String(meta?.nombre ?? user.externalId ?? "Contact");
+      const contact = await client.createContact(firstName, user.phone);
+
+      await client.addRecipients(created.id, [contact.id]);
+      const startResult = await client.startCampaign(created.id);
+
+      const voiceCall = await fastify.prisma.voiceCall.create({
+        data: {
+          voiceCampaignId: campaign.id,
+          tenantId: request.tenantId,
+          userId,
+          phone: user.phone,
+          status: "ringing",
+          metadata: asJson({
+            orkestaiCampaignId: created.id,
+            triggeredByEvent: true,
+          }),
+        },
+      });
+
+      return reply.status(200).send({
+        voiceCallId: voiceCall.id,
+        orkestaiCampaignId: created.id,
+        enqueued: startResult.enqueued,
+      });
+    },
+  );
+
   // Get campaign
   fastify.get("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };

@@ -351,7 +351,6 @@ export function createEventProcessor(
       }
 
       const deliveryQueue = getQueue(QUEUES.DELIVERIES_SCHEDULED);
-      const voiceQueue = getQueue(QUEUES.VOICE_CALLS);
 
       // ─── SEND_NOTIFICATION actions ─────────────────────────────────────────
       for (const action of sendActions) {
@@ -440,6 +439,9 @@ export function createEventProcessor(
 
       // ─── START_VOICE_CAMPAIGN actions ──────────────────────────────────────
       if (voiceFlag === "1") {
+        const apiUrl = process.env["API_BASE_URL"] || "http://localhost:3001";
+        const apiKey = process.env["API_KEY"] || "";
+
         for (const action of voiceActions) {
           const params = action.params as Record<string, unknown>;
           const campaignId = params["campaignId"] as string | undefined;
@@ -460,74 +462,29 @@ export function createEventProcessor(
           )
             continue;
 
-          const campaign = await db.voiceCampaign.findFirst({
-            where: { id: campaignId, tenantId },
-          });
-          if (!campaign) continue;
-
-          // Remote orkestai-voice campaign (imported, not yet launched)
-          if (
-            campaign.orkestaiCampaignId &&
-            (campaign.status === "draft" || campaign.status === "paused")
-          ) {
-            try {
-              const apiUrl =
-                process.env["API_BASE_URL"] || "http://localhost:3001";
-              const apiKey = process.env["API_KEY"] || "";
-              const response = await fetch(
-                `${apiUrl}/v1/voice-campaigns/${campaignId}/launch`,
-                {
-                  method: "POST",
-                  headers: {
-                    "content-type": "application/json",
-                    "x-api-key": apiKey,
-                  },
-                  body: JSON.stringify({ requireConsent: false }),
+          try {
+            const response = await fetch(
+              `${apiUrl}/v1/voice-campaigns/${campaignId}/trigger`,
+              {
+                method: "POST",
+                headers: {
+                  "content-type": "application/json",
+                  "x-api-key": apiKey,
                 },
-              );
-              if (!response.ok) {
-                const err = await response.text();
-                console.warn(
-                  `[event-processor] Failed to launch remote voice campaign ${campaignId}: ${err}`,
-                );
-              }
-            } catch (err) {
+                body: JSON.stringify({ userId }),
+              },
+            );
+            if (!response.ok) {
+              const err = await response.text();
               console.warn(
-                `[event-processor] Error launching remote voice campaign: ${err}`,
+                `[event-processor] Voice trigger failed for campaign=${campaignId} user=${userId}: ${err}`,
               );
             }
-            continue;
+          } catch (err) {
+            console.warn(
+              `[event-processor] Error triggering voice call campaign=${campaignId}: ${err}`,
+            );
           }
-
-          // Local campaign (active)
-          if (campaign.status !== "active") continue;
-
-          const voiceCall = await db.voiceCall.create({
-            data: {
-              voiceCampaignId: campaignId,
-              tenantId,
-              userId,
-              phone: user.phone,
-              status: "queued",
-            },
-          });
-
-          const voiceConfig = (campaign.voiceConfig || {}) as Record<
-            string,
-            unknown
-          >;
-          await voiceQueue.add("initiate", {
-            voiceCallId: voiceCall.id,
-            voiceCampaignId: campaignId,
-            userId,
-            phone: user.phone,
-            script: campaign.script,
-            languageCode: (voiceConfig["language"] as string) || "es-ES",
-            voiceGender:
-              (voiceConfig["voice"] as "male" | "female") || "female",
-            dtmfConfig: campaign.dtmfConfig,
-            attempt: 0,
-          });
         }
       }
 
