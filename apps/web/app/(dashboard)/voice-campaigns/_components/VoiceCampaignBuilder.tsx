@@ -32,6 +32,8 @@ interface CampaignFormData {
   ttsProvider: "elevenlabs" | "openai";
   elevenLabsVoiceId: string;
   aiInstructions: string;
+  triggerType: "manual" | "scheduled" | "rule-based" | "event-based";
+  eventType?: string;
   flowSteps: FlowStep[];
 }
 
@@ -57,6 +59,8 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
     ttsProvider: "elevenlabs",
     elevenLabsVoiceId: "",
     aiInstructions: "",
+    triggerType: "manual",
+    eventType: "",
     flowSteps: [newStep()],
   });
 
@@ -77,6 +81,8 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
           ttsProvider: campaign.ttsProvider ?? "elevenlabs",
           elevenLabsVoiceId: campaign.elevenLabsVoiceId ?? "",
           aiInstructions: campaign.aiInstructions ?? "",
+          triggerType: campaign.triggerType ?? "manual",
+          eventType: campaign.eventType ?? "",
           flowSteps: storedSteps.length > 0 ? storedSteps : [newStep()],
         });
       } catch (err) {
@@ -161,6 +167,8 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
         ttsProvider: data.ttsProvider,
         elevenLabsVoiceId: data.elevenLabsVoiceId || undefined,
         aiInstructions: data.aiInstructions || undefined,
+        triggerType: data.triggerType,
+        eventType: data.eventType || undefined,
         flowSteps: data.flowSteps,
       };
 
@@ -197,15 +205,60 @@ export function VoiceCampaignBuilder({ campaignId }: { campaignId?: string }) {
           <CardTitle className="text-sm">Basic Info</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label>Campaign Name *</Label>
-            <Input
-              value={data.name}
-              onChange={(e) => setData({ ...data, name: e.target.value })}
-              placeholder="e.g., Survey Campaign"
-              className="mt-2"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Campaign Name *</Label>
+              <Input
+                value={data.name}
+                onChange={(e) => setData({ ...data, name: e.target.value })}
+                placeholder="e.g., Survey Campaign"
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label>Trigger Type</Label>
+              <Select
+                value={data.triggerType}
+                onValueChange={(value) =>
+                  setData({
+                    ...data,
+                    triggerType: value as
+                      | "manual"
+                      | "scheduled"
+                      | "rule-based"
+                      | "event-based",
+                    eventType: value !== "event-based" ? "" : data.eventType,
+                  })
+                }
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="rule-based">Rule-Based</SelectItem>
+                  <SelectItem value="event-based">Event-Based</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          {data.triggerType === "event-based" && (
+            <div>
+              <Label>Event Type *</Label>
+              <Input
+                value={data.eventType}
+                onChange={(e) =>
+                  setData({ ...data, eventType: e.target.value })
+                }
+                placeholder="e.g., user.signup, order.completed"
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                The exact event name that triggers this campaign
+              </p>
+            </div>
+          )}
           <div>
             <Label>Description</Label>
             <Textarea

@@ -48,10 +48,12 @@ export function WhatsAppCampaignBuilder({
       description: "",
       body: "",
       triggerType: "manual",
+      eventType: "",
     },
   });
 
   const bodyValue = watch("body");
+  const watchTriggerType = watch("triggerType");
 
   useEffect(() => {
     if (!campaignId) return;
@@ -66,6 +68,7 @@ export function WhatsAppCampaignBuilder({
           description: campaign.description ?? "",
           body: campaign.body ?? "",
           triggerType: campaign.triggerType ?? "manual",
+          eventType: campaign.eventType ?? "",
         });
       } catch (err) {
         setApiError(err instanceof Error ? err.message : "Unknown error");
@@ -148,6 +151,25 @@ export function WhatsAppCampaignBuilder({
             )}
           />
         </div>
+
+        {watchTriggerType === "event-based" && (
+          <div>
+            <Label>Event Type *</Label>
+            <Input
+              {...register("eventType")}
+              placeholder="e.g., user.signup, prode.resultado_publicado"
+              className="mt-2"
+            />
+            {errors.eventType && (
+              <p className="text-sm text-red-600 mt-1">
+                {errors.eventType.message}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Nombre exacto del evento que dispara esta campaña
+            </p>
+          </div>
+        )}
       </div>
 
       <div>

@@ -35,6 +35,7 @@ export function PushCampaignBuilder({ campaignId }: { campaignId?: string }) {
     handleSubmit,
     control,
     reset,
+    watch,
     formState: { errors },
   } = useForm<PushCampaignValues>({
     resolver: zodResolver(pushCampaignSchema),
@@ -46,8 +47,12 @@ export function PushCampaignBuilder({ campaignId }: { campaignId?: string }) {
       imageUrl: "",
       actionUrl: "",
       priority: "high",
+      triggerType: "manual",
+      eventType: "",
     },
   });
+
+  const triggerType = watch("triggerType");
 
   useEffect(() => {
     if (!campaignId) return;
@@ -65,6 +70,8 @@ export function PushCampaignBuilder({ campaignId }: { campaignId?: string }) {
           imageUrl: campaign.imageUrl ?? "",
           actionUrl: campaign.actionUrl ?? "",
           priority: campaign.priority ?? "high",
+          triggerType: campaign.triggerType ?? "manual",
+          eventType: campaign.eventType ?? "",
         });
       } catch (err) {
         setApiError(err instanceof Error ? err.message : "Unknown error");
@@ -128,6 +135,27 @@ export function PushCampaignBuilder({ campaignId }: { campaignId?: string }) {
         </div>
 
         <div>
+          <Label>Trigger Type</Label>
+          <Controller
+            name="triggerType"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="rule-based">Rule-Based</SelectItem>
+                  <SelectItem value="event-based">Event-Based</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+
+        <div>
           <Label>Priority</Label>
           <Controller
             name="priority"
@@ -145,13 +173,31 @@ export function PushCampaignBuilder({ campaignId }: { campaignId?: string }) {
             )}
           />
         </div>
+      </div>
 
-        <div className="flex flex-col justify-end">
-          <Button type="submit" disabled={saving} className="gap-2">
-            <Save className="h-4 w-4" />
-            {saving ? "Saving..." : campaignId ? "Update" : "Create"} Campaign
-          </Button>
+      {triggerType === "event-based" && (
+        <div>
+          <Label>Event Type *</Label>
+          <Input
+            {...register("eventType")}
+            placeholder="e.g., user.signup, order.completed"
+          />
+          {errors.eventType && (
+            <p className="text-sm text-red-600 mt-1">
+              {errors.eventType.message}
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground mt-1">
+            The exact event name that triggers this campaign
+          </p>
         </div>
+      )}
+
+      <div className="flex gap-2">
+        <Button type="submit" disabled={saving} className="gap-2">
+          <Save className="h-4 w-4" />
+          {saving ? "Saving..." : campaignId ? "Update" : "Create"} Campaign
+        </Button>
       </div>
 
       <div>
