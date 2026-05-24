@@ -332,6 +332,121 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // Launch a remote orkestai-voice campaign (for imported campaigns triggered by events)
+  fastify.post(
+    "/:id/launch",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const body = z
+        .object({
+          requireConsent: z.boolean().optional().default(false),
+        })
+        .parse(request.body);
+
+      const campaign = await fastify.prisma.voiceCampaign.findFirst({
+        where: { id, tenantId: request.tenantId },
+      });
+
+      if (!campaign)
+        return reply.status(404).send({ error: "Campaign not found" });
+      if (!campaign.orkestaiCampaignId) {
+        return reply
+          .status(400)
+          .send({ error: "Campaign is not linked to orkestai-voice" });
+      }
+
+      const client = getVoiceClient();
+      if (!client) {
+        return reply
+          .status(503)
+          .send({ error: "Voice integration not configured" });
+      }
+
+      // Get users with phone
+      const allUsers = await fastify.prisma.user.findMany({
+        where: { tenantId: request.tenantId, phone: { not: null } },
+        select: { phone: true, metadata: true, externalId: true },
+      });
+
+      const users = body.requireConsent
+        ? allUsers.filter((u) => {
+            const meta = u.metadata as Record<string, unknown> | null;
+            return meta?.whatsapp_consent === true;
+          })
+        : allUsers;
+
+      if (users.length === 0) {
+        return reply.status(400).send({
+          error: body.requireConsent
+            ? "No users with phone and voice consent found"
+            : "No users with phone found",
+        });
+      }
+
+      // Create contacts in orkestai-voice
+      const contactIds: string[] = [];
+      for (const user of users) {
+        if (!user.phone) continue;
+        const meta = user.metadata as Record<string, unknown> | null;
+        const firstName = String(meta?.nombre ?? user.externalId ?? "Contact");
+        try {
+          const contact = await client.createContact(firstName, user.phone);
+          contactIds.push(contact.id);
+        } catch (err) {
+          fastify.log.warn(
+            { err, phone: user.phone },
+            "Skipping contact — createContact failed",
+          );
+        }
+      }
+
+      if (contactIds.length === 0) {
+        return reply.status(400).send({
+          error: "Failed to create any contacts in orkestai-voice",
+        });
+      }
+
+      try {
+        // Add recipients to campaign
+        const result = await client.addRecipients(
+          campaign.orkestaiCampaignId,
+          contactIds,
+        );
+
+        // Start campaign
+        const startResult = await client.startCampaign(
+          campaign.orkestaiCampaignId,
+        );
+
+        // Update campaign status
+        await fastify.prisma.voiceCampaign.update({
+          where: { id },
+          data: {
+            status: "running",
+            startAt: new Date(),
+            audienceSize: result.added,
+          },
+        });
+
+        return reply.status(200).send({
+          campaignId: id,
+          orkestaiCampaignId: campaign.orkestaiCampaignId,
+          audienceSize: result.added,
+          skipped: result.skipped,
+          enqueued: startResult.enqueued,
+        });
+      } catch (err) {
+        fastify.log.error(
+          { err },
+          "Failed to launch remote campaign in orkestai-voice",
+        );
+        return reply.status(502).send({
+          error: `Failed to launch campaign: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+    },
+  );
+
   // Get campaign
   fastify.get("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };

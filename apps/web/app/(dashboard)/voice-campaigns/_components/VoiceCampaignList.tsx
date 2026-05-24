@@ -307,10 +307,10 @@ export function VoiceCampaignList() {
           </div>
         ) : (
           <>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={openDialog}>
                 <Zap className="h-4 w-4 mr-2" />
-                Disparar desde orkestai-voice
+                Importar de orkestai-voice
               </Button>
             </div>
             <Table>
@@ -413,9 +413,11 @@ export function VoiceCampaignList() {
           {!selectedRemote ? (
             <>
               <DialogHeader>
-                <DialogTitle>Disparar campaña de voz</DialogTitle>
+                <DialogTitle>Importar campaña de voz</DialogTitle>
                 <DialogDescription>
                   Seleccioná una campaña ya construida en orkestai-voice.
+                  Después, crea una regla o evento en ENGAGE para dispararla
+                  automáticamente.
                 </DialogDescription>
               </DialogHeader>
               {remoteLoading ? (
@@ -460,7 +462,7 @@ export function VoiceCampaignList() {
                           onClick={() => selectForLaunch(rc)}
                         >
                           <Zap className="h-3 w-3" />
-                          Disparar
+                          Disparar ahora
                         </Button>
                         <Button
                           size="sm"
@@ -469,9 +471,7 @@ export function VoiceCampaignList() {
                           disabled={!!importing}
                           onClick={() => handleImport(rc)}
                         >
-                          {importing === rc.id
-                            ? "Importando..."
-                            : "Solo importar"}
+                          {importing === rc.id ? "Importando..." : "Importar"}
                         </Button>
                       </div>
                     </div>
@@ -498,7 +498,9 @@ export function VoiceCampaignList() {
                   </DialogTitle>
                 </div>
                 <DialogDescription>
-                  Confirmá la audiencia antes de disparar.
+                  Disparar inmediatamente con la audiencia de ENGAGE. (Para
+                  disparo automático via evento/regla, importa la campaña sin
+                  lanzarla.)
                 </DialogDescription>
               </DialogHeader>
 

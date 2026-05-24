@@ -461,9 +461,46 @@ export function createEventProcessor(
             continue;
 
           const campaign = await db.voiceCampaign.findFirst({
-            where: { id: campaignId, tenantId, status: "active" },
+            where: { id: campaignId, tenantId },
           });
           if (!campaign) continue;
+
+          // Remote orkestai-voice campaign (imported, not yet launched)
+          if (
+            campaign.orkestaiCampaignId &&
+            (campaign.status === "draft" || campaign.status === "paused")
+          ) {
+            try {
+              const apiUrl =
+                process.env["API_BASE_URL"] || "http://localhost:3001";
+              const apiKey = process.env["API_KEY"] || "";
+              const response = await fetch(
+                `${apiUrl}/v1/voice-campaigns/${campaignId}/launch`,
+                {
+                  method: "POST",
+                  headers: {
+                    "content-type": "application/json",
+                    "x-api-key": apiKey,
+                  },
+                  body: JSON.stringify({ requireConsent: false }),
+                },
+              );
+              if (!response.ok) {
+                const err = await response.text();
+                console.warn(
+                  `[event-processor] Failed to launch remote voice campaign ${campaignId}: ${err}`,
+                );
+              }
+            } catch (err) {
+              console.warn(
+                `[event-processor] Error launching remote voice campaign: ${err}`,
+              );
+            }
+            continue;
+          }
+
+          // Local campaign (active)
+          if (campaign.status !== "active") continue;
 
           const voiceCall = await db.voiceCall.create({
             data: {
