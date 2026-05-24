@@ -549,7 +549,7 @@ export function VoiceCampaignList() {
                       Solo usuarios con consentimiento
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Filtra por <code>whatsapp_consent: true</code> en los
+                      Filtra por <code>phone_consent: true</code> en los
                       metadatos del usuario
                     </p>
                   </div>
@@ -557,21 +557,30 @@ export function VoiceCampaignList() {
 
                 {error && <p className="text-sm text-destructive">{error}</p>}
 
-                <Button
-                  className="w-full gap-2"
-                  disabled={
-                    firing ||
-                    audienceLoading ||
-                    (!!audienceCount &&
-                      (requireConsent
-                        ? audienceCount.withConsent
-                        : audienceCount.total) === 0)
-                  }
-                  onClick={handleLaunch}
-                >
-                  <Zap className="h-4 w-4" />
-                  {firing ? "Disparando..." : "Confirmar y Disparar"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    className="flex-1 gap-2"
+                    disabled={
+                      firing ||
+                      audienceLoading ||
+                      (!!audienceCount &&
+                        (requireConsent
+                          ? audienceCount.withConsent
+                          : audienceCount.total) === 0)
+                    }
+                    onClick={handleLaunch}
+                  >
+                    <Zap className="h-4 w-4" />
+                    {firing ? "Disparando..." : "Confirmar y Disparar"}
+                  </Button>
+                </div>
               </div>
             </>
           )}
