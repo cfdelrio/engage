@@ -169,9 +169,9 @@ Si alguno falla, arreglar antes de pushear. El pre-push hook también corre type
 
 - **Path**: `/home/ec2-user/engage`
 - **Branch**: `main` (auto-desplegado en cada push)
-- **IP**: `44.223.7.160`
+- **IP**: `44.199.212.116` (en DNS: `engage.orkestai.ar`)
 - **Dashboard**: https://engage.orkestai.ar
-- **API**: https://api.engage.orkestai.ar (subdominio dedicado)
+- **API**: https://api.engage.orkestai.ar (subdominio dedicado, CNAME → engage.orkestai.ar)
 - **Deploy**: GitHub Actions `deploy.yml` en cada push a `main` → `restart-all.sh`
 
 ### API Routing — Subdomain vs Path-Based
