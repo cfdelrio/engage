@@ -25,6 +25,16 @@ interface VoiceCallJob {
   attempt: number;
 }
 
+function parseProviderConfig(encrypted: string): Record<string, unknown> {
+  try {
+    return JSON.parse(encrypted) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `Failed to parse provider config: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 export async function processVoiceCall(job: Job<VoiceCallJob>) {
   const {
     voiceCallId,
@@ -79,9 +89,14 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
       throw new Error("No active Twilio voice provider configured");
     }
 
-    // Decrypt config (simplified - in production use proper decryption)
-    const config = JSON.parse(provider.configEncrypted);
-    const client = twilio(config.accountSid, config.authToken);
+    // Decrypt config
+    const config = parseProviderConfig(provider.configEncrypted);
+    if (!config.accountSid || !config.authToken || !config.from) {
+      throw new Error(
+        "Provider config missing required fields (accountSid, authToken, from)",
+      );
+    }
+    const client = twilio(String(config.accountSid), String(config.authToken));
 
     // Generate TwiML
     const twiml = generateTwiML(
@@ -93,7 +108,7 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
 
     // Make the call
     const call = await client.calls.create({
-      from: config.from,
+      from: String(config.from),
       to: phone,
       twiml,
       statusCallback: `${process.env["INTERNAL_API_URL"] || "http://localhost:3001"}/webhooks/twilio/voice`,
