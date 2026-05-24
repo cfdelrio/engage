@@ -58,6 +58,19 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
           .send({ error: "Duplicate event", idempotencyKey });
       }
 
+      // Extract contact data early — used for both upsert defaults and update
+      const userContact = (body.metadata as Record<string, unknown>)
+        ?.user_contact as Record<string, unknown> | undefined;
+
+      const defaultTimezone =
+        (userContact?.timezone as string | undefined) ??
+        process.env["DEFAULT_TIMEZONE"] ??
+        "UTC";
+      const defaultLocale =
+        (userContact?.idioma_pref as string | undefined) ??
+        process.env["DEFAULT_LOCALE"] ??
+        "en";
+
       // Upsert user if not exists
       await fastify.prisma.user.upsert({
         where: { tenantId_externalId: { tenantId, externalId: body.userId } },
@@ -65,14 +78,10 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         create: {
           tenantId,
           externalId: body.userId,
-          timezone: "America/Argentina/Buenos_Aires",
-          locale: "es-AR",
+          timezone: defaultTimezone,
+          locale: defaultLocale,
         },
       });
-
-      // Update contact data from metadata.user_contact if provided
-      const userContact = (body.metadata as Record<string, unknown>)
-        ?.user_contact as Record<string, unknown> | undefined;
       if (userContact) {
         const contactUpdate: Record<string, unknown> = {};
         if (userContact.email) contactUpdate.email = String(userContact.email);
