@@ -106,7 +106,7 @@ const PRODE_EVENT_TYPES = [
 const WA_TEMPLATES = [
   {
     name: "wa_nuevo_lider",
-    body: "¡Hay un nuevo líder en {{planilla}}! {{nombre}} trepó al primer puesto. ¿Podés alcanzarlo?",
+    body: "¡Hay un nuevo líder en {{user.planilla_nombre}}! {{user.nombre}} trepó al primer puesto. ¿Podés alcanzarlo?",
     aiInstructions: JSON.stringify({
       twilioTemplateSid: "HX3d2e4229b56b20d222ae85b64a2e607e",
       templateVars: {},
@@ -114,7 +114,7 @@ const WA_TEMPLATES = [
   },
   {
     name: "wa_resultado_partido",
-    body: "Resultado {{local}} {{goles_local}}-{{goles_visitante}} {{away}}. Vos pronosticaste {{pred_local}}-{{pred_visitante}} y sumaste {{puntos}} pts.",
+    body: "Resultado {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}. Vos pronosticaste {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}} y sumaste {{business_context.puntos}} pts.",
     aiInstructions: JSON.stringify({
       twilioTemplateSid: "HX7ed5ef7d53402b094a81ecd8d4cbf5af",
       templateVars: {},
@@ -122,7 +122,7 @@ const WA_TEMPLATES = [
   },
   {
     name: "wa_ganador_fecha",
-    body: "¡{{nombre}} ganó la fecha en {{planilla}}! Felicitaciones al campeón. 🏆",
+    body: "¡{{user.nombre}} ganó la fecha en {{user.planilla_nombre}}! Felicitaciones al campeón. 🏆",
     aiInstructions: JSON.stringify({
       twilioTemplateSid: "HX037ab7e8789f1de1575a26737ff8a233",
       templateVars: {},
@@ -130,32 +130,32 @@ const WA_TEMPLATES = [
   },
   {
     name: "wa_bet_reminder",
-    body: "⚽ Hola {{nombre}}! Todavía no cargaste tus pronósticos para la fecha. Te quedan {{horas}} horas. Entrá ya!",
+    body: "⚽ Hola {{user.nombre}}! Todavía no cargaste tus pronósticos para la fecha. Te quedan {{business_context.horas}} horas. Entrá ya!",
     aiInstructions: null,
   },
   {
     name: "wa_payment_pending",
-    body: "💳 {{nombre}}, tu pago está pendiente. Para seguir jugando en {{planilla}} necesitás regularizar tu situación.",
+    body: "💳 {{user.nombre}}, tu pago está pendiente. Para seguir jugando en {{user.planilla_nombre}} necesitás regularizar tu situación.",
     aiInstructions: null,
   },
   {
     name: "wa_welcome",
-    body: "¡Bienvenido a ProdeCaballito, {{nombre}}! 🎉 Ya sos parte de {{planilla}}. ¡A predecir!",
+    body: "¡Bienvenido a ProdeCaballito, {{user.nombre}}! 🎉 Ya sos parte de {{user.planilla_nombre}}. ¡A predecir!",
     aiInstructions: null,
   },
   {
     name: "wa_near_podio",
-    body: "🏅 {{nombre}}, estás a solo {{posiciones}} lugar(es) del podio en {{planilla}}. ¡Dale que llegás!",
+    body: "🏅 {{user.nombre}}, estás a solo {{business_context.posiciones}} lugar(es) del podio en {{user.planilla_nombre}}. ¡Dale que llegás!",
     aiInstructions: null,
   },
   {
     name: "wa_match_rescheduled",
-    body: "📅 El partido {{local}} vs {{away}} fue reprogramado para el {{nueva_fecha}}. Revisá tus pronósticos.",
+    body: "📅 El partido {{business_context.match.local}} vs {{business_context.match.away}} fue reprogramado para el {{business_context.nueva_fecha}}. Revisá tus pronósticos.",
     aiInstructions: null,
   },
   {
     name: "wa_cutoff_reminder",
-    body: "⏰ ¡ÚLTIMO AVISO! El cierre de pronósticos para {{fecha_nombre}} es en {{minutos}} minutos.",
+    body: "⏰ ¡ÚLTIMO AVISO! El cierre de pronósticos para {{business_context.fecha_nombre}} es en {{business_context.minutos}} minutos.",
     aiInstructions: null,
   },
 ] as const;
@@ -166,68 +166,70 @@ const EMAIL_TEMPLATES = [
   {
     name: "email_verification_code",
     subject: "Tu código de acceso a ProdeCaballito",
-    body: "Hola {{nombre}},\n\nTu código de verificación es: **{{codigo}}**\n\nVence en 10 minutos.",
+    body: "Hola {{user.nombre}},\n\nTu código de verificación es: **{{business_context.code}}**\n\nVence en 10 minutos.",
   },
   {
     name: "email_welcome",
-    subject: "¡Bienvenido a ProdeCaballito, {{nombre}}!",
-    body: "Hola {{nombre}},\n\nYa estás registrado en {{planilla}}. ¡A pronosticar!",
+    subject: "¡Bienvenido a ProdeCaballito, {{user.nombre}}!",
+    body: "Hola {{user.nombre}},\n\nYa estás registrado en {{user.planilla_nombre}}. ¡A pronosticar!",
   },
   {
     name: "email_result_individual",
     subject:
-      "Resultado: {{local}} {{goles_local}}-{{goles_visitante}} {{away}}",
-    body: "Hola {{nombre}},\n\nResultado: {{local}} {{goles_local}}-{{goles_visitante}} {{away}}\n\nTu pronóstico: {{pred_local}}-{{pred_visitante}}\nPuntos obtenidos: {{puntos}}\nRanking actual: #{{ranking}} en {{planilla}}",
+      "Resultado: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}",
+    body: "Hola {{user.nombre}},\n\nResultado: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}\n\nTu pronóstico: {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}}\nPuntos obtenidos: {{business_context.puntos}}\nRanking actual: #{{business_context.ranking_after.position}} en {{user.planilla_nombre}}",
   },
   {
     name: "email_result_broadcast",
-    subject: "Resultados de la fecha — {{planilla}}",
-    body: "Hola {{nombre}},\n\nYa están los resultados de la fecha en {{planilla}}. Entrá a ver tu posición.",
+    subject: "Resultados de la fecha — {{user.planilla_nombre}}",
+    body: "Hola {{user.nombre}},\n\nYa están los resultados de la fecha en {{user.planilla_nombre}}. Entrá a ver tu posición.",
   },
   {
     name: "email_payment_pending",
     subject: "⚠️ Pago pendiente en ProdeCaballito",
-    body: "Hola {{nombre}},\n\nTenés un pago pendiente para continuar participando en {{planilla}}. Regularizá tu situación para no perder tu posición.",
+    body: "Hola {{user.nombre}},\n\nTenés un pago pendiente para continuar participando en {{user.planilla_nombre}}. Regularizá tu situación para no perder tu posición.",
   },
   {
     name: "email_winner_personal",
-    subject: "🏆 ¡Ganaste la fecha en {{planilla}}!",
-    body: "Hola {{nombre}},\n\n¡Felicitaciones! Ganaste la fecha con {{puntos}} puntos en {{planilla}}. ¡Sos el mejor!",
+    subject: "🏆 ¡Ganaste la fecha en {{user.planilla_nombre}}!",
+    body: "Hola {{user.nombre}},\n\n¡Felicitaciones! Ganaste la fecha con {{business_context.puntos}} puntos en {{user.planilla_nombre}}. ¡Sos el mejor!",
   },
   {
     name: "email_winner_broadcast",
-    subject: "🏆 Hay un ganador en {{planilla}}",
-    body: "Hola {{nombre}},\n\n{{ganador}} ganó la fecha en {{planilla}} con {{puntos}} puntos. ¿Podés superarlo la próxima?",
+    subject: "🏆 Hay un ganador en {{user.planilla_nombre}}",
+    body: "Hola {{user.nombre}},\n\n{{business_context.ganador}} ganó la fecha en {{user.planilla_nombre}} con {{business_context.puntos}} puntos. ¿Podés superarlo la próxima?",
   },
   {
     name: "email_matchday_summary",
-    subject: "Resumen de fecha — {{planilla}}",
-    body: "Hola {{nombre}},\n\nAcá está tu resumen de la fecha:\n- Puntos: {{puntos}}\n- Posición: #{{ranking}}\n- Exactos: {{exactos}}\n\nSeguí así!",
+    subject: "Resumen de fecha — {{user.planilla_nombre}}",
+    body: "Hola {{user.nombre}},\n\nAcá está tu resumen de la fecha:\n- Puntos: {{business_context.puntos}}\n- Posición: #{{business_context.ranking_after.position}}\n- Exactos: {{business_context.exactos}}\n\nSeguí así!",
   },
   {
     name: "email_weekly_digest",
     subject: "Tu semana en ProdeCaballito",
-    body: "Hola {{nombre}},\n\nEsta semana en {{planilla}}:\n- Posición: #{{ranking}}\n- Puntos acumulados: {{puntos_total}}\n- Racha exactos: {{racha}}\n\n¡Seguí pronosticando!",
+    body: "Hola {{user.nombre}},\n\nEsta semana en {{user.planilla_nombre}}:\n- Posición: #{{user.ranking_position}}\n- Puntos acumulados: {{user.puntos_totales}}\n- Racha exactos: {{user.current_streak}}\n\n¡Seguí pronosticando!",
   },
   {
     name: "email_bet_reminder",
     subject: "⚽ ¡No olvidés tus pronósticos!",
-    body: "Hola {{nombre}},\n\nTodavía no cargaste tus pronósticos para la próxima fecha en {{planilla}}. El cierre es pronto.",
+    body: "Hola {{user.nombre}},\n\nTodavía no cargaste tus pronósticos para la próxima fecha en {{user.planilla_nombre}}. El cierre es pronto.",
   },
   {
     name: "email_match_rescheduled",
-    subject: "📅 Cambio de fecha: {{local}} vs {{away}}",
-    body: "Hola {{nombre}},\n\nEl partido {{local}} vs {{away}} fue reprogramado para el {{nueva_fecha}}. Revisá tus pronósticos si es necesario.",
+    subject:
+      "📅 Cambio de fecha: {{business_context.match.local}} vs {{business_context.match.away}}",
+    body: "Hola {{user.nombre}},\n\nEl partido {{business_context.match.local}} vs {{business_context.match.away}} fue reprogramado para el {{business_context.nueva_fecha}}. Revisá tus pronósticos si es necesario.",
   },
   {
     name: "email_tournament_tomorrow",
     subject: "🏟️ ¡Mañana empieza el torneo!",
-    body: "Hola {{nombre}},\n\nMañana arranca la acción en {{planilla}}. ¿Ya tenés listos tus pronósticos?",
+    body: "Hola {{user.nombre}},\n\nMañana arranca la acción en {{user.planilla_nombre}}. ¿Ya tenés listos tus pronósticos?",
   },
   {
     name: "email_planilla_cierre",
-    subject: "Planilla cerrada — Resultados finales de {{planilla}}",
-    body: "Hola {{nombre}},\n\nLa planilla {{planilla}} cerró. Tu posición final fue #{{ranking}} con {{puntos}} puntos totales. ¡Hasta la próxima!",
+    subject:
+      "Planilla cerrada — Resultados finales de {{user.planilla_nombre}}",
+    body: "Hola {{user.nombre}},\n\nLa planilla {{user.planilla_nombre}} cerró. Tu posición final fue #{{business_context.ranking_after.position}} con {{business_context.puntos}} puntos totales. ¡Hasta la próxima!",
   },
 ] as const;
 
@@ -236,63 +238,63 @@ const EMAIL_TEMPLATES = [
 const SMS_TEMPLATES = [
   {
     name: "sms_verification_code",
-    body: "ProdeCaballito: Tu código es {{codigo}}. Vence en 10 min.",
+    body: "ProdeCaballito: Tu código es {{business_context.code}}. Vence en 10 min.",
   },
   {
     name: "sms_bet_reminder",
-    body: "⚽ {{nombre}}: faltan {{horas}}hs para el cierre. ¡Cargá tus pronósticos en ProdeCaballito!",
+    body: "⚽ {{user.nombre}}: faltan {{business_context.horas}}hs para el cierre. ¡Cargá tus pronósticos en ProdeCaballito!",
   },
   {
     name: "sms_cutoff_reminder",
-    body: "⏰ URGENTE {{nombre}}: el cierre es en {{minutos}} minutos. ¡Ya!",
+    body: "⏰ URGENTE {{user.nombre}}: el cierre es en {{business_context.minutos}} minutos. ¡Ya!",
   },
   {
     name: "sms_kickoff",
-    body: "🟢 Arranca {{local}} vs {{away}}! Suerte {{nombre}} 🤞",
+    body: "🟢 Arranca {{business_context.match.local}} vs {{business_context.match.away}}! Suerte {{user.nombre}} 🤞",
   },
   {
     name: "sms_second_half",
-    body: "⚽ Segundo tiempo: {{local}} {{goles_local}}-{{goles_visitante}} {{away}}",
+    body: "⚽ Segundo tiempo: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}",
   },
   {
     name: "sms_ranking_entered",
-    body: "🏅 {{nombre}} entró al top {{posicion}} en {{planilla}}! Seguí así.",
+    body: "🏅 {{user.nombre}} entró al top {{business_context.ranking_after.position}} en {{user.planilla_nombre}}! Seguí así.",
   },
   {
     name: "sms_ranking_up",
-    body: "📈 {{nombre}} subió al puesto #{{posicion}} en {{planilla}} (+{{delta}} lugares).",
+    body: "📈 {{user.nombre}} subió al puesto #{{business_context.ranking_after.position}} en {{user.planilla_nombre}} (+{{business_context.ranking_after.delta}} lugares).",
   },
   {
     name: "sms_ranking_passed",
-    body: "😤 {{nombre}}, te superaron en {{planilla}}. Ahora estás #{{posicion}}. ¡A reaccionar!",
+    body: "😤 {{user.nombre}}, te superaron en {{user.planilla_nombre}}. Ahora estás #{{business_context.ranking_after.position}}. ¡A reaccionar!",
   },
   {
     name: "sms_personal_record",
-    body: "🎯 {{nombre}} batiste tu récord! {{puntos}} pts en una fecha. ¡Crack!",
+    body: "🎯 {{user.nombre}} batiste tu récord! {{business_context.puntos}} pts en una fecha. ¡Crack!",
   },
   {
     name: "sms_streak_exactos",
-    body: "🔥 {{nombre}}: {{racha}} exactos consecutivos! Estás en racha.",
+    body: "🔥 {{user.nombre}}: {{user.current_streak}} exactos consecutivos! Estás en racha.",
   },
   {
     name: "sms_payment_pending",
-    body: "💳 {{nombre}}: tenés un pago pendiente en ProdeCaballito. Regularizá para seguir jugando.",
+    body: "💳 {{user.nombre}}: tenés un pago pendiente en ProdeCaballito. Regularizá para seguir jugando.",
   },
   {
     name: "sms_near_podio",
-    body: "🏅 {{nombre}}, ¡estás a {{posiciones}} del podio en {{planilla}}! Dale.",
+    body: "🏅 {{user.nombre}}, ¡estás a {{business_context.posiciones}} del podio en {{user.planilla_nombre}}! Dale.",
   },
   {
     name: "sms_tournament_tomorrow",
-    body: "🏟️ ¡Mañana arranca {{torneo}}! ¿Ya tenés tus pronósticos, {{nombre}}?",
+    body: "🏟️ ¡Mañana arranca {{user.tournament_name}}! ¿Ya tenés tus pronósticos, {{user.nombre}}?",
   },
   {
     name: "sms_match_rescheduled",
-    body: "📅 {{local}} vs {{away}} se reprogramó al {{nueva_fecha}}. ProdeCaballito.",
+    body: "📅 {{business_context.match.local}} vs {{business_context.match.away}} se reprogramó al {{business_context.nueva_fecha}}. ProdeCaballito.",
   },
   {
     name: "sms_planilla_cierre",
-    body: "🏁 {{planilla}} cerró. {{nombre}} terminó #{{ranking}} con {{puntos}}pts. ¡Hasta la próxima!",
+    body: "🏁 {{user.planilla_nombre}} cerró. {{user.nombre}} terminó #{{business_context.ranking_after.position}} con {{business_context.puntos}}pts. ¡Hasta la próxima!",
   },
 ] as const;
 
@@ -356,70 +358,80 @@ async function main() {
   );
 
   // ─── Templates ────────────────────────────────────────────────────────────
+  // Always update body/subject so re-running the seed fixes broken variables in prod.
   const tplMap: Record<string, string> = {};
 
   for (const tpl of WA_TEMPLATES) {
     const existing = await prisma.template.findFirst({
       where: { tenantId: tenant.id, name: tpl.name },
     });
-    const t =
-      existing ??
-      (await prisma.template.create({
-        data: {
-          tenantId: tenant.id,
-          name: tpl.name,
-          channel: "whatsapp",
-          subject: "",
-          body: tpl.body,
-          aiInstructions: tpl.aiInstructions,
-          variables: [],
-          version: 1,
-        },
-      }));
-    if (t) tplMap[tpl.name] = t.id;
+    const t = existing
+      ? await prisma.template.update({
+          where: { id: existing.id },
+          data: { body: tpl.body, aiInstructions: tpl.aiInstructions },
+        })
+      : await prisma.template.create({
+          data: {
+            tenantId: tenant.id,
+            name: tpl.name,
+            channel: "whatsapp",
+            subject: "",
+            body: tpl.body,
+            aiInstructions: tpl.aiInstructions,
+            variables: [],
+            version: 1,
+          },
+        });
+    tplMap[tpl.name] = t.id;
   }
 
   for (const tpl of EMAIL_TEMPLATES) {
     const existing = await prisma.template.findFirst({
       where: { tenantId: tenant.id, name: tpl.name },
     });
-    const t =
-      existing ??
-      (await prisma.template.create({
-        data: {
-          tenantId: tenant.id,
-          name: tpl.name,
-          channel: "email",
-          subject: tpl.subject,
-          body: tpl.body,
-          variables: [],
-          version: 1,
-        },
-      }));
-    if (t) tplMap[tpl.name] = t.id;
+    const t = existing
+      ? await prisma.template.update({
+          where: { id: existing.id },
+          data: { subject: tpl.subject, body: tpl.body },
+        })
+      : await prisma.template.create({
+          data: {
+            tenantId: tenant.id,
+            name: tpl.name,
+            channel: "email",
+            subject: tpl.subject,
+            body: tpl.body,
+            variables: [],
+            version: 1,
+          },
+        });
+    tplMap[tpl.name] = t.id;
   }
 
   for (const tpl of SMS_TEMPLATES) {
     const existing = await prisma.template.findFirst({
       where: { tenantId: tenant.id, name: tpl.name },
     });
-    const t =
-      existing ??
-      (await prisma.template.create({
-        data: {
-          tenantId: tenant.id,
-          name: tpl.name,
-          channel: "sms",
-          subject: "",
-          body: tpl.body,
-          variables: [],
-          version: 1,
-        },
-      }));
-    if (t) tplMap[tpl.name] = t.id;
+    const t = existing
+      ? await prisma.template.update({
+          where: { id: existing.id },
+          data: { body: tpl.body },
+        })
+      : await prisma.template.create({
+          data: {
+            tenantId: tenant.id,
+            name: tpl.name,
+            channel: "sms",
+            subject: "",
+            body: tpl.body,
+            variables: [],
+            version: 1,
+          },
+        });
+    tplMap[tpl.name] = t.id;
   }
 
-  console.log(`Templates: ${Object.keys(tplMap).length} created/verified`);
+  console.log(`Templates: ${Object.keys(tplMap).length} upserted`);
 
   // ─── Rules ────────────────────────────────────────────────────────────────
   const makeCondition = (eventType: string) => ({
