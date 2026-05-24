@@ -117,7 +117,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       });
       fastify.redis
         .publish(REDIS_KEYS.eventStream(tenantId), streamPayload)
-        .catch(() => {});
+        .catch((err) => {
+          fastify.log.warn(
+            { err, eventId: event.id, tenantId },
+            "Failed to publish event to stream (WebSocket subscribers may not receive)",
+          );
+        });
 
       // Enqueue for processing
       const queue = getQueue(QUEUES.EVENTS_INCOMING);

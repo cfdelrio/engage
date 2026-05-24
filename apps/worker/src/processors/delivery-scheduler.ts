@@ -157,18 +157,27 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         ? db.template.findFirst({ where: { id: templateId, tenantId } })
         : db.template.findFirst({ where: { tenantId, channel } }));
 
-      let renderedSubject = "";
-      let renderedBody = event.type;
+      if (!template) {
+        console.warn(
+          `[delivery-scheduler] No template found for channel=${channel}, tenantId=${tenantId}, templateId=${templateId ?? "unspecified"}`,
+        );
+        await suppress("no_template_available");
+        return;
+      }
 
-      if (template) {
-        try {
-          renderedSubject = template.subject
-            ? Handlebars.compile(template.subject)(userPayload)
-            : "";
-          renderedBody = Handlebars.compile(template.body)(userPayload);
-        } catch {
-          renderedBody = template.body;
-        }
+      let renderedSubject = "";
+      let renderedBody = template.body;
+
+      try {
+        renderedSubject = template.subject
+          ? Handlebars.compile(template.subject)(userPayload)
+          : "";
+        renderedBody = Handlebars.compile(template.body)(userPayload);
+      } catch (err) {
+        console.error(
+          `[delivery-scheduler] Template render error: ${err}. Using raw template body.`,
+        );
+        renderedBody = template.body;
       }
 
       // ─── Determine recipient ──────────────────────────────────────────────
