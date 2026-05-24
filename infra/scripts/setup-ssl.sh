@@ -4,6 +4,7 @@
 set -e
 
 DOMAIN="${1:-engage.orkestai.ar}"
+API_DOMAIN="api.${DOMAIN}"
 
 if [ -z "$DOMAIN" ]; then
   echo "❌ Domain required. Usage: setup-ssl.sh <domain>"
@@ -11,17 +12,17 @@ if [ -z "$DOMAIN" ]; then
   exit 1
 fi
 
-echo "🔐 Setting up SSL certificate for $DOMAIN..."
+echo "🔐 Setting up SSL certificate for $DOMAIN and $API_DOMAIN..."
 
 # Install certbot
 echo "📦 Installing certbot..."
 sudo yum install -y certbot python3-certbot-nginx
 
-# Get certificate (with email prompt)
+# Get certificate (with both domains)
 echo ""
-echo "📧 Obtaining SSL certificate for $DOMAIN..."
+echo "📧 Obtaining SSL certificate for $DOMAIN and $API_DOMAIN..."
 echo ""
-sudo certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos --email cfdelrio@gmail.com --keep-until-expiring
+sudo certbot certonly --standalone -d "$DOMAIN" -d "$API_DOMAIN" --non-interactive --agree-tos --email cfdelrio@gmail.com --keep-until-expiring
 
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 KEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
@@ -56,7 +57,7 @@ Environment="NODE_ENV=production"
 Environment="HOSTNAME=0.0.0.0"
 Environment="PORT=3000"
 Environment="INTERNAL_API_URL=http://localhost:3001"
-Environment="NEXT_PUBLIC_API_URL=https://$DOMAIN"
+Environment="NEXT_PUBLIC_API_URL=https://$API_DOMAIN"
 
 [Install]
 WantedBy=multi-user.target
@@ -122,13 +123,13 @@ sudo yum install -y nginx
 # Backup original nginx config
 sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
 
-# Create ORKESTAI ENGAGE config (path-based routing, single domain)
+# Create ORKESTAI ENGAGE config (subdomain-based routing)
 sudo tee /etc/nginx/conf.d/orkestai.conf > /dev/null <<EOF
 # Redirect HTTP to HTTPS
 server {
     listen 80;
     listen [::]:80;
-    server_name $DOMAIN www.$DOMAIN;
+    server_name $DOMAIN www.$DOMAIN $API_DOMAIN;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -139,7 +140,38 @@ server {
     }
 }
 
-# HTTPS — single domain, path-based routing
+# HTTPS — API subdomain (api.engage.orkestai.ar)
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name $API_DOMAIN;
+
+    ssl_certificate $CERT_PATH;
+    ssl_certificate_key $KEY_PATH;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    # All routes → Fastify API (port 3001)
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+    }
+}
+
+# HTTPS — Web dashboard (engage.orkestai.ar)
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
@@ -156,20 +188,7 @@ server {
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
 
-    # API routes → Fastify (port 3001)
-    location ~ ^/(v1|webhooks|docs|admin)(/|\$) {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 300s;
-    }
-
-    # Web dashboard → Next.js (port 3000, catch-all)
+    # All routes → Next.js (port 3000)
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -206,8 +225,8 @@ echo "✨ SSL setup complete!"
 echo ""
 echo "📍 Your ORKESTAI ENGAGE URLs:"
 echo "  Dashboard:  https://$DOMAIN"
-echo "  API:        https://$DOMAIN/v1"
-echo "  Swagger:    https://$DOMAIN/docs"
+echo "  API:        https://$API_DOMAIN/v1"
+echo "  Swagger:    https://$API_DOMAIN/docs"
 echo "  Bull Board: http://$DOMAIN:3002"
 echo ""
 echo "📝 Next steps:"
