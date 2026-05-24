@@ -143,11 +143,6 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!campaign)
         return reply.status(404).send({ error: "Campaign not found" });
-      if (campaign.status !== "draft") {
-        return reply
-          .status(400)
-          .send({ error: "Can only delete draft campaigns" });
-      }
 
       await fastify.prisma.pushCampaign.delete({ where: { id } });
 
