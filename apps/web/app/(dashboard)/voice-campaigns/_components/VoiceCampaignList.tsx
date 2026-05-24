@@ -27,6 +27,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
@@ -36,7 +37,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { MoreHorizontal, Play, Trash2, Download } from "lucide-react";
+import {
+  MoreHorizontal,
+  Play,
+  Trash2,
+  Zap,
+  ArrowLeft,
+  Users,
+} from "lucide-react";
 
 interface RemoteCampaign {
   id: string;
@@ -59,6 +67,7 @@ interface VoiceCampaign {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-900",
+  running: "bg-green-100 text-green-900",
   active: "bg-green-100 text-green-900",
   paused: "bg-yellow-100 text-yellow-900",
   completed: "bg-blue-100 text-blue-900",
@@ -71,11 +80,25 @@ export function VoiceCampaignList() {
   const [error, setError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [remoteCampaigns, setRemoteCampaigns] = useState<RemoteCampaign[]>([]);
-  const [remotLoading, setRemoteLoading] = useState(false);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+
+  // 2-step: null = lista, RemoteCampaign = confirmación
+  const [selectedRemote, setSelectedRemote] = useState<RemoteCampaign | null>(
+    null,
+  );
+  const [requireConsent, setRequireConsent] = useState(false);
+  const [audienceCount, setAudienceCount] = useState<{
+    count: number;
+    total: number;
+    withConsent: number;
+  } | null>(null);
+  const [audienceLoading, setAudienceLoading] = useState(false);
+  const [firing, setFiring] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
-  const [launching, setLaunching] = useState<string | null>(null);
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -100,24 +123,11 @@ export function VoiceCampaignList() {
     fetchCampaigns();
   }, [fetchCampaigns]);
 
-  const handleDelete = async (id: string) => {
-    try {
-      setDeleting(true);
-      const response = await apiFetch(`/v1/voice-campaigns/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete campaign");
-      setCampaigns((prev) => prev.filter((c) => c.id !== id));
-      setDeleteId(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const openImport = async () => {
-    setImportOpen(true);
+  const openDialog = async () => {
+    setDialogOpen(true);
+    setSelectedRemote(null);
+    setAudienceCount(null);
+    setRequireConsent(false);
     setRemoteLoading(true);
     try {
       const res = await apiFetch("/v1/voice-campaigns/remote");
@@ -129,6 +139,68 @@ export function VoiceCampaignList() {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setRemoteLoading(false);
+    }
+  };
+
+  const selectForLaunch = async (rc: RemoteCampaign) => {
+    setSelectedRemote(rc);
+    setAudienceLoading(true);
+    setAudienceCount(null);
+    try {
+      const res = await apiFetch("/v1/voice-campaigns/audience-preview");
+      if (res.ok) {
+        const data = await res.json();
+        setAudienceCount(data);
+      }
+    } catch {
+      // non-critical
+    } finally {
+      setAudienceLoading(false);
+    }
+  };
+
+  // Re-fetch audience count when consent toggle changes
+  useEffect(() => {
+    if (!selectedRemote) return;
+    setAudienceLoading(true);
+    apiFetch(
+      `/v1/voice-campaigns/audience-preview?requireConsent=${requireConsent}`,
+    )
+      .then((r) => r.json())
+      .then((data) => setAudienceCount(data))
+      .catch(() => {})
+      .finally(() => setAudienceLoading(false));
+  }, [requireConsent, selectedRemote]);
+
+  const handleLaunch = async () => {
+    if (!selectedRemote) return;
+    setFiring(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/v1/voice-campaigns/launch-remote", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          orkestaiCampaignId: selectedRemote.id,
+          name: selectedRemote.name,
+          requireConsent,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to launch",
+        );
+      }
+      setDialogOpen(false);
+      await fetchCampaigns();
+      router.push(
+        `/voice-campaigns/${(data as { campaignId: string }).campaignId}`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setFiring(false);
     }
   };
 
@@ -148,8 +220,8 @@ export function VoiceCampaignList() {
       });
       if (!res.ok) throw new Error("Failed to import campaign");
       const created = await res.json();
-      setImportOpen(false);
-      router.push(`/voice-campaigns/${created.id}`);
+      setDialogOpen(false);
+      router.push(`/voice-campaigns/${(created as { id: string }).id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -157,38 +229,19 @@ export function VoiceCampaignList() {
     }
   };
 
-  const handleLaunch = async (remote: RemoteCampaign) => {
+  const handleDelete = async (id: string) => {
     try {
-      setLaunching(remote.id);
-      const importRes = await apiFetch("/v1/voice-campaigns", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: remote.name,
-          description: remote.description,
-          orkestaiCampaignId: remote.id,
-          ttsProvider: remote.ttsProvider ?? "elevenlabs",
-          elevenLabsVoiceId: remote.elevenLabsVoiceId,
-        }),
+      setDeleting(true);
+      const response = await apiFetch(`/v1/voice-campaigns/${id}`, {
+        method: "DELETE",
       });
-      if (!importRes.ok) throw new Error("Failed to import campaign");
-      const created = await importRes.json();
-
-      const startRes = await apiFetch(
-        `/v1/voice-campaigns/${created.id}/start`,
-        {
-          method: "POST",
-        },
-      );
-      if (!startRes.ok) throw new Error("Failed to launch campaign");
-
-      setImportOpen(false);
-      await fetchCampaigns();
-      router.push(`/voice-campaigns/${created.id}`);
+      if (!response.ok) throw new Error("Failed to delete campaign");
+      setCampaigns((prev) => prev.filter((c) => c.id !== id));
+      setDeleteId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setLaunching(null);
+      setDeleting(false);
     }
   };
 
@@ -227,33 +280,35 @@ export function VoiceCampaignList() {
       <div className="space-y-4">
         {campaigns.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">No campaigns yet</p>
+            <p className="text-muted-foreground mb-4">
+              No hay campañas todavía
+            </p>
             <div className="flex gap-2 justify-center">
               <Link href="/voice-campaigns/new">
-                <Button>Create First Campaign</Button>
+                <Button>Crear campaña</Button>
               </Link>
-              <Button variant="outline" onClick={openImport}>
-                <Download className="h-4 w-4 mr-2" />
-                Import from orkestai-voice
+              <Button variant="outline" onClick={openDialog}>
+                <Zap className="h-4 w-4 mr-2" />
+                Disparar desde orkestai-voice
               </Button>
             </div>
           </div>
         ) : (
           <>
             <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={openImport}>
-                <Download className="h-4 w-4 mr-2" />
-                Import from orkestai-voice
+              <Button variant="outline" size="sm" onClick={openDialog}>
+                <Zap className="h-4 w-4 mr-2" />
+                Disparar desde orkestai-voice
               </Button>
             </div>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Audience</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Audiencia</TableHead>
+                  <TableHead>Creada</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -272,7 +327,7 @@ export function VoiceCampaignList() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {campaign.audienceSize ?? 0} contacts
+                      {campaign.audienceSize ?? 0} contactos
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(campaign.createdAt).toLocaleDateString()}
@@ -287,7 +342,7 @@ export function VoiceCampaignList() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
                             <Link href={`/voice-campaigns/${campaign.id}`}>
-                              View Details
+                              Ver detalles
                             </Link>
                           </DropdownMenuItem>
                           {campaign.status === "draft" &&
@@ -296,29 +351,29 @@ export function VoiceCampaignList() {
                                 onClick={() => handleStart(campaign.id)}
                               >
                                 <Play className="h-4 w-4 mr-2" />
-                                Start
+                                Iniciar
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem asChild>
                                 <span
                                   className="pointer-events-none opacity-50 flex items-center"
-                                  title="Add audience first in campaign settings"
+                                  title="Agregá audiencia primero"
                                 >
                                   <Play className="h-4 w-4 mr-2" />
-                                  Start
+                                  Iniciar
                                   <span className="ml-auto text-xs">
-                                    (no audience)
+                                    (sin audiencia)
                                   </span>
                                 </span>
                               </DropdownMenuItem>
                             ))}
-                          {campaign.status === "draft" && (
+                          {campaign.status !== "running" && (
                             <DropdownMenuItem
                               onClick={() => setDeleteId(campaign.id)}
                               className="text-red-600"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
+                              Eliminar
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -332,63 +387,183 @@ export function VoiceCampaignList() {
         )}
       </div>
 
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+      {/* Dialog: 2 pasos — lista de campañas → confirmación de audiencia */}
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setSelectedRemote(null);
+            setAudienceCount(null);
+            setError(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Import from orkestai-voice</DialogTitle>
-            <DialogDescription>
-              Select a campaign created in orkestai-voice to link it to ENGAGE.
-            </DialogDescription>
-          </DialogHeader>
-          {remotLoading ? (
-            <div className="space-y-2 py-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-10 bg-muted rounded animate-pulse" />
-              ))}
-            </div>
-          ) : remoteCampaigns.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No campaigns found in orkestai-voice.
-            </p>
-          ) : (
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {remoteCampaigns.map((rc) => (
-                <div key={rc.id} className="rounded-lg border p-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{rc.name}</p>
-                      {rc.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                          {rc.description}
-                        </p>
-                      )}
-                    </div>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {rc.status}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 h-7 text-xs"
-                      disabled={!!importing || !!launching}
-                      onClick={() => handleImport(rc)}
-                    >
-                      {importing === rc.id ? "Importing..." : "Import"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 h-7 text-xs"
-                      disabled={!!importing || !!launching}
-                      onClick={() => handleLaunch(rc)}
-                    >
-                      {launching === rc.id ? "Launching..." : "Import & Launch"}
-                    </Button>
-                  </div>
+          {!selectedRemote ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Disparar campaña de voz</DialogTitle>
+                <DialogDescription>
+                  Seleccioná una campaña ya construida en orkestai-voice.
+                </DialogDescription>
+              </DialogHeader>
+              {remoteLoading ? (
+                <div className="space-y-2 py-2">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="h-10 bg-muted rounded animate-pulse"
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              ) : remoteCampaigns.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  No se encontraron campañas en orkestai-voice.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {remoteCampaigns.map((rc) => (
+                    <div
+                      key={rc.id}
+                      className="rounded-lg border p-3 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">
+                            {rc.name}
+                          </p>
+                          {rc.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                              {rc.description}
+                            </p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {rc.status}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 h-7 text-xs gap-1"
+                          onClick={() => selectForLaunch(rc)}
+                        >
+                          <Zap className="h-3 w-3" />
+                          Disparar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          disabled={!!importing}
+                          onClick={() => handleImport(rc)}
+                        >
+                          {importing === rc.id
+                            ? "Importando..."
+                            : "Solo importar"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedRemote(null);
+                      setAudienceCount(null);
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <DialogTitle className="truncate">
+                    {selectedRemote.name}
+                  </DialogTitle>
+                </div>
+                <DialogDescription>
+                  Confirmá la audiencia antes de disparar.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-2">
+                {/* Audience summary */}
+                <div className="rounded-lg border bg-muted/40 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    Audiencia de ENGAGE
+                  </div>
+                  {audienceLoading ? (
+                    <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                  ) : audienceCount ? (
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>
+                        <span className="text-foreground font-semibold text-base">
+                          {requireConsent
+                            ? audienceCount.withConsent
+                            : audienceCount.total}
+                        </span>{" "}
+                        usuarios se van a llamar
+                      </p>
+                      {!requireConsent &&
+                        audienceCount.withConsent < audienceCount.total && (
+                          <p className="text-xs">
+                            {audienceCount.withConsent} de {audienceCount.total}{" "}
+                            tienen consentimiento registrado
+                          </p>
+                        )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No se pudo calcular la audiencia
+                    </p>
+                  )}
+                </div>
+
+                {/* Consent filter */}
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={requireConsent}
+                    onChange={(e) => setRequireConsent(e.target.checked)}
+                    className="rounded"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">
+                      Solo usuarios con consentimiento
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Filtra por <code>whatsapp_consent: true</code> en los
+                      metadatos del usuario
+                    </p>
+                  </div>
+                </label>
+
+                {error && <p className="text-sm text-destructive">{error}</p>}
+
+                <Button
+                  className="w-full gap-2"
+                  disabled={
+                    firing ||
+                    audienceLoading ||
+                    (!!audienceCount &&
+                      (requireConsent
+                        ? audienceCount.withConsent
+                        : audienceCount.total) === 0)
+                  }
+                  onClick={handleLaunch}
+                >
+                  <Zap className="h-4 w-4" />
+                  {firing ? "Disparando..." : "Confirmar y Disparar"}
+                </Button>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -398,21 +573,20 @@ export function VoiceCampaignList() {
         onOpenChange={(open) => !open && setDeleteId(null)}
       >
         <AlertDialogContent>
-          <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+          <AlertDialogTitle>Eliminar campaña</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. The campaign will be permanently
-            deleted.
+            Esta acción no se puede deshacer. La campaña será eliminada
+            permanentemente.
           </AlertDialogDescription>
-          <div className="flex justify-end gap-2">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteId && handleDelete(deleteId)}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
             >
-              {deleting ? "Deleting..." : "Delete"}
+              {deleting ? "Eliminando..." : "Eliminar"}
             </AlertDialogAction>
-          </div>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>

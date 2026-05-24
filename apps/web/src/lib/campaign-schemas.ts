@@ -49,13 +49,10 @@ export const pushCampaignSchema = z.object({
 export const whatsAppCampaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
   description: z.string().optional(),
-  message: z
+  body: z
     .string()
     .min(1, "Message is required")
     .max(4096, "Message must be 4096 characters or less"),
-  mediaUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
-  buttonText: z.string().optional(),
-  buttonUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
   triggerType: triggerTypeSchema,
   eventType: z.string().optional(),
 });
@@ -87,4 +84,5 @@ export type EmailCampaignValues = z.infer<typeof emailCampaignSchema>;
 export type SmsCampaignValues = z.infer<typeof smsCampaignSchema>;
 export type PushCampaignValues = z.infer<typeof pushCampaignSchema>;
 export type WhatsAppCampaignValues = z.infer<typeof whatsAppCampaignSchema>;
+
 export type VoiceCampaignValues = z.infer<typeof voiceCampaignSchema>;

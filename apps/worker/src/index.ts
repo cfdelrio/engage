@@ -27,6 +27,12 @@ import { processWhatsAppMessage } from "./processors/whatsapp-messages.js";
 import type { AIProviderName } from "@engage/core";
 
 async function main() {
+  if (!process.env["INTERNAL_API_URL"]) {
+    throw new Error(
+      "INTERNAL_API_URL environment variable is required (used for Twilio callbacks and service-to-service communication)",
+    );
+  }
+
   const db = new PrismaClient();
   const redis = getRedis();
 

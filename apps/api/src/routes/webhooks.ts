@@ -4,6 +4,12 @@ import { asJson, asJsonNullable } from "../utils/prisma.js";
 import {
   verifyWebhookSignature,
   parseWebhookPayload,
+  isCallStartedEvent,
+  isCallAnsweredEvent,
+  isCallFailedEvent,
+  isCallNoAnswerEvent,
+  isDtmfReceivedEvent,
+  isTranscriptCreatedEvent,
   isCallCompletedEvent,
   isCampaignCompletedEvent,
 } from "@engage/orkestai-voice-client";
@@ -650,61 +656,171 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
         update: {},
       });
 
+      // call.started — create VoiceCall with status "ringing"
       if (
-        payload.event === "call.completed" &&
-        isCallCompletedEvent(payload.data)
+        payload.event === "call.started" &&
+        isCallStartedEvent(payload.data)
       ) {
         const data = payload.data;
-
         const campaign = await fastify.prisma.voiceCampaign.findFirst({
           where: {
             orkestaiCampaignId: data.campaignId,
             tenantId: payload.tenantId,
           },
         });
-
         if (campaign) {
           const user = await fastify.prisma.user.findFirst({
-            where: { tenantId: payload.tenantId },
+            where: { tenantId: payload.tenantId, phone: data.phone },
           });
-
           if (user) {
-            const call = await fastify.prisma.voiceCall.upsert({
+            await fastify.prisma.voiceCall.upsert({
               where: { orkestaiCallId: data.callId },
               create: {
                 voiceCampaignId: campaign.id,
                 tenantId: payload.tenantId,
                 userId: user.id,
-                phone: "",
-                status: "completed",
+                phone: data.phone,
+                status: "ringing",
                 orkestaiCallId: data.callId,
-                duration: data.duration,
-                responses: asJson(data.responses),
-                completedAt: new Date(data.endedAt),
-                answeredAt: new Date(data.startedAt),
+                startedAt: new Date(data.startedAt),
               },
               update: {
-                status: "completed",
-                duration: data.duration,
-                responses: asJson(data.responses),
-                completedAt: new Date(data.endedAt),
+                status: "ringing",
+                startedAt: new Date(data.startedAt),
               },
             });
-
-            for (const response of data.responses) {
-              await fastify.prisma.voiceInteraction.create({
-                data: {
-                  voiceCallId: call.id,
-                  tenantId: payload.tenantId,
-                  type: "dtmf",
-                  data: asJson(response),
-                },
-              });
-            }
           }
         }
       }
 
+      // call.answered — update status and answeredAt
+      if (
+        payload.event === "call.answered" &&
+        isCallAnsweredEvent(payload.data)
+      ) {
+        const data = payload.data;
+        await fastify.prisma.voiceCall.updateMany({
+          where: { orkestaiCallId: data.callId, tenantId: payload.tenantId },
+          data: { status: "answered", answeredAt: new Date(data.answeredAt) },
+        });
+      }
+
+      // call.completed — update existing record; create interactions for responses
+      if (
+        payload.event === "call.completed" &&
+        isCallCompletedEvent(payload.data)
+      ) {
+        const data = payload.data;
+        const existingCall = await fastify.prisma.voiceCall.findUnique({
+          where: { orkestaiCallId: data.callId },
+        });
+
+        if (existingCall) {
+          const updatedCall = await fastify.prisma.voiceCall.update({
+            where: { id: existingCall.id },
+            data: {
+              status: "completed",
+              duration: data.duration,
+              responses: asJson(data.responses),
+              completedAt: new Date(data.endedAt),
+              answeredAt: existingCall.answeredAt ?? new Date(data.startedAt),
+            },
+          });
+
+          for (const response of data.responses) {
+            await fastify.prisma.voiceInteraction.create({
+              data: {
+                voiceCallId: updatedCall.id,
+                tenantId: payload.tenantId,
+                type: "response",
+                data: asJson(response),
+              },
+            });
+          }
+        }
+      }
+
+      // call.failed — update with error details
+      if (payload.event === "call.failed" && isCallFailedEvent(payload.data)) {
+        const data = payload.data;
+        await fastify.prisma.voiceCall.updateMany({
+          where: { orkestaiCallId: data.callId, tenantId: payload.tenantId },
+          data: {
+            status: "failed",
+            terminationReason: "failed",
+            errorCode: data.errorCode ?? null,
+            errorMessage: data.errorMessage ?? null,
+          },
+        });
+      }
+
+      // call.busy / call.no_answer — mark as no-answer
+      if (
+        (payload.event === "call.busy" || payload.event === "call.no_answer") &&
+        isCallNoAnswerEvent(payload.data)
+      ) {
+        const data = payload.data;
+        await fastify.prisma.voiceCall.updateMany({
+          where: { orkestaiCallId: data.callId, tenantId: payload.tenantId },
+          data: {
+            status: "no-answer",
+            terminationReason: payload.event,
+            completedAt: new Date(data.endedAt),
+          },
+        });
+      }
+
+      // dtmf.received — create VoiceInteraction
+      if (
+        payload.event === "dtmf.received" &&
+        isDtmfReceivedEvent(payload.data)
+      ) {
+        const data = payload.data;
+        const call = await fastify.prisma.voiceCall.findUnique({
+          where: { orkestaiCallId: data.callId },
+        });
+        if (call) {
+          await fastify.prisma.voiceInteraction.create({
+            data: {
+              voiceCallId: call.id,
+              tenantId: payload.tenantId,
+              type: "dtmf",
+              data: asJson({
+                stepId: data.stepId,
+                key: data.key,
+                value: data.value,
+              }),
+            },
+          });
+        }
+      }
+
+      // transcript.created — update transcription + create interaction
+      if (
+        payload.event === "transcript.created" &&
+        isTranscriptCreatedEvent(payload.data)
+      ) {
+        const data = payload.data;
+        await fastify.prisma.voiceCall.updateMany({
+          where: { orkestaiCallId: data.callId, tenantId: payload.tenantId },
+          data: { transcription: data.transcript },
+        });
+        const call = await fastify.prisma.voiceCall.findUnique({
+          where: { orkestaiCallId: data.callId },
+        });
+        if (call) {
+          await fastify.prisma.voiceInteraction.create({
+            data: {
+              voiceCallId: call.id,
+              tenantId: payload.tenantId,
+              type: "transcript",
+              data: asJson({ text: data.transcript }),
+            },
+          });
+        }
+      }
+
+      // campaign.completed — mark campaign as finished
       if (
         payload.event === "campaign.completed" &&
         isCampaignCompletedEvent(payload.data)

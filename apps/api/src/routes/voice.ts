@@ -5,10 +5,10 @@ import { OrkestaiVoiceClient } from "@engage/orkestai-voice-client";
 
 function getVoiceClient(): OrkestaiVoiceClient | null {
   const apiUrl = process.env["ORKESTAI_VOICE_API_URL"];
-  const apiKey = process.env["ORKESTAI_VOICE_API_KEY"];
-  const tenantId = process.env["ORKESTAI_VOICE_TENANT_ID"];
-  if (!apiUrl || !apiKey || !tenantId) return null;
-  return new OrkestaiVoiceClient(apiUrl, apiKey, tenantId);
+  const token = process.env["ORKESTAI_VOICE_TENANT_ID"]; // ok_... opaque API token
+  const tenantUUID = process.env["ORKESTAI_VOICE_TENANT_UUID"]; // UUID used in URL paths
+  if (!apiUrl || !token || !tenantUUID) return null;
+  return new OrkestaiVoiceClient(apiUrl, token, tenantUUID);
 }
 
 const flowStepSchema = z.object({
@@ -21,7 +21,7 @@ const flowStepSchema = z.object({
 
 const createVoiceCampaignSchema = z.object({
   name: z.string().min(1).max(256),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   orkestaiCampaignId: z.string().optional(),
   script: z.string().optional().default(""),
   ttsProvider: z
@@ -117,6 +117,136 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
         );
         return reply.status(502).send({ error: String(err) });
       }
+    },
+  );
+
+  // Audience preview — cuántos usuarios de ENGAGE tienen teléfono (y opcional consent)
+  fastify.get(
+    "/audience-preview",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { requireConsent } = z
+        .object({ requireConsent: z.string().optional() })
+        .parse(request.query);
+
+      const users = await fastify.prisma.user.findMany({
+        where: { tenantId: request.tenantId, phone: { not: null } },
+        select: { metadata: true },
+      });
+
+      const total = users.length;
+      const withConsent = users.filter((u) => {
+        const meta = u.metadata as Record<string, unknown> | null;
+        return meta?.whatsapp_consent === true;
+      }).length;
+
+      const count = requireConsent === "true" ? withConsent : total;
+      return reply.send({ count, total, withConsent });
+    },
+  );
+
+  // Disparar campaña remota de orkestai-voice con audiencia de ENGAGE
+  fastify.post(
+    "/launch-remote",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = z
+        .object({
+          orkestaiCampaignId: z.string().min(1),
+          name: z.string().min(1).max(256),
+          requireConsent: z.boolean().optional().default(false),
+        })
+        .parse(request.body);
+
+      const client = getVoiceClient();
+      if (!client) {
+        return reply
+          .status(503)
+          .send({ error: "orkestai-voice not configured (missing env vars)" });
+      }
+
+      // Obtener usuarios de ENGAGE con teléfono
+      const allUsers = await fastify.prisma.user.findMany({
+        where: { tenantId: request.tenantId, phone: { not: null } },
+        select: { phone: true, metadata: true, externalId: true },
+      });
+
+      const users = body.requireConsent
+        ? allUsers.filter((u) => {
+            const meta = u.metadata as Record<string, unknown> | null;
+            return meta?.whatsapp_consent === true;
+          })
+        : allUsers;
+
+      if (users.length === 0) {
+        return reply.status(400).send({
+          error: body.requireConsent
+            ? "No hay usuarios con teléfono y consentimiento de voz en ENGAGE"
+            : "No hay usuarios con teléfono registrado en ENGAGE",
+        });
+      }
+
+      // Crear registro local vinculado a la campaña remota
+      const campaign = await fastify.prisma.voiceCampaign.create({
+        data: {
+          tenantId: request.tenantId,
+          name: body.name,
+          orkestaiCampaignId: body.orkestaiCampaignId,
+          status: "draft",
+          ttsProvider: "elevenlabs",
+          script: "",
+          voiceConfig: asJson({}),
+          audienceFilter: asJson({}),
+        },
+      });
+
+      // Crear contactos en orkestai-voice
+      const contactIds: string[] = [];
+      for (const user of users) {
+        if (!user.phone) continue;
+        const meta = user.metadata as Record<string, unknown> | null;
+        const firstName = String(meta?.nombre ?? user.externalId ?? "Contacto");
+        try {
+          const contact = await client.createContact(firstName, user.phone);
+          contactIds.push(contact.id);
+        } catch (err) {
+          fastify.log.warn(
+            { err, phone: user.phone },
+            "Skipping contact — createContact failed",
+          );
+        }
+      }
+
+      if (contactIds.length === 0) {
+        await fastify.prisma.voiceCampaign.delete({
+          where: { id: campaign.id },
+        });
+        return reply.status(400).send({
+          error: "No se pudo crear ningún contacto en orkestai-voice",
+        });
+      }
+
+      const result = await client.addRecipients(
+        body.orkestaiCampaignId,
+        contactIds,
+      );
+
+      await fastify.prisma.voiceCampaign.update({
+        where: { id: campaign.id },
+        data: { audienceSize: result.added },
+      });
+
+      const startResult = await client.startCampaign(body.orkestaiCampaignId);
+
+      await fastify.prisma.voiceCampaign.update({
+        where: { id: campaign.id },
+        data: { status: "running", startAt: new Date() },
+      });
+
+      return reply.status(201).send({
+        campaignId: campaign.id,
+        audienceSize: result.added,
+        skipped: result.skipped,
+        enqueued: startResult.enqueued,
+      });
     },
   );
 
@@ -280,10 +410,10 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!campaign) return reply.status(404).send({ error: "Not found" });
-      if (campaign.status !== "draft") {
+      if (campaign.status === "running") {
         return reply
           .status(400)
-          .send({ error: "Can only delete draft campaigns" });
+          .send({ error: "Pause the campaign before deleting it" });
       }
 
       await fastify.prisma.voiceCampaign.delete({ where: { id } });

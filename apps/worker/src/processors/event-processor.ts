@@ -35,10 +35,22 @@ async function checkAndSetCooldown(
 ): Promise<boolean> {
   if (!cooldownSeconds || cooldownSeconds <= 0) return false;
   const key = `cooldown:${ruleId}:${userId}`;
-  const existing = await redis.get(key);
-  if (existing) return true;
-  await redis.setex(key, cooldownSeconds, "1");
-  return false;
+
+  const result = await redis.eval(
+    `
+    if redis.call("GET", KEYS[1]) then
+      return 1
+    else
+      redis.call("SETEX", KEYS[1], ARGV[1], "1")
+      return 0
+    end
+    `,
+    1,
+    key,
+    cooldownSeconds.toString(),
+  );
+
+  return result === 1;
 }
 
 export function createEventProcessor(
