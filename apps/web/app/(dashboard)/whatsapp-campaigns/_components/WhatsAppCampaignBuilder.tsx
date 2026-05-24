@@ -46,15 +46,12 @@ export function WhatsAppCampaignBuilder({
     defaultValues: {
       name: "",
       description: "",
-      message: "",
-      mediaUrl: "",
-      buttonText: "",
-      buttonUrl: "",
+      body: "",
       triggerType: "manual",
     },
   });
 
-  const messageValue = watch("message");
+  const bodyValue = watch("body");
 
   useEffect(() => {
     if (!campaignId) return;
@@ -67,10 +64,7 @@ export function WhatsAppCampaignBuilder({
         reset({
           name: campaign.name,
           description: campaign.description ?? "",
-          message: campaign.message,
-          mediaUrl: campaign.mediaUrl ?? "",
-          buttonText: campaign.buttonText ?? "",
-          buttonUrl: campaign.buttonUrl ?? "",
+          body: campaign.body ?? "",
           triggerType: campaign.triggerType ?? "manual",
         });
       } catch (err) {
@@ -171,74 +165,15 @@ export function WhatsAppCampaignBuilder({
         </CardHeader>
         <CardContent>
           <Textarea
-            {...register("message")}
+            {...register("body")}
             placeholder="Your WhatsApp message (max 4096 characters)"
             className="min-h-32 font-mono text-sm"
           />
-          {errors.message && (
-            <p className="text-sm text-red-600 mt-1">
-              {errors.message.message}
-            </p>
+          {errors.body && (
+            <p className="text-sm text-red-600 mt-1">{errors.body.message}</p>
           )}
           <div className="text-xs text-muted-foreground mt-2">
-            {messageValue?.length ?? 0} / 4096 characters
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Media URL (Optional)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Input
-            {...register("mediaUrl")}
-            placeholder="https://example.com/image.jpg"
-            type="url"
-          />
-          {errors.mediaUrl && (
-            <p className="text-sm text-red-600 mt-1">
-              {errors.mediaUrl.message}
-            </p>
-          )}
-          <p className="text-xs text-muted-foreground mt-2">
-            Image, video, or document URL to attach to the message
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Button (Optional)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="buttonText" className="text-sm">
-              Button Text
-            </Label>
-            <Input
-              id="buttonText"
-              {...register("buttonText")}
-              placeholder="e.g., Shop Now"
-              className="mt-2"
-            />
-          </div>
-          <div>
-            <Label htmlFor="buttonUrl" className="text-sm">
-              Button URL
-            </Label>
-            <Input
-              id="buttonUrl"
-              {...register("buttonUrl")}
-              placeholder="https://example.com"
-              type="url"
-              className="mt-2"
-            />
-            {errors.buttonUrl && (
-              <p className="text-sm text-red-600 mt-1">
-                {errors.buttonUrl.message}
-              </p>
-            )}
+            {bodyValue?.length ?? 0} / 4096 characters
           </div>
         </CardContent>
       </Card>
