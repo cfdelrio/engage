@@ -23,14 +23,18 @@ echo "📝 Updating .env file..."
 sed -i "s|NEXT_PUBLIC_API_URL=\"https://$DOMAIN\"|NEXT_PUBLIC_API_URL=\"https://$API_DOMAIN\"|g" /home/ec2-user/engage/.env
 sed -i "s|NEXT_PUBLIC_WS_URL=\"wss://$DOMAIN\"|NEXT_PUBLIC_WS_URL=\"wss://$API_DOMAIN\"|g" /home/ec2-user/engage/.env
 
-echo "🔐 Updating SSL certificate to include both domains..."
-# Request new cert with both domains (expand existing if needed)
-echo "📧 Obtaining new certificate with both domains..."
-sudo certbot certonly --standalone -d "$DOMAIN" -d "$API_DOMAIN" \
-  --non-interactive --agree-tos --email cfdelrio@gmail.com \
-  --expand --force-renewal 2>/dev/null || \
-sudo certbot certonly --standalone -d "$DOMAIN" -d "$API_DOMAIN" \
-  --non-interactive --agree-tos --email cfdelrio@gmail.com --expand
+echo "🔐 Checking SSL certificate..."
+# If DNS hasn't propagated yet, skip cert update (existing cert will work via CNAME)
+if dig +short "$API_DOMAIN" | grep -q .; then
+  echo "📧 Obtaining new certificate with both domains..."
+  sudo certbot certonly --standalone -d "$DOMAIN" -d "$API_DOMAIN" \
+    --non-interactive --agree-tos --email cfdelrio@gmail.com \
+    --expand --force-renewal 2>/dev/null || echo "⚠️  Cert renewal skipped (will retry after DNS propagates)"
+else
+  echo "⚠️  DNS for $API_DOMAIN not yet propagated. Using existing certificate."
+  echo "    Run this after DNS propagates to update the certificate:"
+  echo "    sudo certbot renew --force-renewal"
+fi
 
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 KEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
