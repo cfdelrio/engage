@@ -106,55 +106,55 @@ const PRODE_EVENT_TYPES = [
 const WA_TEMPLATES = [
   {
     name: "wa_nuevo_lider",
+    subject: "HX3d2e4229b56b20d222ae85b64a2e607e",
     body: "¡Hay un nuevo líder en {{user.planilla_nombre}}! {{user.nombre}} trepó al primer puesto. ¿Podés alcanzarlo?",
-    aiInstructions: JSON.stringify({
-      twilioTemplateSid: "HX3d2e4229b56b20d222ae85b64a2e607e",
-      templateVars: {},
-    }),
+    aiInstructions: null,
   },
   {
     name: "wa_resultado_partido",
+    subject: "HX7ed5ef7d53402b094a81ecd8d4cbf5af",
     body: "Resultado {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}. Vos pronosticaste {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}} y sumaste {{business_context.puntos}} pts.",
-    aiInstructions: JSON.stringify({
-      twilioTemplateSid: "HX7ed5ef7d53402b094a81ecd8d4cbf5af",
-      templateVars: {},
-    }),
+    aiInstructions: null,
   },
   {
     name: "wa_ganador_fecha",
+    subject: "HX037ab7e8789f1de1575a26737ff8a233",
     body: "¡{{user.nombre}} ganó la fecha en {{user.planilla_nombre}}! Felicitaciones al campeón. 🏆",
-    aiInstructions: JSON.stringify({
-      twilioTemplateSid: "HX037ab7e8789f1de1575a26737ff8a233",
-      templateVars: {},
-    }),
+    aiInstructions: null,
   },
   {
     name: "wa_bet_reminder",
+    subject: "",
     body: "⚽ Hola {{user.nombre}}! Todavía no cargaste tus pronósticos para la fecha. Te quedan {{business_context.horas}} horas. Entrá ya!",
     aiInstructions: null,
   },
   {
     name: "wa_payment_pending",
+    subject: "",
     body: "💳 {{user.nombre}}, tu pago está pendiente. Para seguir jugando en {{user.planilla_nombre}} necesitás regularizar tu situación.",
     aiInstructions: null,
   },
   {
     name: "wa_welcome",
+    subject: "",
     body: "¡Bienvenido a ProdeCaballito, {{user.nombre}}! 🎉 Ya sos parte de {{user.planilla_nombre}}. ¡A predecir!",
     aiInstructions: null,
   },
   {
     name: "wa_near_podio",
+    subject: "",
     body: "🏅 {{user.nombre}}, estás a solo {{business_context.posiciones}} lugar(es) del podio en {{user.planilla_nombre}}. ¡Dale que llegás!",
     aiInstructions: null,
   },
   {
     name: "wa_match_rescheduled",
+    subject: "",
     body: "📅 El partido {{business_context.match.local}} vs {{business_context.match.away}} fue reprogramado para el {{business_context.nueva_fecha}}. Revisá tus pronósticos.",
     aiInstructions: null,
   },
   {
     name: "wa_cutoff_reminder",
+    subject: "",
     body: "⏰ ¡ÚLTIMO AVISO! El cierre de pronósticos para {{business_context.fecha_nombre}} es en {{business_context.minutos}} minutos.",
     aiInstructions: null,
   },
@@ -368,14 +368,18 @@ async function main() {
     const t = existing
       ? await prisma.template.update({
           where: { id: existing.id },
-          data: { body: tpl.body, aiInstructions: tpl.aiInstructions },
+          data: {
+            subject: tpl.subject,
+            body: tpl.body,
+            aiInstructions: tpl.aiInstructions,
+          },
         })
       : await prisma.template.create({
           data: {
             tenantId: tenant.id,
             name: tpl.name,
             channel: "whatsapp",
-            subject: "",
+            subject: tpl.subject,
             body: tpl.body,
             aiInstructions: tpl.aiInstructions,
             variables: [],
