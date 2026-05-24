@@ -17,6 +17,16 @@ interface EmailMessageJob {
   unsubscribeUrl?: string;
 }
 
+function parseProviderConfig(encrypted: string): Record<string, unknown> {
+  try {
+    return JSON.parse(encrypted) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `Failed to parse provider config: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 export async function processEmailMessage(job: Job<EmailMessageJob>) {
   const {
     deliveryId,
@@ -76,10 +86,9 @@ export async function processEmailMessage(job: Job<EmailMessageJob>) {
     });
     if (!providerRecord) throw new Error("No active email provider configured");
 
-    const config = JSON.parse(providerRecord.configEncrypted) as {
-      apiKey: string;
-    };
-    const emailProvider = new ResendEmailProvider(config.apiKey);
+    const config = parseProviderConfig(providerRecord.configEncrypted);
+    if (!config.apiKey) throw new Error("Provider config missing apiKey");
+    const emailProvider = new ResendEmailProvider(String(config.apiKey));
 
     // Send rendered email
     const result = await emailProvider.send({

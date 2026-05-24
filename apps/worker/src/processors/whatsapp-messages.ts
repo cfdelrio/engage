@@ -15,6 +15,16 @@ interface WhatsAppMessageJob {
   buttons?: Array<{ id: string; title: string }>;
 }
 
+function parseProviderConfig(encrypted: string): Record<string, unknown> {
+  try {
+    return JSON.parse(encrypted) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `Failed to parse provider config: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
   const {
     whatsappMessageId,
@@ -75,11 +85,16 @@ export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
     }
 
     // Decrypt config
-    const config = JSON.parse(provider.configEncrypted);
+    const config = parseProviderConfig(provider.configEncrypted);
+    if (!config.accountSid || !config.authToken || !config.from) {
+      throw new Error(
+        "Provider config missing required fields (accountSid, authToken, from)",
+      );
+    }
     const whatsappProvider = new TwilioWhatsAppProvider(
-      config.accountSid,
-      config.authToken,
-      config.from,
+      String(config.accountSid),
+      String(config.authToken),
+      String(config.from),
     );
 
     // Send message

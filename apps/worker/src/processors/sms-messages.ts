@@ -12,6 +12,16 @@ interface SmsMessageJob {
   fromNumber?: string;
 }
 
+function parseProviderConfig(encrypted: string): Record<string, unknown> {
+  try {
+    return JSON.parse(encrypted) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `Failed to parse provider config: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 export async function processSmsMessage(job: Job<SmsMessageJob>) {
   const { deliveryId, smsCampaignId, userId, phone, body, fromNumber } =
     job.data;
@@ -51,16 +61,17 @@ export async function processSmsMessage(job: Job<SmsMessageJob>) {
     });
     if (!providerRecord) throw new Error("No active SMS provider configured");
 
-    const config = JSON.parse(providerRecord.configEncrypted) as {
-      accountSid: string;
-      authToken: string;
-      fromNumber: string;
-    };
+    const config = parseProviderConfig(providerRecord.configEncrypted);
+    if (!config.accountSid || !config.authToken || !config.fromNumber) {
+      throw new Error(
+        "Provider config missing required fields (accountSid, authToken, fromNumber)",
+      );
+    }
 
     const smsProvider = new TwilioSMSProvider(
-      config.accountSid,
-      config.authToken,
-      fromNumber ?? campaign.fromNumber ?? config.fromNumber,
+      String(config.accountSid),
+      String(config.authToken),
+      fromNumber ?? campaign.fromNumber ?? String(config.fromNumber),
     );
 
     // Send
