@@ -169,8 +169,21 @@ Si alguno falla, arreglar antes de pushear. El pre-push hook también corre type
 
 - **Path**: `/home/ec2-user/engage`
 - **Branch**: `main` (auto-desplegado en cada push)
-- **IP**: `44.223.7.160` (https://engage.orkestai.ar)
+- **IP**: `44.223.7.160`
+- **Dashboard**: https://engage.orkestai.ar
+- **API**: https://api.engage.orkestai.ar (subdominio dedicado)
 - **Deploy**: GitHub Actions `deploy.yml` en cada push a `main` → `restart-all.sh`
+
+### API Routing — Subdomain vs Path-Based
+
+**Current (as of 2026-05-24)**: Vhost-based routing
+
+- `https://engage.orkestai.ar` → Next.js dashboard (port 3000)
+- `https://api.engage.orkestai.ar` → Fastify API (port 3001)
+
+All API calls use the dedicated subdomain: `https://api.engage.orkestai.ar/v1/events`
+
+Nginx config in `/etc/nginx/conf.d/orkestai.conf` routes by `server_name`, not path.
 
 ### Iniciar servicios en EC2
 
@@ -185,6 +198,35 @@ NODE_ENV=production node apps/worker/dist/index.js >> ~/worker.log 2>&1 &
 # API
 fuser -k 3001/tcp 2>/dev/null; sleep 2
 NODE_ENV=production node apps/api/dist/index.js >> ~/api.log 2>&1 &
+```
+
+### Migración a Subdominio (ya completada)
+
+Si necesitás reaplicar la migración de path-based (`/v1`) a subdomain (`api.`):
+
+```bash
+# En EC2:
+cd /home/ec2-user/engage
+bash infra/scripts/migrate-to-api-subdomain.sh engage.orkestai.ar
+
+# Verifica que funcione:
+curl -I https://api.engage.orkestai.ar/docs
+```
+
+El script:
+
+- Actualiza certificado SSL para incluir `api.engage.orkestai.ar`
+- Reconfiguración de Nginx con vhosts separados
+- Reinicia el servicio web
+
+**Cambios importantes para clientes externos:**
+
+```bash
+# OLD (path-based):
+curl https://engage.orkestai.ar/v1/events
+
+# NEW (subdomain-based):
+curl https://api.engage.orkestai.ar/v1/events
 ```
 
 ### Build y Deploy en EC2
