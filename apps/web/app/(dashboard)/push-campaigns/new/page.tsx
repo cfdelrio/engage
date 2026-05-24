@@ -14,7 +14,9 @@ export default function NewPushCampaignPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Create Push Campaign</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">
+            Create Push Campaign
+          </h1>
           <p className="text-muted-foreground mt-1">
             Set up a new push notification campaign with custom message and
             delivery triggers.

@@ -47,7 +47,9 @@ export default function CampaignBuilderPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl font-bold">Campaign Builder</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">
+          Campaign Builder
+        </h1>
         <p className="text-muted-foreground mt-2">
           Follow the steps to create a new campaign
         </p>

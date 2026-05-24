@@ -22,7 +22,7 @@ export default async function RuleDetailPage({ params }: RuleDetailPageProps) {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Edit Rule</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">Edit Rule</h1>
           <p className="text-muted-foreground mt-1">
             Update rule conditions and actions
           </p>

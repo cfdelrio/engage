@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { CampaignStatusBadge } from "@/components/ui/campaign-status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,13 +41,6 @@ interface SmsCampaign {
   startAt?: string;
   _count?: { deliveries: number };
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-900",
-  active: "bg-green-100 text-green-900",
-  paused: "bg-yellow-100 text-yellow-900",
-  completed: "bg-blue-100 text-blue-900",
-};
 
 export function SmsCampaignList() {
   const [campaigns, setCampaigns] = useState<SmsCampaign[]>([]);
@@ -165,7 +158,7 @@ export function SmsCampaignList() {
                 <TableRow key={campaign.id}>
                   <TableCell>
                     <Link href={`/sms-campaigns/${campaign.id}`}>
-                      <span className="text-blue-600 hover:underline">
+                      <span className="text-primary hover:underline">
                         {campaign.name}
                       </span>
                     </Link>
@@ -174,9 +167,7 @@ export function SmsCampaignList() {
                     {campaign.body}
                   </TableCell>
                   <TableCell>
-                    <Badge className={STATUS_COLORS[campaign.status] || ""}>
-                      {campaign.status}
-                    </Badge>
+                    <CampaignStatusBadge status={campaign.status} />
                   </TableCell>
                   <TableCell className="text-sm">
                     {campaign.triggerType}

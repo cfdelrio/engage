@@ -25,7 +25,9 @@ export default async function WhatsAppCampaignDetailPage({
             Back
           </Button>
         </Link>
-        <h1 className="text-4xl font-bold">WhatsApp Campaign</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">
+          WhatsApp Campaign
+        </h1>
       </div>
 
       <Tabs defaultValue="settings" className="w-full">

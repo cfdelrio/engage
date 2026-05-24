@@ -10,7 +10,9 @@ export default function PushCampaignsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold">Push Notifications</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">
+            Push Notifications
+          </h1>
           <p className="text-muted-foreground mt-2">
             Create and manage push notification campaigns
           </p>

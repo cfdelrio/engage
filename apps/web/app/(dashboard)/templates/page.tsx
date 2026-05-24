@@ -10,7 +10,7 @@ export default function TemplatesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold">Templates</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">Templates</h1>
           <p className="text-muted-foreground mt-2">
             Manage message templates for all channels with dynamic variable
             support
