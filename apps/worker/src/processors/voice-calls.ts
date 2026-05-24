@@ -1,5 +1,5 @@
 import type { Job } from "bullmq";
-import { PrismaClient } from "@engage/database";
+import { prisma } from "@engage/database";
 import twilio from "twilio";
 import Handlebars from "handlebars";
 
@@ -24,8 +24,6 @@ interface VoiceCallJob {
   dtmfConfig?: DtmfConfig;
   attempt: number;
 }
-
-const prisma = new PrismaClient();
 
 export async function processVoiceCall(job: Job<VoiceCallJob>) {
   const {

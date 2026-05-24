@@ -1,5 +1,5 @@
 import type { Job } from "bullmq";
-import { PrismaClient } from "@engage/database";
+import { prisma } from "@engage/database";
 import Handlebars from "handlebars";
 import { TwilioSMSProvider } from "@engage/channels";
 
@@ -11,8 +11,6 @@ interface SmsMessageJob {
   body: string;
   fromNumber?: string;
 }
-
-const prisma = new PrismaClient();
 
 export async function processSmsMessage(job: Job<SmsMessageJob>) {
   const { deliveryId, smsCampaignId, userId, phone, body, fromNumber } =
