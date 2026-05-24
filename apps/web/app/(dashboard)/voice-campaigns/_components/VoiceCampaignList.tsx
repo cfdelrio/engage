@@ -377,15 +377,13 @@ export function VoiceCampaignList() {
                                 </span>
                               </DropdownMenuItem>
                             ))}
-                          {campaign.status !== "running" && (
-                            <DropdownMenuItem
-                              onClick={() => setDeleteId(campaign.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          )}
+                          <DropdownMenuItem
+                            onClick={() => setDeleteId(campaign.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Eliminar
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -678,14 +676,16 @@ export function VoiceCampaignList() {
         <AlertDialogContent>
           <AlertDialogTitle>Eliminar campaña</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción no se puede deshacer. La campaña será eliminada
-            permanentemente.
+            {campaigns.find((c) => c.id === deleteId)?.status === "running"
+              ? "Esta campaña está en ejecución. Detenerla antes de eliminarla es recomendable. ¿Querés eliminarla igual?"
+              : "Esta acción no se puede deshacer. La campaña será eliminada permanentemente."}
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteId && handleDelete(deleteId)}
               disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
             >
               {deleting ? "Eliminando..." : "Eliminar"}
             </AlertDialogAction>
