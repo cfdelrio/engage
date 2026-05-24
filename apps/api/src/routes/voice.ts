@@ -599,11 +599,6 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!campaign) return reply.status(404).send({ error: "Not found" });
-      if (campaign.status === "running") {
-        return reply
-          .status(400)
-          .send({ error: "Pause the campaign before deleting it" });
-      }
 
       await fastify.prisma.voiceCampaign.delete({ where: { id } });
       return reply.status(204).send();

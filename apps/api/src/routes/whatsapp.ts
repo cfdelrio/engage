@@ -158,11 +158,6 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!campaign)
         return reply.status(404).send({ error: "Campaign not found" });
-      if (campaign.status === "active") {
-        return reply
-          .status(400)
-          .send({ error: "Pause the campaign before deleting it" });
-      }
 
       await fastify.prisma.whatsAppCampaign.update({
         where: { id },
