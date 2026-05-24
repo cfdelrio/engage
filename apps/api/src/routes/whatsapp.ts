@@ -42,7 +42,10 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       offset?: number;
     };
 
-    const where: Record<string, unknown> = { tenantId: request.tenantId };
+    const where: Record<string, unknown> = {
+      tenantId: request.tenantId,
+      deletedAt: null,
+    };
     if (status) where.status = status;
 
     const [campaigns, total] = await Promise.all([
@@ -87,7 +90,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params as { id: string };
 
     const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
+      where: { id, tenantId: request.tenantId, deletedAt: null },
     });
 
     if (!campaign)
@@ -102,7 +105,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     const body = updateWhatsAppCampaignSchema.parse(request.body);
 
     const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-      where: { id, tenantId: request.tenantId },
+      where: { id, tenantId: request.tenantId, deletedAt: null },
     });
 
     if (!campaign)
@@ -135,27 +138,52 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     return updated;
   });
 
-  // DELETE /v1/whatsapp-campaigns/:id
+  // DELETE /v1/whatsapp-campaigns/:id (soft delete)
   fastify.delete(
     "/:id",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
       const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-        where: { id, tenantId: request.tenantId },
+        where: { id, tenantId: request.tenantId, deletedAt: null },
       });
 
       if (!campaign)
         return reply.status(404).send({ error: "Campaign not found" });
-      if (campaign.status !== "draft") {
+      if (campaign.status === "active") {
         return reply
           .status(400)
-          .send({ error: "Can only delete draft campaigns" });
+          .send({ error: "Pause the campaign before deleting it" });
       }
 
-      await fastify.prisma.whatsAppCampaign.delete({ where: { id } });
+      await fastify.prisma.whatsAppCampaign.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
 
       return reply.status(204).send();
+    },
+  );
+
+  // POST /v1/whatsapp-campaigns/:id/restore
+  fastify.post(
+    "/:id/restore",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+
+      const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
+        where: { id, tenantId: request.tenantId, deletedAt: { not: null } },
+      });
+
+      if (!campaign)
+        return reply.status(404).send({ error: "Deleted campaign not found" });
+
+      const restored = await fastify.prisma.whatsAppCampaign.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+
+      return reply.status(200).send(restored);
     },
   );
 
@@ -166,7 +194,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       const { id } = request.params as { id: string };
 
       const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-        where: { id, tenantId: request.tenantId },
+        where: { id, tenantId: request.tenantId, deletedAt: null },
       });
 
       if (!campaign)
@@ -257,7 +285,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       const { id } = request.params as { id: string };
 
       const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-        where: { id, tenantId: request.tenantId },
+        where: { id, tenantId: request.tenantId, deletedAt: null },
       });
 
       if (!campaign)
@@ -324,7 +352,7 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       };
 
       const campaign = await fastify.prisma.whatsAppCampaign.findFirst({
-        where: { id, tenantId: request.tenantId },
+        where: { id, tenantId: request.tenantId, deletedAt: null },
       });
 
       if (!campaign)
@@ -340,11 +368,11 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const stats = {
         sent: messages.length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delivered: messages.filter((m: any) => m.deliveredAt).length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         read: messages.filter((m: any) => m.readAt).length,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         failed: messages.filter((m: any) => m.failedAt).length,
       };
 
