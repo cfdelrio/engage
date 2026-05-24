@@ -1,5 +1,88 @@
 # ORKESTAI ENGAGE — Guía para Claude
 
+## Principios de desarrollo — OBLIGATORIOS
+
+### 1. El sistema YA existe — solo extender
+
+El proyecto tiene arquitectura funcionando: eventos, workers, integraciones, campañas, providers, reglas, Twilio, realtime, UI, deploy, CI/CD. **No reescribir. Extender.**
+
+Antes de modificar cualquier módulo:
+
+- Auditar código existente
+- Revisar contratos actuales (APIs, queues, workers, schemas Prisma, providers)
+- Identificar componentes reutilizables
+- Proponer estrategia incremental
+
+**No empezar codificando inmediatamente.**
+
+### 2. No reemplazar — extender
+
+Si ya existe worker / provider / queue / endpoint / event / schema / service / integration → **extender, no recrear**.
+
+### 3. Backward compatibility siempre
+
+Todo cambio debe preservar APIs, payloads, eventos y campañas existentes. Sin breaking changes innecesarios.
+
+### 4. Reutilizar infraestructura existente
+
+Usar lo que ya existe: BullMQ, Prisma, Fastify, websockets, providers, auth, tenants, analytics, queues, retry logic, event bus. **No duplicar lógica.**
+
+### 5. Integración incremental
+
+Feature flags si hace falta, módulos desacoplados, migraciones seguras, rollout progresivo.
+
+### 6. Preservar datos y UX existentes
+
+No borrar tablas, no cambiar contratos destructivamente, no resetear campañas, no invalidar eventos históricos. No rehacer navegación/dashboard/flows sin necesidad.
+
+---
+
+## Arquitectura — Bounded Contexts
+
+### ENGAGE es owner de:
+
+- Usuarios, contactos, segmentación, consentimientos
+- Frequency caps, quiet hours
+- Campañas, reglas, analytics
+
+### orkestai-voice es owner de:
+
+- Voice flows, call execution, IVR, TTS
+- Transcripts, DTMF, voice AI
+
+**ENGAGE orquesta. orkestai-voice ejecuta.**
+
+ENGAGE NO construye flows de voz — los flows ya existen en orkestai-voice. ENGAGE selecciona audiencia, aplica validaciones, dispara y trackea resultados.
+
+### Payload de disparo de campaña de voz:
+
+```json
+{
+  "engageCampaignId": "eng_123",
+  "audience": [
+    {
+      "userId": "user_1",
+      "phone": "+54911...",
+      "variables": { "firstName": "Carlos", "rankingPosition": 2 }
+    }
+  ],
+  "callbackUrl": "https://engage.orkestai.ar/api/webhooks/voice"
+}
+```
+
+Los contactos SIEMPRE pertenecen a ENGAGE. No sincronizar contactos completos a orkestai-voice — enviarlos solo por ejecución.
+
+### Validación antes de disparar campaña de voz:
+
+- Consentimientos, unsubscribe, quiet hours
+- Validez del teléfono, duplicados, country rules, frequency caps
+
+### Webhooks de voz a ingestar:
+
+`call.started`, `call.answered`, `call.completed`, `call.failed`, `call.busy`, `call.no_answer`, `dtmf.received`, `transcript.created`
+
+---
+
 ## Stack
 
 - **Monorepo**: pnpm workspaces + Turborepo
