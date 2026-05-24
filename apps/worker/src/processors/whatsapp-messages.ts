@@ -1,5 +1,5 @@
 import type { Job } from "bullmq";
-import { PrismaClient } from "@engage/database";
+import { prisma } from "@engage/database";
 import Handlebars from "handlebars";
 import { TwilioWhatsAppProvider } from "@engage/channels";
 
@@ -14,8 +14,6 @@ interface WhatsAppMessageJob {
   footerText?: string;
   buttons?: Array<{ id: string; title: string }>;
 }
-
-const prisma = new PrismaClient();
 
 export async function processWhatsAppMessage(job: Job<WhatsAppMessageJob>) {
   const {

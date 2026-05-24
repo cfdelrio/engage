@@ -1,5 +1,5 @@
 import type { Job } from "bullmq";
-import { PrismaClient } from "@engage/database";
+import { prisma } from "@engage/database";
 import Handlebars from "handlebars";
 import { ResendEmailProvider } from "@engage/channels";
 
@@ -16,8 +16,6 @@ interface EmailMessageJob {
   replyTo?: string;
   unsubscribeUrl?: string;
 }
-
-const prisma = new PrismaClient();
 
 export async function processEmailMessage(job: Job<EmailMessageJob>) {
   const {
