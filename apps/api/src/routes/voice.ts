@@ -119,6 +119,138 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // Audience preview — cuántos usuarios de ENGAGE tienen teléfono (y opcional consent)
+  fastify.get(
+    "/audience-preview",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { requireConsent } = z
+        .object({ requireConsent: z.string().optional() })
+        .parse(request.query);
+
+      const users = await fastify.prisma.user.findMany({
+        where: { tenantId: request.tenantId, phone: { not: null } },
+        select: { metadata: true },
+      });
+
+      const total = users.length;
+      const withConsent = users.filter((u) => {
+        const meta = u.metadata as Record<string, unknown> | null;
+        return meta?.whatsapp_consent === true;
+      }).length;
+
+      const count = requireConsent === "true" ? withConsent : total;
+      return reply.send({ count, total, withConsent });
+    },
+  );
+
+  // Disparar campaña remota de orkestai-voice con audiencia de ENGAGE
+  fastify.post(
+    "/launch-remote",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = z
+        .object({
+          orkestaiCampaignId: z.string().min(1),
+          name: z.string().min(1).max(256),
+          requireConsent: z.boolean().optional().default(false),
+        })
+        .parse(request.body);
+
+      const client = getVoiceClient();
+      if (!client) {
+        return reply
+          .status(503)
+          .send({ error: "orkestai-voice not configured (missing env vars)" });
+      }
+
+      // Obtener usuarios de ENGAGE con teléfono
+      const allUsers = await fastify.prisma.user.findMany({
+        where: { tenantId: request.tenantId, phone: { not: null } },
+        select: { phone: true, metadata: true, externalId: true },
+      });
+
+      const users = body.requireConsent
+        ? allUsers.filter((u) => {
+            const meta = u.metadata as Record<string, unknown> | null;
+            return meta?.whatsapp_consent === true;
+          })
+        : allUsers;
+
+      if (users.length === 0) {
+        return reply.status(400).send({
+          error: body.requireConsent
+            ? "No hay usuarios con teléfono y consentimiento de voz en ENGAGE"
+            : "No hay usuarios con teléfono registrado en ENGAGE",
+        });
+      }
+
+      // Crear registro local vinculado a la campaña remota
+      const campaign = await fastify.prisma.voiceCampaign.create({
+        data: {
+          tenantId: request.tenantId,
+          name: body.name,
+          orkestaiCampaignId: body.orkestaiCampaignId,
+          status: "draft",
+          ttsProvider: "elevenlabs",
+          script: "",
+          voiceConfig: asJson({}),
+          audienceFilter: asJson({}),
+        },
+      });
+
+      // Crear contactos en orkestai-voice
+      const contactIds: string[] = [];
+      for (const user of users) {
+        if (!user.phone) continue;
+        const meta = user.metadata as Record<string, unknown> | null;
+        const firstName = String(meta?.nombre ?? user.externalId ?? "Contacto");
+        try {
+          const contact = await client.createContact(firstName, user.phone);
+          contactIds.push(contact.id);
+        } catch (err) {
+          fastify.log.warn(
+            { err, phone: user.phone },
+            "Skipping contact — createContact failed",
+          );
+        }
+      }
+
+      if (contactIds.length === 0) {
+        await fastify.prisma.voiceCampaign.delete({
+          where: { id: campaign.id },
+        });
+        return reply
+          .status(400)
+          .send({
+            error: "No se pudo crear ningún contacto en orkestai-voice",
+          });
+      }
+
+      const result = await client.addRecipients(
+        body.orkestaiCampaignId,
+        contactIds,
+      );
+
+      await fastify.prisma.voiceCampaign.update({
+        where: { id: campaign.id },
+        data: { audienceSize: result.added },
+      });
+
+      const startResult = await client.startCampaign(body.orkestaiCampaignId);
+
+      await fastify.prisma.voiceCampaign.update({
+        where: { id: campaign.id },
+        data: { status: "running", startAt: new Date() },
+      });
+
+      return reply.status(201).send({
+        campaignId: campaign.id,
+        audienceSize: result.added,
+        skipped: result.skipped,
+        enqueued: startResult.enqueued,
+      });
+    },
+  );
+
   // Create campaign
   fastify.post("/", async (request: FastifyRequest, reply: FastifyReply) => {
     const body = createVoiceCampaignSchema.parse(request.body);
