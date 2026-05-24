@@ -151,18 +151,26 @@ model UserPreference {
 }
 
 model UserEngagementScore {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  tenantId         String
-  score            Float    @default(0)
-  fatigueScore     Float    @default(0)
-  openRate30d      Float    @default(0)
-  clickRate30d     Float    @default(0)
-  lastCalculatedAt DateTime @default(now())
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  tenantId             String
+  score                Float    @default(0)
+  fatigueScore         Float    @default(0)
+  openRate30d          Float    @default(0)
+  clickRate30d         Float    @default(0)
+  emailOpenRate30d     Float    @default(0)
+  emailClickRate30d    Float    @default(0)
+  whatsappReadRate30d  Float    @default(0)
+  smsDeliveryRate30d   Float    @default(0)
+  voiceAnswerRate30d   Float    @default(0)
+  pushOpenRate30d      Float    @default(0)
+  preferredChannel     String?
+  lastCalculatedAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, fatigueScore])
+  @@index([tenantId, preferredChannel])
   @@map("user_engagement_scores")
 }
 
