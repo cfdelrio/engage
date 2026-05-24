@@ -21,7 +21,7 @@ const flowStepSchema = z.object({
 
 const createVoiceCampaignSchema = z.object({
   name: z.string().min(1).max(256),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   orkestaiCampaignId: z.string().optional(),
   script: z.string().optional().default(""),
   ttsProvider: z
