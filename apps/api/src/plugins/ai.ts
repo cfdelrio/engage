@@ -54,7 +54,9 @@ const aiPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.decorate("aiLayer", aiLayer);
   fastify.decorate("ruleInterpreter", ruleInterpreter);
 
-  fastify.log.info(`AI layer initialized with provider: ${defaultProvider}`);
+  fastify.log.info(
+    `AI layer initialized with provider: ${defaultProvider}, ruleInterpreter: ${ruleInterpreter ? "ready" : "failed"}`,
+  );
 };
 
 export default aiPlugin;
