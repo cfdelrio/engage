@@ -250,6 +250,7 @@ export default function EventsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [typePrefixFilter, setTypePrefixFilter] = useState("");
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("");
   const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventRow | null>(null);
@@ -260,6 +261,7 @@ export default function EventsPage() {
     from: string,
     to: string,
     typePrefix: string,
+    deliveryStatus: string,
     cursor: string | undefined,
     reset: boolean,
   ) => {
@@ -270,6 +272,7 @@ export default function EventsPage() {
     if (userId) params.set("userId", userId);
     if (from) params.set("from", `${from}T00:00:00.000Z`);
     if (to) params.set("to", `${to}T23:59:59.999Z`);
+    if (deliveryStatus) params.set("deliveryStatus", deliveryStatus);
     if (!reset && cursor) params.set("cursor", cursor);
 
     apiFetch(`/v1/events?${params}`, {})
@@ -296,10 +299,18 @@ export default function EventsPage() {
       fromDate,
       toDate,
       typePrefixFilter,
+      deliveryStatusFilter,
       undefined,
       true,
     );
-  }, [typeFilter, userFilter, fromDate, toDate, typePrefixFilter]);
+  }, [
+    typeFilter,
+    userFilter,
+    fromDate,
+    toDate,
+    typePrefixFilter,
+    deliveryStatusFilter,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -328,6 +339,7 @@ export default function EventsPage() {
               fromDate,
               toDate,
               typePrefixFilter,
+              deliveryStatusFilter,
               undefined,
               true,
             );
@@ -388,11 +400,23 @@ export default function EventsPage() {
             className="text-xs bg-transparent text-foreground outline-none w-[100px] cursor-pointer"
           />
         </div>
+        <select
+          value={deliveryStatusFilter}
+          onChange={(e) => setDeliveryStatusFilter(e.target.value)}
+          className="rounded-md border border-input bg-background px-3 h-8 text-sm text-foreground outline-none cursor-pointer"
+        >
+          <option value="">Delivery: todos</option>
+          <option value="any">Con delivery</option>
+          <option value="sent">Enviado</option>
+          <option value="delivered">Entregado</option>
+          <option value="failed">Fallido</option>
+        </select>
         {(typeFilter ||
           userFilter ||
           fromDate ||
           toDate ||
-          typePrefixFilter) && (
+          typePrefixFilter ||
+          deliveryStatusFilter) && (
           <Button
             variant="ghost"
             size="sm"
@@ -402,6 +426,7 @@ export default function EventsPage() {
               setFromDate("");
               setToDate("");
               setTypePrefixFilter("");
+              setDeliveryStatusFilter("");
             }}
             className="gap-1.5 h-8"
           >
@@ -477,6 +502,7 @@ export default function EventsPage() {
                   fromDate,
                   toDate,
                   typePrefixFilter,
+                  deliveryStatusFilter,
                   cursorRef.current,
                   false,
                 )
