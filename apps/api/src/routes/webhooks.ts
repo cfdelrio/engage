@@ -79,6 +79,13 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
   function verifyTwilio(request: FastifyRequest, reply: FastifyReply): boolean {
     const authToken = process.env["TWILIO_AUTH_TOKEN"];
     if (!authToken) {
+      if (process.env.NODE_ENV === "production") {
+        request.log.error(
+          "TWILIO_AUTH_TOKEN not configured — rejecting webhook in production",
+        );
+        reply.status(500).send({ error: "Webhook secret not configured" });
+        return false;
+      }
       warnOnce("twilio");
       return true;
     }
@@ -114,6 +121,13 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
         if (!valid) {
           return reply.status(401).send({ error: "Invalid Resend signature" });
         }
+      } else if (process.env.NODE_ENV === "production") {
+        request.log.error(
+          "RESEND_WEBHOOK_SECRET not configured — rejecting webhook in production",
+        );
+        return reply
+          .status(500)
+          .send({ error: "Webhook secret not configured" });
       } else {
         warnOnce("resend");
       }
@@ -616,6 +630,16 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
         return reply
           .status(401)
           .send({ error: "Missing x-orkestai-signature header" });
+      } else if (!secret) {
+        if (process.env.NODE_ENV === "production") {
+          request.log.error(
+            "ORKESTAI_VOICE_WEBHOOK_SECRET not configured — rejecting webhook in production",
+          );
+          return reply
+            .status(500)
+            .send({ error: "Webhook secret not configured" });
+        }
+        warnOnce("orkestai-voice");
       }
 
       let payload;
