@@ -384,6 +384,7 @@ export function LiveEventFeed() {
   const [sortKey, setSortKey] = useState<SortKey>("receivedAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [userFilter, setUserFilter] = useState("");
+  const [deliveryStatus, setDeliveryStatus] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const [, setTick] = useState(0);
 
@@ -472,12 +473,13 @@ export function LiveEventFeed() {
   }, []);
 
   const fetchHistory = useCallback(
-    (from?: string, to?: string, prefix?: string) => {
+    (from?: string, to?: string, prefix?: string, delivery?: string) => {
       setHistoryLoading(true);
       const params = new URLSearchParams({ limit: "50" });
       if (from) params.set("from", `${from}T00:00:00.000Z`);
       if (to) params.set("to", `${to}T23:59:59.999Z`);
       if (prefix) params.set("typePrefix", prefix);
+      if (delivery) params.set("deliveryStatus", delivery);
       apiFetch(`/v1/events?${params}`, {})
         .then((r) => r.json())
         .then((data) => setHistory(Array.isArray(data) ? data : []))
@@ -494,6 +496,7 @@ export function LiveEventFeed() {
         fromDate || undefined,
         toDate || undefined,
         typePrefix || undefined,
+        deliveryStatus || undefined,
       );
   };
 
@@ -503,8 +506,9 @@ export function LiveEventFeed() {
         fromDate || undefined,
         toDate || undefined,
         typePrefix || undefined,
+        deliveryStatus || undefined,
       );
-  }, [fromDate, toDate, typePrefix, activeTab, fetchHistory]);
+  }, [fromDate, toDate, typePrefix, deliveryStatus, activeTab, fetchHistory]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -618,13 +622,25 @@ export function LiveEventFeed() {
                     className="text-[11px] bg-transparent text-foreground outline-none w-[90px] cursor-pointer"
                   />
                 </div>
-                {(fromDate || toDate || typePrefix) && (
+                <select
+                  value={deliveryStatus}
+                  onChange={(e) => setDeliveryStatus(e.target.value)}
+                  className="rounded-lg border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-foreground outline-none cursor-pointer"
+                >
+                  <option value="">Delivery: todos</option>
+                  <option value="any">Con delivery</option>
+                  <option value="sent">Enviado</option>
+                  <option value="delivered">Entregado</option>
+                  <option value="failed">Fallido</option>
+                </select>
+                {(fromDate || toDate || typePrefix || deliveryStatus) && (
                   <button
                     onClick={() => {
                       setFromDate("");
                       setToDate("");
                       setTypePrefix("");
                       setUserFilter("");
+                      setDeliveryStatus("");
                     }}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                     title="Limpiar filtros"
@@ -638,6 +654,7 @@ export function LiveEventFeed() {
                       fromDate || undefined,
                       toDate || undefined,
                       typePrefix || undefined,
+                      deliveryStatus || undefined,
                     )
                   }
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"

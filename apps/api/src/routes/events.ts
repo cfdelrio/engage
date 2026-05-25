@@ -455,6 +455,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       userId,
       from,
       to,
+      deliveryStatus,
       limit = "50",
       cursor,
     } = request.query as Record<string, string>;
@@ -476,6 +477,15 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
               },
             }
           : {}),
+        ...(deliveryStatus === "any"
+          ? { engagementDecisions: { some: { deliveries: { some: {} } } } }
+          : deliveryStatus
+            ? {
+                engagementDecisions: {
+                  some: { deliveries: { some: { status: deliveryStatus } } },
+                },
+              }
+            : {}),
         ...(cursor && { id: { lt: cursor } }),
       },
       orderBy: { receivedAt: "desc" },
