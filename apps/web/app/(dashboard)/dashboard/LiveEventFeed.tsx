@@ -332,6 +332,8 @@ export function LiveEventFeed() {
   const [count, setCount] = useState(0);
   const [activeTab, setActiveTab] = useState<"live" | "history">("live");
   const [selectedEvent, setSelectedEvent] = useState<LiveEvent | null>(null);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const [, setTick] = useState(0);
 
@@ -383,9 +385,12 @@ export function LiveEventFeed() {
   }, []);
 
   // Fetch history when tab is activated
-  const fetchHistory = useCallback(() => {
+  const fetchHistory = useCallback((from?: string, to?: string) => {
     setHistoryLoading(true);
-    apiFetch("/v1/events?limit=50", {})
+    const params = new URLSearchParams({ limit: "50" });
+    if (from) params.set("from", `${from}T00:00:00.000Z`);
+    if (to) params.set("to", `${to}T23:59:59.999Z`);
+    apiFetch(`/v1/events?${params}`, {})
       .then((r) => r.json())
       .then((data) => setHistory(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -394,8 +399,14 @@ export function LiveEventFeed() {
 
   const handleTabChange = (tab: "live" | "history") => {
     setActiveTab(tab);
-    if (tab === "history" && history.length === 0) fetchHistory();
+    if (tab === "history")
+      fetchHistory(fromDate || undefined, toDate || undefined);
   };
+
+  useEffect(() => {
+    if (activeTab === "history")
+      fetchHistory(fromDate || undefined, toDate || undefined);
+  }, [fromDate, toDate, activeTab, fetchHistory]);
 
   const displayEvents = activeTab === "live" ? liveEvents : history;
 
@@ -452,13 +463,51 @@ export function LiveEventFeed() {
               </div>
             )}
             {activeTab === "history" && (
-              <button
-                onClick={fetchHistory}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                disabled={historyLoading}
-              >
-                {historyLoading ? "Cargando..." : "↺ Actualizar"}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 px-2 py-0.5">
+                  <span className="text-[10px] text-muted-foreground">
+                    desde
+                  </span>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="text-[11px] bg-transparent text-foreground outline-none w-[90px] cursor-pointer"
+                  />
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 px-2 py-0.5">
+                  <span className="text-[10px] text-muted-foreground">
+                    hasta
+                  </span>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="text-[11px] bg-transparent text-foreground outline-none w-[90px] cursor-pointer"
+                  />
+                </div>
+                {(fromDate || toDate) && (
+                  <button
+                    onClick={() => {
+                      setFromDate("");
+                      setToDate("");
+                    }}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Limpiar fechas"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                <button
+                  onClick={() =>
+                    fetchHistory(fromDate || undefined, toDate || undefined)
+                  }
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  disabled={historyLoading}
+                >
+                  {historyLoading ? "Cargando..." : "↺"}
+                </button>
+              </div>
             )}
           </div>
         </div>

@@ -247,6 +247,8 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventRow | null>(null);
@@ -254,6 +256,8 @@ export default function EventsPage() {
   const doFetch = (
     type: string,
     userId: string,
+    from: string,
+    to: string,
     cursor: string | undefined,
     reset: boolean,
   ) => {
@@ -261,6 +265,8 @@ export default function EventsPage() {
     const params = new URLSearchParams({ limit: "50" });
     if (type) params.set("type", type);
     if (userId) params.set("userId", userId);
+    if (from) params.set("from", `${from}T00:00:00.000Z`);
+    if (to) params.set("to", `${to}T23:59:59.999Z`);
     if (!reset && cursor) params.set("cursor", cursor);
 
     apiFetch(`/v1/events?${params}`, {})
@@ -281,8 +287,8 @@ export default function EventsPage() {
 
   useEffect(() => {
     cursorRef.current = undefined;
-    doFetch(typeFilter, userFilter, undefined, true);
-  }, [typeFilter, userFilter]);
+    doFetch(typeFilter, userFilter, fromDate, toDate, undefined, true);
+  }, [typeFilter, userFilter, fromDate, toDate]);
 
   return (
     <div className="space-y-6">
@@ -305,7 +311,7 @@ export default function EventsPage() {
           size="sm"
           onClick={() => {
             cursorRef.current = undefined;
-            doFetch(typeFilter, userFilter, undefined, true);
+            doFetch(typeFilter, userFilter, fromDate, toDate, undefined, true);
           }}
           disabled={loading}
           className="gap-2"
@@ -316,7 +322,7 @@ export default function EventsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -335,13 +341,33 @@ export default function EventsPage() {
             className="pl-8 h-8 text-sm"
           />
         </div>
-        {(typeFilter || userFilter) && (
+        <div className="flex items-center gap-1 rounded-md border border-input bg-background px-3 h-8">
+          <span className="text-xs text-muted-foreground">desde</span>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="text-xs bg-transparent text-foreground outline-none w-[100px] cursor-pointer"
+          />
+        </div>
+        <div className="flex items-center gap-1 rounded-md border border-input bg-background px-3 h-8">
+          <span className="text-xs text-muted-foreground">hasta</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="text-xs bg-transparent text-foreground outline-none w-[100px] cursor-pointer"
+          />
+        </div>
+        {(typeFilter || userFilter || fromDate || toDate) && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
               setTypeFilter("");
               setUserFilter("");
+              setFromDate("");
+              setToDate("");
             }}
             className="gap-1.5 h-8"
           >
@@ -411,7 +437,14 @@ export default function EventsPage() {
               variant="ghost"
               size="sm"
               onClick={() =>
-                doFetch(typeFilter, userFilter, cursorRef.current, false)
+                doFetch(
+                  typeFilter,
+                  userFilter,
+                  fromDate,
+                  toDate,
+                  cursorRef.current,
+                  false,
+                )
               }
               disabled={loading}
             >
