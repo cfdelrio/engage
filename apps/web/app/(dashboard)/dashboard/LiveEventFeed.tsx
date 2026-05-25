@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
 import { useEffect, useRef, useState } from "react";
 import { Activity, Radio } from "lucide-react";
 
@@ -87,6 +88,16 @@ export function LiveEventFeed() {
     return () => clearInterval(id);
   }, []);
 
+  // Load historical events on mount (newest first)
+  useEffect(() => {
+    apiFetch("/v1/events?limit=50")
+      .then((r) => r.json())
+      .then((data: { events: LiveEvent[] }) => {
+        setEvents(data.events ?? []);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     let destroyed = false;
 
@@ -114,7 +125,10 @@ export function LiveEventFeed() {
         ws.onmessage = (msg) => {
           try {
             const event = JSON.parse(msg.data as string) as LiveEvent;
-            setEvents((prev) => [event, ...prev].slice(0, 50));
+            setEvents((prev) => {
+              if (prev.some((e) => e.id === event.id)) return prev;
+              return [event, ...prev].slice(0, 50);
+            });
             setCount((c) => c + 1);
           } catch {
             // ignore malformed messages

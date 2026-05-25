@@ -401,6 +401,55 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  fastify.get(
+    "/",
+    {
+      schema: {
+        description: "List recent events",
+        tags: ["events"],
+        querystring: z.object({
+          limit: z.coerce.number().min(1).max(200).optional().default(50),
+        }),
+        response: {
+          200: z.object({
+            events: z.array(
+              z.object({
+                id: z.string(),
+                type: z.string(),
+                userId: z.string(),
+                receivedAt: z.string(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    async (request) => {
+      const { limit } = request.query as { limit: number };
+      const tenantId = request.tenantId;
+      const events = await fastify.prisma.event.findMany({
+        where: { tenantId },
+        orderBy: { receivedAt: "desc" },
+        take: limit,
+        include: { tenant: false },
+        select: {
+          id: true,
+          type: true,
+          receivedAt: true,
+          user: { select: { externalId: true } },
+        },
+      });
+      return {
+        events: events.map((e) => ({
+          id: e.id,
+          type: e.type,
+          userId: e.user.externalId,
+          receivedAt: e.receivedAt.toISOString(),
+        })),
+      };
+    },
+  );
+
   fastify.get<{ Params: { eventId: string } }>(
     "/:eventId",
     {
