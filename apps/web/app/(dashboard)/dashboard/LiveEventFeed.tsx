@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Activity, Radio, X, CheckCircle2, XCircle, Clock } from "lucide-react";
+import {
+  Activity,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  CheckCircle2,
+  Clock,
+  Radio,
+  X,
+  XCircle,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import {
   Dialog,
@@ -48,6 +58,9 @@ type EventCategory = {
   bg: string;
   text: string;
 };
+
+type SortKey = "type" | "userId" | "receivedAt";
+type SortDir = "asc" | "desc";
 
 const EVENT_CATEGORIES: Record<string, EventCategory> = {
   "prode.ranking.changed": {
@@ -111,6 +124,15 @@ function relativeTime(iso: string): string {
   });
 }
 
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <ChevronsUpDown className="h-3 w-3 opacity-40" />;
+  return dir === "asc" ? (
+    <ChevronUp className="h-3 w-3" />
+  ) : (
+    <ChevronDown className="h-3 w-3" />
+  );
+}
+
 function EventRow({
   event,
   isFirst,
@@ -128,7 +150,7 @@ function EventRow({
     >
       <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${cat.dot}`} />
       <span
-        className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium shrink-0 ${cat.bg} ${cat.text}`}
+        className={`inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-medium shrink-0 min-w-[52px] ${cat.bg} ${cat.text}`}
       >
         {cat.label}
       </span>
@@ -340,6 +362,8 @@ export function LiveEventFeed() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [typePrefix, setTypePrefix] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("receivedAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const wsRef = useRef<WebSocket | null>(null);
   const [, setTick] = useState(0);
 
@@ -393,7 +417,6 @@ export function LiveEventFeed() {
     };
   }, []);
 
-  // Fetch history when tab is activated
   const fetchHistory = useCallback(
     (from?: string, to?: string, prefix?: string) => {
       setHistoryLoading(true);
@@ -429,7 +452,24 @@ export function LiveEventFeed() {
       );
   }, [fromDate, toDate, typePrefix, activeTab, fetchHistory]);
 
-  const displayEvents = activeTab === "live" ? liveEvents : history;
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "receivedAt" ? "desc" : "asc");
+    }
+  };
+
+  const baseEvents = activeTab === "live" ? liveEvents : history;
+  const displayEvents = [...baseEvents].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === "type") cmp = a.type.localeCompare(b.type);
+    else if (sortKey === "userId") cmp = a.userId.localeCompare(b.userId);
+    else
+      cmp = new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime();
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   return (
     <>
@@ -548,6 +588,33 @@ export function LiveEventFeed() {
           </div>
         </div>
 
+        {/* Column headers */}
+        <div className="flex items-center gap-3 px-5 py-1.5 border-b border-border/60 bg-muted/20">
+          <div className="h-1.5 w-1.5 shrink-0" />
+          <span className="text-[11px] font-medium text-muted-foreground/60 shrink-0 min-w-[52px]">
+            Categoría
+          </span>
+          <button
+            onClick={() => handleSort("type")}
+            className="flex items-center gap-0.5 flex-1 min-w-0 text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors text-left"
+          >
+            Evento <SortIcon active={sortKey === "type"} dir={sortDir} />
+          </button>
+          <button
+            onClick={() => handleSort("userId")}
+            className="flex items-center gap-0.5 max-w-[90px] w-full shrink-0 text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            Usuario <SortIcon active={sortKey === "userId"} dir={sortDir} />
+          </button>
+          <button
+            onClick={() => handleSort("receivedAt")}
+            className="flex items-center gap-0.5 shrink-0 text-[11px] font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            Recibido{" "}
+            <SortIcon active={sortKey === "receivedAt"} dir={sortDir} />
+          </button>
+        </div>
+
         {/* Events list */}
         <div className="divide-y divide-border/60 max-h-[360px] overflow-y-auto">
           {historyLoading ? (
@@ -584,7 +651,12 @@ export function LiveEventFeed() {
               <EventRow
                 key={event.id}
                 event={event}
-                isFirst={i === 0 && activeTab === "live"}
+                isFirst={
+                  i === 0 &&
+                  activeTab === "live" &&
+                  sortKey === "receivedAt" &&
+                  sortDir === "desc"
+                }
                 onClick={() => setSelectedEvent(event)}
               />
             ))
