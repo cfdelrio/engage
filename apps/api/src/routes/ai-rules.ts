@@ -5,7 +5,7 @@ import type { SerializedRule, RuleStatsMap } from "@engage/ai";
 const serializedRuleSchema = z.object({
   id: z.string(),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   conditions: z.unknown(),
   actions: z.unknown(),
   enabled: z.boolean(),
