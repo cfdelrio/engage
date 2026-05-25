@@ -97,7 +97,7 @@ const PRODE_EVENT_TYPES = [
   {
     type: "prode.voice_survey",
     description:
-      "Outbound voice survey call (TODO: validate script format with ProdeCaballito)",
+      "Llamada de encuesta de satisfacción para usuarios de ProdeCaballito",
   },
 ] as const;
 
@@ -878,9 +878,9 @@ async function main() {
       ],
     },
     {
-      name: "PC: voice_survey → Voice (TODO: validate script)",
+      name: "PC: voice_survey → Encuesta de voz",
       eventType: "prode.voice_survey",
-      enabled: false, // disabled until voice survey format is validated with ProdeCaballito
+      enabled: true,
       priority: 5,
       cooldownSeconds: 86400,
       actions: [{ type: "SEND_NOTIFICATION", params: { channel: "voice" } }],
@@ -971,19 +971,19 @@ async function main() {
     {
       id: "s1",
       type: "say",
-      text: "Hola, te llama ProdeCaballito. Gracias por participar del torneo. Te hacemos una pregunta rápida.",
+      text: "¡Hola! Te llama ProdeCaballito. Tenemos una pregunta rápida sobre tu experiencia de esta semana. Solo te tomará diez segundos.",
     },
     {
       id: "s2",
       type: "dtmf_question",
-      text: "¿Cómo calificás tu experiencia con el prode esta semana? Presioná 1 para excelente, 2 para buena, o 3 para regular.",
-      options: { "1": "excelente", "2": "buena", "3": "regular" },
+      text: "¿Cómo calificás tu experiencia jugando el prode esta semana? Presioná 1 si estuvo buenísima, 2 si estuvo bien, o 3 si hay algo para mejorar.",
+      options: { "1": "excelente", "2": "buena", "3": "mejorable" },
       timeout: 10,
     },
     {
       id: "s3",
       type: "say",
-      text: "¡Muchas gracias por tu respuesta! Seguí apostando y que gane el mejor. ¡Hasta pronto!",
+      text: "¡Muchísimas gracias por tu respuesta! Tu opinión nos ayuda a mejorar el prode. ¡Seguí jugando y que gane el mejor!",
     },
   ];
 
@@ -999,7 +999,7 @@ async function main() {
         name: "Encuesta de voz - ProdeCaballito",
         description:
           "Encuesta de satisfacción por llamada para usuarios del prode. Disparada por regla event-based.",
-        status: "draft",
+        status: "active",
         triggerType: "event-based",
         eventType: "prode.voice_survey",
         flowSteps: voiceSurveyFlowSteps,
@@ -1028,7 +1028,7 @@ async function main() {
   await prisma.rule.updateMany({
     where: {
       tenantId: tenant.id,
-      name: "PC: voice_survey → Voice (TODO: validate script)",
+      name: "PC: voice_survey → Encuesta de voz",
     },
     data: {
       enabled: true,

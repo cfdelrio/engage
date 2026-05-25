@@ -17,6 +17,7 @@ import {
   Rss,
   Search,
   Settings,
+  SlidersHorizontal,
   Users,
   Zap,
 } from "lucide-react";
@@ -50,6 +51,7 @@ const navSections = [
     items: [
       { href: "/events", label: "Eventos", icon: Zap },
       { href: "/users", label: "Users", icon: Users },
+      { href: "/preferences", label: "Preferences", icon: SlidersHorizontal },
       { href: "/channels", label: "Channels", icon: Radio },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/feeds", label: "Feeds", icon: Rss },

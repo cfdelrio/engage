@@ -542,6 +542,43 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     };
   });
 
+  // ─── Preference Stats ─────────────────────────────────────────────────────
+  // GET /admin/preferences/stats — aggregate opt-out stats across all users
+  fastify.get("/preferences/stats", async (request) => {
+    const tenantId = request.tenantId;
+
+    const [totalUsers, globalUnsubs, channelOptOuts] = await Promise.all([
+      fastify.prisma.user.count({ where: { tenantId } }),
+      fastify.prisma.globalUnsubscribe.findMany({
+        where: { tenantId, channel: "all" },
+        include: { user: { select: { externalId: true, email: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+      fastify.prisma.userPreference.groupBy({
+        by: ["channel"],
+        where: { tenantId, enabled: false, category: "all" },
+        _count: { _all: true },
+      }),
+    ]);
+
+    return {
+      totalUsers,
+      globalUnsubscribeCount: globalUnsubs.length,
+      globalUnsubscribes: globalUnsubs.map((u) => ({
+        externalId: u.user.externalId,
+        email: u.user.email,
+        channel: u.channel,
+        reason: u.reason,
+        createdAt: u.createdAt,
+      })),
+      channelOptOuts: channelOptOuts.map((c) => ({
+        channel: c.channel,
+        count: c._count._all,
+      })),
+    };
+  });
+
   // ─── Voice Campaign Surveys ───────────────────────────────────────────────
   // POST /admin/voice-campeon-survey — Create temporary survey prompt
   fastify.post<{
