@@ -46,6 +46,12 @@ export const pushCampaignSchema = z.object({
   eventType: z.string().optional(),
 });
 
+const whatsAppButtonSchema = z.object({
+  type: z.enum(["reply", "url"]),
+  text: z.string().max(20),
+  value: z.string().optional(),
+});
+
 export const whatsAppCampaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
   description: z.string().optional(),
@@ -53,6 +59,13 @@ export const whatsAppCampaignSchema = z.object({
     .string()
     .min(1, "Message is required")
     .max(4096, "Message must be 4096 characters or less"),
+  headerType: z.enum(["none", "text", "image", "document", "video"]),
+  headerValue: z.string().optional(),
+  footerText: z
+    .string()
+    .max(60, "Footer must be 60 characters or less")
+    .optional(),
+  buttons: z.array(whatsAppButtonSchema).max(3).optional(),
   triggerType: triggerTypeSchema,
   eventType: z.string().optional(),
 });

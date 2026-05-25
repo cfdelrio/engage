@@ -29,14 +29,15 @@ import {
   AlertDialogFooter,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Play, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pause, Play, Trash2 } from "lucide-react";
 
 interface WhatsAppCampaign {
   id: string;
   name: string;
-  message: string;
+  body: string;
   status: string;
   createdAt: string;
+  _count?: { messages: number };
 }
 
 export function WhatsAppCampaignList() {
@@ -87,10 +88,22 @@ export function WhatsAppCampaignList() {
 
   const handleStart = async (id: string) => {
     try {
-      const response = await apiFetch(`/v1/whatsapp-campaigns/${id}/send`, {
+      const response = await apiFetch(`/v1/whatsapp-campaigns/${id}/start`, {
         method: "POST",
       });
       if (!response.ok) throw new Error("Failed to start campaign");
+      await fetchCampaigns();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    }
+  };
+
+  const handlePause = async (id: string) => {
+    try {
+      const response = await apiFetch(`/v1/whatsapp-campaigns/${id}/pause`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to pause campaign");
       await fetchCampaigns();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -131,6 +144,7 @@ export function WhatsAppCampaignList() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Message</TableHead>
+                <TableHead className="text-right">Sent</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -147,7 +161,10 @@ export function WhatsAppCampaignList() {
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                    {campaign.message}
+                    {campaign.body}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm">
+                    {campaign._count?.messages ?? 0}
                   </TableCell>
                   <TableCell>
                     <CampaignStatusBadge status={campaign.status} />
@@ -174,6 +191,14 @@ export function WhatsAppCampaignList() {
                           >
                             <Play className="h-4 w-4 mr-2" />
                             Send
+                          </DropdownMenuItem>
+                        )}
+                        {campaign.status === "active" && (
+                          <DropdownMenuItem
+                            onClick={() => handlePause(campaign.id)}
+                          >
+                            <Pause className="h-4 w-4 mr-2" />
+                            Pause
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem

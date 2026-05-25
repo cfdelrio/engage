@@ -306,35 +306,131 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
     return Array.from(byDate.values());
   });
 
-  // Campaign performance metrics
+  // Campaign performance metrics — real delivery counts per campaign
   fastify.get("/campaigns", async (request) => {
     const tenantId = request.tenantId;
+    const query = request.query as { from?: string; to?: string };
+    const from = query.from
+      ? new Date(query.from)
+      : new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    const to = query.to ? new Date(query.to) : new Date();
 
-    const campaigns = await fastify.prisma.campaign.findMany({
-      where: { tenantId },
-      take: 50,
-      orderBy: { createdAt: "desc" },
-    });
+    const calcMetrics = (deliveries: { status: string }[]) => {
+      const sent = deliveries.length;
+      const delivered = deliveries.filter(
+        (d) =>
+          d.status === "delivered" ||
+          d.status === "opened" ||
+          d.status === "clicked",
+      ).length;
+      const opened = deliveries.filter(
+        (d) => d.status === "opened" || d.status === "clicked",
+      ).length;
+      const clicked = deliveries.filter((d) => d.status === "clicked").length;
+      return {
+        sent,
+        delivered,
+        opened,
+        clicked,
+        converted: clicked,
+        deliveryRate: sent > 0 ? delivered / sent : 0,
+        openRate: delivered > 0 ? opened / delivered : 0,
+        clickRate: opened > 0 ? clicked / opened : 0,
+        conversionRate: opened > 0 ? clicked / opened : 0,
+      };
+    };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const metrics = campaigns.map((campaign: any) => ({
-      id: campaign.id,
-      name: campaign.name,
-      type: campaign.type || "unknown",
-      status: campaign.status || "draft",
-      sent: 0,
-      delivered: 0,
-      opened: 0,
-      clicked: 0,
-      converted: 0,
-      deliveryRate: 0,
-      openRate: 0,
-      clickRate: 0,
-      conversionRate: 0,
-      createdAt: campaign.createdAt.toISOString(),
-    }));
+    const [emailCampaigns, whatsAppCampaigns, smsCampaigns, pushCampaigns] =
+      await Promise.all([
+        fastify.prisma.emailCampaign.findMany({
+          where: { tenantId, createdAt: { gte: from, lte: to } },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            createdAt: true,
+            deliveries: { select: { status: true } },
+          },
+          take: 20,
+          orderBy: { createdAt: "desc" },
+        }),
+        fastify.prisma.whatsAppCampaign.findMany({
+          where: { tenantId, createdAt: { gte: from, lte: to } },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            createdAt: true,
+            messages: { select: { status: true } },
+          },
+          take: 20,
+          orderBy: { createdAt: "desc" },
+        }),
+        fastify.prisma.smsCampaign.findMany({
+          where: { tenantId, createdAt: { gte: from, lte: to } },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            createdAt: true,
+            deliveries: { select: { status: true } },
+          },
+          take: 10,
+          orderBy: { createdAt: "desc" },
+        }),
+        fastify.prisma.pushCampaign.findMany({
+          where: { tenantId, createdAt: { gte: from, lte: to } },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            createdAt: true,
+            notifications: { select: { status: true } },
+          },
+          take: 10,
+          orderBy: { createdAt: "desc" },
+        }),
+      ]);
 
-    return metrics;
+    const results = [
+      ...emailCampaigns.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: "email",
+        status: c.status,
+        createdAt: c.createdAt.toISOString(),
+        ...calcMetrics(c.deliveries),
+      })),
+      ...whatsAppCampaigns.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: "whatsapp",
+        status: c.status,
+        createdAt: c.createdAt.toISOString(),
+        ...calcMetrics(c.messages),
+      })),
+      ...smsCampaigns.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: "sms",
+        status: c.status,
+        createdAt: c.createdAt.toISOString(),
+        ...calcMetrics(c.deliveries),
+      })),
+      ...pushCampaigns.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: "push",
+        status: c.status,
+        createdAt: c.createdAt.toISOString(),
+        ...calcMetrics(c.notifications),
+      })),
+    ];
+
+    return results.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   });
 };
 

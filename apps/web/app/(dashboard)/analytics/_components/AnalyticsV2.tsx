@@ -7,6 +7,7 @@ import { KPICards } from "./KPICards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { ChannelComparison } from "./ChannelComparison";
 import { CampaignPerformance } from "./CampaignPerformance";
+import { ConversionFunnel } from "./ConversionFunnel";
 import { DateRangePicker } from "./DateRangePicker";
 
 const QUICK_DAYS = [7, 14, 30] as const;
@@ -65,6 +66,7 @@ export function AnalyticsV2() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="funnel">Funnel</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
         </TabsList>
 
@@ -76,6 +78,11 @@ export function AnalyticsV2() {
         {/* Channels Tab */}
         <TabsContent value="channels" className="mt-6 space-y-6">
           <ChannelComparison dateRange={dateRange} />
+        </TabsContent>
+
+        {/* Funnel Tab */}
+        <TabsContent value="funnel" className="mt-6 space-y-6">
+          <ConversionFunnel dateRange={dateRange} />
         </TabsContent>
 
         {/* Campaigns Tab */}
