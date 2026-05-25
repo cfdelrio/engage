@@ -345,7 +345,8 @@ export function VoiceCampaignList() {
                             </Link>
                           </DropdownMenuItem>
                           {campaign.status === "draft" &&
-                            (campaign.audienceSize ? (
+                            (campaign.audienceSize ||
+                            campaign.orkestaiCampaignId ? (
                               <DropdownMenuItem
                                 onClick={() => openFireConfirm(campaign)}
                               >
@@ -603,15 +604,24 @@ export function VoiceCampaignList() {
             <div className="flex items-center gap-2 mb-2 text-muted-foreground">
               <Users className="h-4 w-4" />
               <span className="text-xs font-medium uppercase tracking-wide">
-                Audiencia de ENGAGE
+                Audiencia
               </span>
             </div>
-            <p className="text-2xl font-bold tabular-nums">
-              {fireTarget?.audienceSize ?? 0}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              usuarios se van a llamar
-            </p>
+            {fireTarget?.orkestaiCampaignId && !fireTarget?.audienceSize ? (
+              <p className="text-sm text-muted-foreground">
+                La audiencia está definida en orkestai-voice. Los llamados se
+                van a disparar a los destinatarios configurados allá.
+              </p>
+            ) : (
+              <>
+                <p className="text-2xl font-bold tabular-nums">
+                  {fireTarget?.audienceSize ?? 0}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  usuarios se van a llamar
+                </p>
+              </>
+            )}
           </div>
 
           <div className="border-t border-border" />
