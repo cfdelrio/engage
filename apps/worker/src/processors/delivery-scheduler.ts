@@ -307,6 +307,9 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
           subject: renderedSubject,
           body: renderedBody,
           metadata: twilioTemplateMeta,
+          ...(channel === "voice" && eventPayload.business_context
+            ? { businessContext: eventPayload.business_context }
+            : {}),
         },
       });
     } catch (err) {
