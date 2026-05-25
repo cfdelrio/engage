@@ -404,6 +404,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async (request) => {
     const {
       type,
+      typePrefix,
       userId,
       from,
       to,
@@ -414,7 +415,11 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
     return fastify.prisma.event.findMany({
       where: {
         tenantId: request.tenantId,
-        ...(type && { type }),
+        ...(type
+          ? { type }
+          : typePrefix
+            ? { type: { startsWith: `${typePrefix}.` } }
+            : {}),
         ...(userId && { userId }),
         ...(from || to
           ? {

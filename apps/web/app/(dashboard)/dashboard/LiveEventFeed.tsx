@@ -334,6 +334,7 @@ export function LiveEventFeed() {
   const [selectedEvent, setSelectedEvent] = useState<LiveEvent | null>(null);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [typePrefix, setTypePrefix] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const [, setTick] = useState(0);
 
@@ -385,28 +386,40 @@ export function LiveEventFeed() {
   }, []);
 
   // Fetch history when tab is activated
-  const fetchHistory = useCallback((from?: string, to?: string) => {
-    setHistoryLoading(true);
-    const params = new URLSearchParams({ limit: "50" });
-    if (from) params.set("from", `${from}T00:00:00.000Z`);
-    if (to) params.set("to", `${to}T23:59:59.999Z`);
-    apiFetch(`/v1/events?${params}`, {})
-      .then((r) => r.json())
-      .then((data) => setHistory(Array.isArray(data) ? data : []))
-      .catch(() => {})
-      .finally(() => setHistoryLoading(false));
-  }, []);
+  const fetchHistory = useCallback(
+    (from?: string, to?: string, prefix?: string) => {
+      setHistoryLoading(true);
+      const params = new URLSearchParams({ limit: "50" });
+      if (from) params.set("from", `${from}T00:00:00.000Z`);
+      if (to) params.set("to", `${to}T23:59:59.999Z`);
+      if (prefix) params.set("typePrefix", prefix);
+      apiFetch(`/v1/events?${params}`, {})
+        .then((r) => r.json())
+        .then((data) => setHistory(Array.isArray(data) ? data : []))
+        .catch(() => {})
+        .finally(() => setHistoryLoading(false));
+    },
+    [],
+  );
 
   const handleTabChange = (tab: "live" | "history") => {
     setActiveTab(tab);
     if (tab === "history")
-      fetchHistory(fromDate || undefined, toDate || undefined);
+      fetchHistory(
+        fromDate || undefined,
+        toDate || undefined,
+        typePrefix || undefined,
+      );
   };
 
   useEffect(() => {
     if (activeTab === "history")
-      fetchHistory(fromDate || undefined, toDate || undefined);
-  }, [fromDate, toDate, activeTab, fetchHistory]);
+      fetchHistory(
+        fromDate || undefined,
+        toDate || undefined,
+        typePrefix || undefined,
+      );
+  }, [fromDate, toDate, typePrefix, activeTab, fetchHistory]);
 
   const displayEvents = activeTab === "live" ? liveEvents : history;
 
@@ -464,6 +477,16 @@ export function LiveEventFeed() {
             )}
             {activeTab === "history" && (
               <div className="flex items-center gap-1.5">
+                <select
+                  value={typePrefix}
+                  onChange={(e) => setTypePrefix(e.target.value)}
+                  className="rounded-lg border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-foreground outline-none cursor-pointer"
+                >
+                  <option value="">Todos</option>
+                  <option value="prode">prode.*</option>
+                  <option value="user">user.*</option>
+                  <option value="match">match.*</option>
+                </select>
                 <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 px-2 py-0.5">
                   <span className="text-[10px] text-muted-foreground">
                     desde
@@ -486,21 +509,26 @@ export function LiveEventFeed() {
                     className="text-[11px] bg-transparent text-foreground outline-none w-[90px] cursor-pointer"
                   />
                 </div>
-                {(fromDate || toDate) && (
+                {(fromDate || toDate || typePrefix) && (
                   <button
                     onClick={() => {
                       setFromDate("");
                       setToDate("");
+                      setTypePrefix("");
                     }}
                     className="text-muted-foreground hover:text-foreground transition-colors"
-                    title="Limpiar fechas"
+                    title="Limpiar filtros"
                   >
                     <X className="h-3 w-3" />
                   </button>
                 )}
                 <button
                   onClick={() =>
-                    fetchHistory(fromDate || undefined, toDate || undefined)
+                    fetchHistory(
+                      fromDate || undefined,
+                      toDate || undefined,
+                      typePrefix || undefined,
+                    )
                   }
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   disabled={historyLoading}
