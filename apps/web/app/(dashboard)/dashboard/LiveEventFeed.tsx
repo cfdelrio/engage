@@ -405,6 +405,7 @@ export function LiveEventFeed() {
       if (saved.fromDate) setFromDate(saved.fromDate);
       if (saved.toDate) setToDate(saved.toDate);
       if (saved.typePrefix) setTypePrefix(saved.typePrefix);
+      if (saved.deliveryStatus) setDeliveryStatus(saved.deliveryStatus);
       if (saved.activeTab) setActiveTab(saved.activeTab as "live" | "history");
     } catch {}
   }, []);
@@ -421,11 +422,21 @@ export function LiveEventFeed() {
           fromDate,
           toDate,
           typePrefix,
+          deliveryStatus,
           activeTab,
         }),
       );
     } catch {}
-  }, [sortKey, sortDir, userFilter, fromDate, toDate, typePrefix, activeTab]);
+  }, [
+    sortKey,
+    sortDir,
+    userFilter,
+    fromDate,
+    toDate,
+    typePrefix,
+    deliveryStatus,
+    activeTab,
+  ]);
 
   // WebSocket for live events
   useEffect(() => {
@@ -519,6 +530,17 @@ export function LiveEventFeed() {
     }
   };
 
+  const clearFilters = () => {
+    setFromDate("");
+    setToDate("");
+    setTypePrefix("");
+    setDeliveryStatus("");
+    setUserFilter("");
+  };
+
+  const hasActiveFilters =
+    !!fromDate || !!toDate || !!typePrefix || !!deliveryStatus || !!userFilter;
+
   const baseEvents = activeTab === "live" ? liveEvents : history;
   const displayEvents = [...baseEvents]
     .filter(
@@ -546,7 +568,7 @@ export function LiveEventFeed() {
       )}
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        {/* Header */}
+        {/* Header: title + tabs + connection status */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <div className="flex items-center gap-2.5">
             <Radio className="h-4 w-4 text-muted-foreground" />
@@ -558,7 +580,6 @@ export function LiveEventFeed() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            {/* Tab switcher */}
             <div className="flex items-center rounded-lg border border-border overflow-hidden text-[11px]">
               <button
                 onClick={() => handleTabChange("live")}
@@ -573,117 +594,112 @@ export function LiveEventFeed() {
                 Historial
               </button>
             </div>
-            {activeTab === "live" && (
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <div
-                    className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-500" : "bg-muted-foreground/40"} ${connected ? "animate-live-pulse" : ""}`}
-                  />
-                  {connected && (
-                    <div className="absolute inset-0 h-2 w-2 rounded-full bg-emerald-500 animate-status-ring" />
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {connected ? "Conectado" : "Reconectando..."}
-                </span>
-              </div>
-            )}
-            {activeTab === "history" && (
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={typePrefix}
-                  onChange={(e) => setTypePrefix(e.target.value)}
-                  className="rounded-lg border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-foreground outline-none cursor-pointer"
-                >
-                  <option value="">Todos</option>
-                  <option value="prode">prode.*</option>
-                  <option value="user">user.*</option>
-                  <option value="match">match.*</option>
-                </select>
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 px-2 py-0.5">
-                  <span className="text-[10px] text-muted-foreground">
-                    desde
-                  </span>
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="text-[11px] bg-transparent text-foreground outline-none w-[90px] cursor-pointer"
-                  />
-                </div>
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 px-2 py-0.5">
-                  <span className="text-[10px] text-muted-foreground">
-                    hasta
-                  </span>
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="text-[11px] bg-transparent text-foreground outline-none w-[90px] cursor-pointer"
-                  />
-                </div>
-                <select
-                  value={deliveryStatus}
-                  onChange={(e) => setDeliveryStatus(e.target.value)}
-                  className="rounded-lg border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-foreground outline-none cursor-pointer"
-                >
-                  <option value="">Delivery: todos</option>
-                  <option value="any">Con delivery</option>
-                  <option value="sent">Enviado</option>
-                  <option value="delivered">Entregado</option>
-                  <option value="failed">Fallido</option>
-                </select>
-                {(fromDate || toDate || typePrefix || deliveryStatus) && (
-                  <button
-                    onClick={() => {
-                      setFromDate("");
-                      setToDate("");
-                      setTypePrefix("");
-                      setUserFilter("");
-                      setDeliveryStatus("");
-                    }}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    title="Limpiar filtros"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+            <div className="flex items-center gap-1.5">
+              <div className="relative">
+                <div
+                  className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-500" : "bg-muted-foreground/40"} ${connected ? "animate-live-pulse" : ""}`}
+                />
+                {connected && (
+                  <div className="absolute inset-0 h-2 w-2 rounded-full bg-emerald-500 animate-status-ring" />
                 )}
-                <button
-                  onClick={() =>
-                    fetchHistory(
-                      fromDate || undefined,
-                      toDate || undefined,
-                      typePrefix || undefined,
-                      deliveryStatus || undefined,
-                    )
-                  }
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  disabled={historyLoading}
-                >
-                  {historyLoading ? "Cargando..." : "↺"}
-                </button>
               </div>
-            )}
+              <span className="text-xs text-muted-foreground">
+                {connected ? "Conectado" : "Reconectando..."}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* User filter bar */}
-        <div className="flex items-center gap-2 px-5 py-1.5 border-b border-border/60 bg-muted/10">
-          <User className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-          <input
-            type="text"
-            placeholder="Filtrar por usuario..."
-            value={userFilter}
-            onChange={(e) => setUserFilter(e.target.value)}
-            className="flex-1 text-[11px] bg-transparent text-foreground placeholder:text-muted-foreground/40 outline-none"
-          />
-          {userFilter && (
-            <button
-              onClick={() => setUserFilter("")}
-              className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-            >
-              <X className="h-3 w-3" />
-            </button>
+        {/* Unified filter bar */}
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border/60 bg-muted/10">
+          {/* User search — always visible */}
+          <div className="flex items-center gap-1.5 flex-1 min-w-0 rounded-md border border-border/60 bg-background px-2 py-1">
+            <User className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+            <input
+              type="text"
+              placeholder="Usuario..."
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              className="flex-1 min-w-0 text-[11px] bg-transparent text-foreground placeholder:text-muted-foreground/40 outline-none"
+            />
+            {userFilter && (
+              <button
+                onClick={() => setUserFilter("")}
+                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          {/* History-specific filters */}
+          {activeTab === "history" && (
+            <>
+              <div className="h-4 w-px bg-border/60 shrink-0" />
+              <select
+                value={typePrefix}
+                onChange={(e) => setTypePrefix(e.target.value)}
+                className="rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground outline-none cursor-pointer shrink-0"
+              >
+                <option value="">Todos</option>
+                <option value="prode">prode.*</option>
+                <option value="user">user.*</option>
+                <option value="match">match.*</option>
+              </select>
+              <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background px-2 py-1 shrink-0">
+                <span className="text-[10px] text-muted-foreground">desde</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="text-[11px] bg-transparent text-foreground outline-none w-[86px] cursor-pointer"
+                />
+              </div>
+              <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background px-2 py-1 shrink-0">
+                <span className="text-[10px] text-muted-foreground">hasta</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="text-[11px] bg-transparent text-foreground outline-none w-[86px] cursor-pointer"
+                />
+              </div>
+              <select
+                value={deliveryStatus}
+                onChange={(e) => setDeliveryStatus(e.target.value)}
+                className="rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground outline-none cursor-pointer shrink-0"
+              >
+                <option value="">Delivery: todos</option>
+                <option value="any">Con delivery</option>
+                <option value="sent">Enviado</option>
+                <option value="delivered">Entregado</option>
+                <option value="failed">Fallido</option>
+              </select>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  title="Limpiar filtros"
+                  className="text-muted-foreground/60 hover:text-muted-foreground transition-colors shrink-0"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                onClick={() =>
+                  fetchHistory(
+                    fromDate || undefined,
+                    toDate || undefined,
+                    typePrefix || undefined,
+                    deliveryStatus || undefined,
+                  )
+                }
+                disabled={historyLoading}
+                title="Actualizar"
+                className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors shrink-0 disabled:opacity-40"
+              >
+                ↺
+              </button>
+            </>
           )}
         </div>
 
