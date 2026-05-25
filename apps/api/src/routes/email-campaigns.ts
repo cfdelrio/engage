@@ -146,7 +146,7 @@ const emailCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     return updated;
   });
 
-  // Delete campaign (draft only)
+  // Delete campaign
   fastify.delete(
     "/:id",
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -155,11 +155,6 @@ const emailCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id, tenantId: request.tenantId },
       });
       if (!campaign) return reply.status(404).send({ error: "Not found" });
-      if (campaign.status !== "draft") {
-        return reply
-          .status(400)
-          .send({ error: "Can only delete draft campaigns" });
-      }
       await fastify.prisma.emailCampaign.delete({ where: { id } });
       return reply.status(204).send();
     },

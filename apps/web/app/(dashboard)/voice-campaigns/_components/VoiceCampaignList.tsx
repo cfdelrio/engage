@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { CampaignStatusBadge } from "@/components/ui/campaign-status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,10 +34,12 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogClose,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   MoreHorizontal,
   Play,
@@ -65,14 +68,6 @@ interface VoiceCampaign {
   createdAt: string;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-900",
-  running: "bg-green-100 text-green-900",
-  active: "bg-green-100 text-green-900",
-  paused: "bg-yellow-100 text-yellow-900",
-  completed: "bg-blue-100 text-blue-900",
-};
-
 export function VoiceCampaignList() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<VoiceCampaign[]>([]);
@@ -99,6 +94,8 @@ export function VoiceCampaignList() {
   const [audienceLoading, setAudienceLoading] = useState(false);
   const [firing, setFiring] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
+  const [fireTarget, setFireTarget] = useState<VoiceCampaign | null>(null);
+  const [fireConsentOnly, setFireConsentOnly] = useState(false);
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -142,21 +139,10 @@ export function VoiceCampaignList() {
     }
   };
 
-  const selectForLaunch = async (rc: RemoteCampaign) => {
+  const selectForLaunch = (rc: RemoteCampaign) => {
     setSelectedRemote(rc);
-    setAudienceLoading(true);
     setAudienceCount(null);
-    try {
-      const res = await apiFetch("/v1/voice-campaigns/audience-preview");
-      if (res.ok) {
-        const data = await res.json();
-        setAudienceCount(data);
-      }
-    } catch {
-      // non-critical
-    } finally {
-      setAudienceLoading(false);
-    }
+    // useEffect handles the audience fetch when selectedRemote changes
   };
 
   // Re-fetch audience count when consent toggle changes
@@ -229,6 +215,33 @@ export function VoiceCampaignList() {
     }
   };
 
+  const openFireConfirm = (campaign: VoiceCampaign) => {
+    setFireTarget(campaign);
+    setFireConsentOnly(false);
+  };
+
+  const handleConfirmFire = async () => {
+    if (!fireTarget) return;
+    setFiring(true);
+    try {
+      const response = await apiFetch(
+        `/v1/voice-campaigns/${fireTarget.id}/start`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ consentOnly: fireConsentOnly }),
+        },
+      );
+      if (!response.ok) throw new Error("Failed to start campaign");
+      setFireTarget(null);
+      await fetchCampaigns();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setFiring(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       setDeleting(true);
@@ -242,18 +255,6 @@ export function VoiceCampaignList() {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const handleStart = async (id: string) => {
-    try {
-      const response = await apiFetch(`/v1/voice-campaigns/${id}/start`, {
-        method: "POST",
-      });
-      if (!response.ok) throw new Error("Failed to start campaign");
-      await fetchCampaigns();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
     }
   };
 
@@ -316,15 +317,13 @@ export function VoiceCampaignList() {
                   <TableRow key={campaign.id}>
                     <TableCell>
                       <Link href={`/voice-campaigns/${campaign.id}`}>
-                        <span className="text-blue-600 hover:underline">
+                        <span className="text-primary hover:underline">
                           {campaign.name}
                         </span>
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Badge className={STATUS_COLORS[campaign.status] || ""}>
-                        {campaign.status}
-                      </Badge>
+                      <CampaignStatusBadge status={campaign.status} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {campaign.audienceSize ?? 0} contactos
@@ -346,12 +345,13 @@ export function VoiceCampaignList() {
                             </Link>
                           </DropdownMenuItem>
                           {campaign.status === "draft" &&
-                            (campaign.audienceSize ? (
+                            (campaign.audienceSize ||
+                            campaign.orkestaiCampaignId ? (
                               <DropdownMenuItem
-                                onClick={() => handleStart(campaign.id)}
+                                onClick={() => openFireConfirm(campaign)}
                               >
-                                <Play className="h-4 w-4 mr-2" />
-                                Iniciar
+                                <Zap className="h-4 w-4 mr-2" />
+                                Disparar
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem asChild>
@@ -367,15 +367,13 @@ export function VoiceCampaignList() {
                                 </span>
                               </DropdownMenuItem>
                             ))}
-                          {campaign.status !== "running" && (
-                            <DropdownMenuItem
-                              onClick={() => setDeleteId(campaign.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          )}
+                          <DropdownMenuItem
+                            onClick={() => setDeleteId(campaign.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Eliminar
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -403,11 +401,10 @@ export function VoiceCampaignList() {
           {!selectedRemote ? (
             <>
               <DialogHeader>
-                <DialogTitle>Importar campaña de voz</DialogTitle>
+                <DialogTitle>Disparar desde orkestai-voice</DialogTitle>
                 <DialogDescription>
-                  Seleccioná una campaña ya construida en orkestai-voice.
-                  Después, crea una regla o evento en ENGAGE para dispararla
-                  automáticamente.
+                  Seleccioná una campaña para disparar ahora o importarla a
+                  ENGAGE.
                 </DialogDescription>
               </DialogHeader>
               {remoteLoading ? (
@@ -424,44 +421,47 @@ export function VoiceCampaignList() {
                   No se encontraron campañas en orkestai-voice.
                 </p>
               ) : (
-                <div className="space-y-2 max-h-80 overflow-y-auto">
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                   {remoteCampaigns.map((rc) => (
                     <div
                       key={rc.id}
-                      className="rounded-lg border p-3 space-y-2"
+                      className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
                           <p className="font-medium text-sm truncate">
                             {rc.name}
                           </p>
-                          {rc.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                              {rc.description}
-                            </p>
-                          )}
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] shrink-0 px-1.5"
+                          >
+                            {rc.status}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {rc.status}
-                        </Badge>
+                        {rc.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                            {rc.description}
+                          </p>
+                        )}
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1 h-7 text-xs gap-1"
-                          onClick={() => selectForLaunch(rc)}
-                        >
-                          <Zap className="h-3 w-3" />
-                          Disparar ahora
-                        </Button>
+                      <div className="flex items-center gap-2 shrink-0">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs"
+                          className="h-8 text-xs"
                           disabled={!!importing}
                           onClick={() => handleImport(rc)}
                         >
                           {importing === rc.id ? "Importando..." : "Importar"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={() => selectForLaunch(rc)}
+                        >
+                          <Zap className="h-3 w-3" />
+                          Disparar ahora
                         </Button>
                       </div>
                     </div>
@@ -541,7 +541,7 @@ export function VoiceCampaignList() {
                       Solo usuarios con consentimiento
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Filtra por <code>whatsapp_consent: true</code> en los
+                      Filtra por <code>phone_consent: true</code> en los
                       metadatos del usuario
                     </p>
                   </div>
@@ -549,24 +549,126 @@ export function VoiceCampaignList() {
 
                 {error && <p className="text-sm text-destructive">{error}</p>}
 
-                <Button
-                  className="w-full gap-2"
-                  disabled={
-                    firing ||
-                    audienceLoading ||
-                    (!!audienceCount &&
-                      (requireConsent
-                        ? audienceCount.withConsent
-                        : audienceCount.total) === 0)
-                  }
-                  onClick={handleLaunch}
-                >
-                  <Zap className="h-4 w-4" />
-                  {firing ? "Disparando..." : "Confirmar y Disparar"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    className="flex-1 gap-2"
+                    disabled={
+                      firing ||
+                      audienceLoading ||
+                      (!!audienceCount &&
+                        (requireConsent
+                          ? audienceCount.withConsent
+                          : audienceCount.total) === 0)
+                    }
+                    onClick={handleLaunch}
+                  >
+                    <Zap className="h-4 w-4" />
+                    {firing ? "Disparando..." : "Confirmar y Disparar"}
+                  </Button>
+                </div>
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Fire confirmation dialog */}
+      <Dialog
+        open={!!fireTarget}
+        onOpenChange={(open) => !open && setFireTarget(null)}
+      >
+        <DialogContent className="max-w-md p-0 overflow-hidden">
+          <div className="flex items-start justify-between px-6 pt-5 pb-4">
+            <div>
+              <DialogTitle className="text-base font-semibold">
+                {fireTarget?.name}
+              </DialogTitle>
+              <DialogDescription className="mt-0.5">
+                Confirmá la audiencia antes de disparar.
+              </DialogDescription>
+            </div>
+            <DialogClose onClose={() => setFireTarget(null)} />
+          </div>
+
+          <div className="border-t border-border" />
+
+          <div className="px-6 py-4 bg-muted/40">
+            <div className="flex items-center gap-2 mb-2 text-muted-foreground">
+              <Users className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wide">
+                Audiencia
+              </span>
+            </div>
+            {fireTarget?.orkestaiCampaignId && !fireTarget?.audienceSize ? (
+              <p className="text-sm text-muted-foreground">
+                La audiencia está definida en orkestai-voice. Los llamados se
+                van a disparar a los destinatarios configurados allá.
+              </p>
+            ) : (
+              <>
+                <p className="text-2xl font-bold tabular-nums">
+                  {fireTarget?.audienceSize ?? 0}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  usuarios se van a llamar
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="border-t border-border" />
+
+          <div className="px-6 py-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="consentOnly"
+                checked={fireConsentOnly}
+                onCheckedChange={(v) => setFireConsentOnly(!!v)}
+              />
+              <div>
+                <label
+                  htmlFor="consentOnly"
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Solo usuarios con consentimiento
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Filtra por{" "}
+                  <code className="bg-muted px-1 py-0.5 rounded text-[11px]">
+                    phone_consent: true
+                  </code>{" "}
+                  en los metadatos del usuario
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border" />
+
+          <div className="flex justify-end gap-2 px-6 py-4">
+            <Button
+              variant="outline"
+              onClick={() => setFireTarget(null)}
+              disabled={firing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmFire}
+              disabled={firing}
+              className="gap-2"
+            >
+              <Zap className="h-4 w-4" />
+              {firing ? "Disparando..." : "Confirmar y Disparar"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -577,14 +679,16 @@ export function VoiceCampaignList() {
         <AlertDialogContent>
           <AlertDialogTitle>Eliminar campaña</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción no se puede deshacer. La campaña será eliminada
-            permanentemente.
+            {campaigns.find((c) => c.id === deleteId)?.status === "running"
+              ? "Esta campaña está en ejecución. Detenerla antes de eliminarla es recomendable. ¿Querés eliminarla igual?"
+              : "Esta acción no se puede deshacer. La campaña será eliminada permanentemente."}
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteId && handleDelete(deleteId)}
               disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
             >
               {deleting ? "Eliminando..." : "Eliminar"}
             </AlertDialogAction>

@@ -14,7 +14,9 @@ export default function NewTemplatePage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Create Template</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">
+            Create Template
+          </h1>
           <p className="text-muted-foreground mt-1">
             Use {"{{variable}}"} for dynamic content. Example:{" "}
             {"{{user.firstName}}"}

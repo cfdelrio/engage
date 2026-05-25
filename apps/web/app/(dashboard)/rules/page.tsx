@@ -10,7 +10,7 @@ export default function RulesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold">Rules</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">Rules</h1>
           <p className="text-muted-foreground mt-2">
             Create IF/THEN rules to automate engagement decisions based on
             events and user actions

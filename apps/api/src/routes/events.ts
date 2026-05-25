@@ -4,6 +4,10 @@ import { isDuplicate, getQueue, QUEUES } from "@engage/event-bus";
 import { REDIS_KEYS } from "@engage/core";
 import { asJson } from "../utils/prisma.js";
 
+function isValidE164(phone: string): boolean {
+  return /^\+[1-9]\d{6,14}$/.test(phone);
+}
+
 interface EventJobPayload {
   eventId: string;
   tenantId: string;
@@ -71,27 +75,43 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         process.env["DEFAULT_LOCALE"] ??
         "en";
 
-      // Upsert user if not exists
+      // Upsert user — always update timezone/locale so they stay in sync with incoming events
+      const upsertData = {
+        timezone: defaultTimezone,
+        locale: defaultLocale,
+      };
       await fastify.prisma.user.upsert({
         where: { tenantId_externalId: { tenantId, externalId: body.userId } },
-        update: {},
+        update: upsertData,
         create: {
           tenantId,
           externalId: body.userId,
-          timezone: defaultTimezone,
-          locale: defaultLocale,
+          ...upsertData,
         },
       });
       if (userContact) {
         const contactUpdate: Record<string, unknown> = {};
         if (userContact.email) contactUpdate.email = String(userContact.email);
-        if (userContact.phone) contactUpdate.phone = String(userContact.phone);
+        if (userContact.phone) {
+          const phone = String(userContact.phone);
+          if (!isValidE164(phone)) {
+            request.log.warn(
+              { phone, userId: body.userId },
+              "Phone number not in E.164 format — storing but marking as invalid",
+            );
+          }
+          contactUpdate.phone = phone;
+        }
         if (userContact.idioma_pref)
           contactUpdate.locale = String(userContact.idioma_pref);
         const metaUpdate: Record<string, unknown> = {};
         if (userContact.whatsapp_consent !== undefined)
           metaUpdate.whatsapp_consent = Boolean(userContact.whatsapp_consent);
         if (userContact.nombre) metaUpdate.nombre = String(userContact.nombre);
+        if (userContact.phone) {
+          const phone = String(userContact.phone);
+          metaUpdate.phone_format_warning = !isValidE164(phone);
+        }
         await fastify.prisma.user.update({
           where: { tenantId_externalId: { tenantId, externalId: body.userId } },
           data: { ...contactUpdate, metadata: asJson(metaUpdate) },
@@ -201,16 +221,31 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
             continue;
           }
 
+          const batchUserContact = (
+            eventData.metadata as Record<string, unknown>
+          )?.user_contact as Record<string, unknown> | undefined;
+          const batchTimezone =
+            (batchUserContact?.timezone as string | undefined) ??
+            process.env["DEFAULT_TIMEZONE"] ??
+            "UTC";
+          const batchLocale =
+            (batchUserContact?.idioma_pref as string | undefined) ??
+            process.env["DEFAULT_LOCALE"] ??
+            "en";
+          const batchUpsertData = {
+            timezone: batchTimezone,
+            locale: batchLocale,
+          };
+
           await fastify.prisma.user.upsert({
             where: {
               tenantId_externalId: { tenantId, externalId: eventData.userId },
             },
-            update: {},
+            update: batchUpsertData,
             create: {
               tenantId,
               externalId: eventData.userId,
-              timezone: "America/Argentina/Buenos_Aires",
-              locale: "es-AR",
+              ...batchUpsertData,
             },
           });
 
@@ -221,8 +256,16 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
             const contactUpdate: Record<string, unknown> = {};
             if (userContact.email)
               contactUpdate.email = String(userContact.email);
-            if (userContact.phone)
-              contactUpdate.phone = String(userContact.phone);
+            if (userContact.phone) {
+              const phone = String(userContact.phone);
+              if (!isValidE164(phone)) {
+                request.log.warn(
+                  { phone, userId: eventData.userId },
+                  "Phone number not in E.164 format — storing but marking as invalid",
+                );
+              }
+              contactUpdate.phone = phone;
+            }
             if (userContact.idioma_pref)
               contactUpdate.locale = String(userContact.idioma_pref);
             const metaUpdate: Record<string, unknown> = {};
@@ -232,6 +275,10 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
               );
             if (userContact.nombre)
               metaUpdate.nombre = String(userContact.nombre);
+            if (userContact.phone) {
+              const phone = String(userContact.phone);
+              metaUpdate.phone_format_warning = !isValidE164(phone);
+            }
             if (
               Object.keys(contactUpdate).length > 0 ||
               Object.keys(metaUpdate).length > 0
@@ -401,6 +448,60 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  fastify.get("/", async (request) => {
+    const {
+      type,
+      typePrefix,
+      userId,
+      from,
+      to,
+      deliveryStatus,
+      limit = "50",
+      cursor,
+    } = request.query as Record<string, string>;
+    const take = Math.min(parseInt(limit) || 50, 200);
+    return fastify.prisma.event.findMany({
+      where: {
+        tenantId: request.tenantId,
+        ...(type
+          ? { type }
+          : typePrefix
+            ? { type: { startsWith: `${typePrefix}.` } }
+            : {}),
+        ...(userId && { userId }),
+        ...(from || to
+          ? {
+              receivedAt: {
+                ...(from && { gte: new Date(from) }),
+                ...(to && { lte: new Date(to) }),
+              },
+            }
+          : {}),
+        ...(deliveryStatus === "any"
+          ? { engagementDecisions: { some: { deliveries: { some: {} } } } }
+          : deliveryStatus
+            ? {
+                engagementDecisions: {
+                  some: { deliveries: { some: { status: deliveryStatus } } },
+                },
+              }
+            : {}),
+        ...(cursor && { id: { lt: cursor } }),
+      },
+      orderBy: { receivedAt: "desc" },
+      take,
+      select: {
+        id: true,
+        type: true,
+        userId: true,
+        receivedAt: true,
+        processedAt: true,
+        payload: true,
+        metadata: true,
+      },
+    });
+  });
+
   fastify.get<{ Params: { eventId: string } }>(
     "/:eventId",
     {
@@ -414,7 +515,13 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       const { eventId } = request.params;
       const event = await fastify.prisma.event.findFirst({
         where: { id: eventId, tenantId: request.tenantId },
-        include: { processingLogs: true },
+        include: {
+          processingLogs: true,
+          ruleExecutions: {
+            include: { rule: { select: { name: true } } },
+            orderBy: { executedAt: "asc" },
+          },
+        },
       });
       if (!event) return reply.status(404).send({ error: "Event not found" });
       return event;

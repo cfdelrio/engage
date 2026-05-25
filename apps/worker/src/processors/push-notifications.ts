@@ -15,6 +15,16 @@ interface PushNotificationJob {
   priority: string;
 }
 
+function parseProviderConfig(encrypted: string): Record<string, unknown> {
+  try {
+    return JSON.parse(encrypted) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `Failed to parse provider config: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 export async function processPushNotification(job: Job<PushNotificationJob>) {
   const {
     notificationId,
@@ -87,8 +97,15 @@ export async function processPushNotification(job: Job<PushNotificationJob>) {
     }
 
     // Decrypt config
-    const config = JSON.parse(provider.configEncrypted);
-    const pushProvider = new FirebasePushProvider(config);
+    const config = parseProviderConfig(provider.configEncrypted);
+    if (!config.projectId || !config.clientEmail || !config.privateKey) {
+      throw new Error(
+        "Provider config missing required fields (projectId, clientEmail, privateKey)",
+      );
+    }
+    const pushProvider = new FirebasePushProvider(
+      config as { projectId: string; clientEmail: string; privateKey: string },
+    );
 
     // Send notification via Firebase
     const result = await pushProvider.send({

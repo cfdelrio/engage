@@ -23,6 +23,43 @@ interface VoiceCallJob {
   voiceGender: "male" | "female";
   dtmfConfig?: DtmfConfig;
   attempt: number;
+  /** Variables from the triggering event's payload.business_context */
+  businessContext?: Record<string, unknown>;
+  /** Additional campaign-level variables to expose in the script template */
+  campaignVariables?: Record<string, unknown>;
+}
+
+/**
+ * Scan a Handlebars script for {{variable}} references and return the names
+ * of any that are absent from the rendering context.
+ */
+function checkMissingVars(
+  script: string,
+  context: Record<string, unknown>,
+): string[] {
+  const varRegex = /\{\{([^}]+)\}\}/g;
+  const missing: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = varRegex.exec(script)) !== null) {
+    // Handle dot-notation (e.g. user.firstName) — check only the root key
+    const raw = match[1];
+    if (!raw) continue;
+    const varName = raw.trim().split(".")[0] ?? "";
+    if (varName && !(varName in context)) {
+      missing.push(raw.trim());
+    }
+  }
+  return missing;
+}
+
+function parseProviderConfig(encrypted: string): Record<string, unknown> {
+  try {
+    return JSON.parse(encrypted) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `Failed to parse provider config: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 export async function processVoiceCall(job: Job<VoiceCallJob>) {
@@ -36,6 +73,8 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
     voiceGender,
     dtmfConfig,
     attempt,
+    businessContext,
+    campaignVariables,
   } = job.data;
 
   console.log(
@@ -49,19 +88,36 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     ]);
 
-    // Render script with user variables
+    // Render script with user + campaign + business_context variables
     let renderedScript = script;
     try {
       const template = Handlebars.compile(script);
       const metadata = (user.metadata as Record<string, unknown>) || {};
-      renderedScript = template({
+      const renderContext: Record<string, unknown> = {
+        // Campaign-level variables (lowest precedence)
+        ...(campaignVariables ?? {}),
+        // Event business_context overrides campaign variables
+        ...(businessContext ?? {}),
+        // User object always available as user.*
         user: {
           firstName: user.externalId?.split("-")[0] || "usuario",
           email: user.email,
           phone: user.phone,
           ...metadata,
         },
-      });
+      };
+
+      // Warn about missing template variables before rendering
+      const missingVars = checkMissingVars(script, renderContext);
+      if (missingVars.length > 0) {
+        console.error(
+          `[voice-calls] Script references undefined variables: ${missingVars.join(", ")}. ` +
+            `Call ${voiceCallId} will contain literal Handlebars placeholders. ` +
+            `Available context keys: ${Object.keys(renderContext).join(", ")}`,
+        );
+      }
+
+      renderedScript = template(renderContext);
     } catch (err) {
       console.error(`[voice-calls] Failed to render script: ${err}`);
     }
@@ -79,9 +135,14 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
       throw new Error("No active Twilio voice provider configured");
     }
 
-    // Decrypt config (simplified - in production use proper decryption)
-    const config = JSON.parse(provider.configEncrypted);
-    const client = twilio(config.accountSid, config.authToken);
+    // Decrypt config
+    const config = parseProviderConfig(provider.configEncrypted);
+    if (!config.accountSid || !config.authToken || !config.from) {
+      throw new Error(
+        "Provider config missing required fields (accountSid, authToken, from)",
+      );
+    }
+    const client = twilio(String(config.accountSid), String(config.authToken));
 
     // Generate TwiML
     const twiml = generateTwiML(
@@ -93,7 +154,7 @@ export async function processVoiceCall(job: Job<VoiceCallJob>) {
 
     // Make the call
     const call = await client.calls.create({
-      from: config.from,
+      from: String(config.from),
       to: phone,
       twiml,
       statusCallback: `${process.env["INTERNAL_API_URL"] || "http://localhost:3001"}/webhooks/twilio/voice`,

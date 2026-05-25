@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { CampaignStatusBadge } from "@/components/ui/campaign-status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,13 +38,6 @@ interface WhatsAppCampaign {
   status: string;
   createdAt: string;
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-900",
-  active: "bg-green-100 text-green-900",
-  paused: "bg-yellow-100 text-yellow-900",
-  completed: "bg-blue-100 text-blue-900",
-};
 
 export function WhatsAppCampaignList() {
   const [campaigns, setCampaigns] = useState<WhatsAppCampaign[]>([]);
@@ -148,7 +141,7 @@ export function WhatsAppCampaignList() {
                 <TableRow key={campaign.id}>
                   <TableCell>
                     <Link href={`/whatsapp-campaigns/${campaign.id}`}>
-                      <span className="text-blue-600 hover:underline">
+                      <span className="text-primary hover:underline">
                         {campaign.name}
                       </span>
                     </Link>
@@ -157,9 +150,7 @@ export function WhatsAppCampaignList() {
                     {campaign.message}
                   </TableCell>
                   <TableCell>
-                    <Badge className={STATUS_COLORS[campaign.status] || ""}>
-                      {campaign.status}
-                    </Badge>
+                    <CampaignStatusBadge status={campaign.status} />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(campaign.createdAt).toLocaleDateString()}
@@ -185,15 +176,13 @@ export function WhatsAppCampaignList() {
                             Send
                           </DropdownMenuItem>
                         )}
-                        {campaign.status === "draft" && (
-                          <DropdownMenuItem
-                            onClick={() => setDeleteId(campaign.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem
+                          onClick={() => setDeleteId(campaign.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

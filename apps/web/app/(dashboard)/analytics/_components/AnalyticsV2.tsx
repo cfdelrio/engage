@@ -33,7 +33,7 @@ export function AnalyticsV2() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-4xl font-bold">Analytics</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">Analytics</h1>
           <p className="text-muted-foreground mt-2">
             Real-time engagement performance and insights
           </p>

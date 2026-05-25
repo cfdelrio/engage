@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { generateApiKey } from "@engage/core";
 import { REDIS_KEYS } from "@engage/core";
+import { encrypt } from "@engage/core";
 import { asJson } from "../utils/prisma.js";
 import type {
   ApiKeyInfoResponse,
@@ -58,6 +59,97 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
+  // ─── AI Model Keys ────────────────────────────────────────────────────────
+  fastify.get("/tenant/ai-keys", async (request) => {
+    const tenant = await fastify.prisma.tenant.findUniqueOrThrow({
+      where: { id: request.tenantId },
+      select: { settings: true },
+    });
+    const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+    const encryptedKeys = (settings["encryptedAiKeys"] ?? {}) as Record<
+      string,
+      string
+    >;
+    return {
+      hasAnthropicKey: Boolean(encryptedKeys["anthropic"]),
+      hasOpenaiKey: Boolean(encryptedKeys["openai"]),
+    };
+  });
+
+  fastify.put("/tenant/ai-keys", async (request, reply) => {
+    const body = z
+      .object({
+        provider: z.enum(["anthropic", "openai"]),
+        key: z.string().min(1),
+      })
+      .parse(request.body);
+
+    const encKey = process.env["PROVIDER_CONFIG_KEY"];
+    if (!encKey || encKey.length !== 32) {
+      return reply
+        .status(500)
+        .send({
+          error: "Encryption key not configured",
+          code: "CONFIG_ERROR",
+        } as ApiErrorResponse);
+    }
+
+    const encrypted = encrypt(body.key, encKey);
+
+    const tenant = await fastify.prisma.tenant.findUniqueOrThrow({
+      where: { id: request.tenantId },
+      select: { settings: true },
+    });
+    const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+    const encryptedKeys = {
+      ...((settings["encryptedAiKeys"] ?? {}) as Record<string, string>),
+    };
+    encryptedKeys[body.provider] = encrypted;
+
+    await fastify.prisma.tenant.update({
+      where: { id: request.tenantId },
+      data: {
+        settings: asJson({ ...settings, encryptedAiKeys: encryptedKeys }),
+      },
+    });
+
+    return { provider: body.provider, configured: true };
+  });
+
+  fastify.delete<{ Params: { provider: string } }>(
+    "/tenant/ai-keys/:provider",
+    async (request, reply) => {
+      const { provider } = request.params;
+      if (provider !== "anthropic" && provider !== "openai") {
+        return reply
+          .status(400)
+          .send({
+            error: "Invalid provider",
+            code: "INVALID_REQUEST",
+          } as ApiErrorResponse);
+      }
+
+      const tenant = await fastify.prisma.tenant.findUniqueOrThrow({
+        where: { id: request.tenantId },
+        select: { settings: true },
+      });
+      const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+      const encryptedKeys = {
+        ...((settings["encryptedAiKeys"] ?? {}) as Record<string, string>),
+      };
+      delete encryptedKeys[provider];
+
+      await fastify.prisma.tenant.update({
+        where: { id: request.tenantId },
+        data: {
+          settings: asJson({ ...settings, encryptedAiKeys: encryptedKeys }),
+        },
+      });
+
+      return reply.status(204).send();
+    },
+  );
+
   // ─── API Keys ─────────────────────────────────────────────────────────────
   // GET /admin/api-keys — List all API keys for tenant
   fastify.get<{ Reply: ApiKeyInfoResponse[] }>("/api-keys", async (request) => {
@@ -76,7 +168,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       orderBy: { createdAt: "desc" },
     });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return keys.map((key: any) => ({
       id: key.id,
       name: key.name,
@@ -500,6 +592,165 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     return { flag, enabled, scope };
+  });
+
+  // GET /admin/engage-verify/user/:userId
+  // Called by prode-caballito-be to look up a user's contact details and consent flags.
+  // :userId is the user's externalId (prode's UUID).
+  fastify.get("/engage-verify/user/:userId", async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+
+    const user = await fastify.prisma.user.findFirst({
+      where: { externalId: userId, tenantId: request.tenantId },
+      select: {
+        id: true,
+        externalId: true,
+        email: true,
+        phone: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) return reply.status(404).send({ error: "User not found" });
+
+    const meta = (user.metadata ?? {}) as Record<string, unknown>;
+
+    return {
+      id: user.id,
+      externalId: user.externalId,
+      email: user.email ?? null,
+      phone: user.phone ?? null,
+      name:
+        (meta["nombre"] as string | undefined) ??
+        (meta["name"] as string | undefined) ??
+        null,
+      whatsapp_consent: meta["whatsapp_consent"] === true,
+      sms_consent: meta["sms_consent"] === true,
+      email_consent: meta["email_consent"] !== false,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  });
+
+  // ─── Voice Campaign Surveys ───────────────────────────────────────────────
+  // POST /admin/voice-campeon-survey — Create temporary survey prompt
+  fastify.post<{
+    Body: {
+      prompt: string;
+      variables?: Record<string, string>;
+      ttl?: number;
+    };
+    Reply:
+      | { surveyId: string; prompt: string; expiresIn: number }
+      | ApiErrorResponse;
+  }>("/voice-campeon-survey", async (request, reply) => {
+    const body = z
+      .object({
+        prompt: z
+          .string()
+          .min(1, "Prompt is required")
+          .max(2000, "Prompt too long"),
+        variables: z.record(z.string()).optional(),
+        ttl: z.number().int().min(60).max(86400).default(3600), // default 1 hour
+      })
+      .parse(request.body);
+
+    const surveyId = `survey_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const surveyData = {
+      tenantId: request.tenantId,
+      prompt: body.prompt,
+      variables: body.variables || {},
+      createdAt: new Date().toISOString(),
+    };
+
+    // Store in Redis with TTL
+    await fastify.redis.setex(
+      `voice:survey:${surveyId}`,
+      body.ttl,
+      JSON.stringify(surveyData),
+    );
+
+    return reply.status(201).send({
+      surveyId,
+      prompt: body.prompt,
+      expiresIn: body.ttl,
+    });
+  });
+
+  // GET /admin/voice-campeon-survey/:surveyId — Retrieve temporary survey
+  fastify.get<{
+    Params: { surveyId: string };
+    Reply:
+      | {
+          surveyId: string;
+          prompt: string;
+          variables: Record<string, string>;
+          createdAt: string;
+        }
+      | ApiErrorResponse;
+  }>("/voice-campeon-survey/:surveyId", async (request, reply) => {
+    const { surveyId } = request.params;
+
+    const surveyData = await fastify.redis.get(`voice:survey:${surveyId}`);
+    if (!surveyData) {
+      return reply.status(404).send({
+        error: "Survey not found or expired",
+        code: "NOT_FOUND",
+      } as ApiErrorResponse);
+    }
+
+    const survey = JSON.parse(surveyData) as {
+      tenantId: string;
+      prompt: string;
+      variables: Record<string, string>;
+      createdAt: string;
+    };
+
+    // Verify tenant ownership
+    if (survey.tenantId !== request.tenantId) {
+      return reply.status(403).send({
+        error: "Access denied",
+        code: "FORBIDDEN",
+      } as ApiErrorResponse);
+    }
+
+    return {
+      surveyId,
+      prompt: survey.prompt,
+      variables: survey.variables,
+      createdAt: survey.createdAt,
+    };
+  });
+
+  // DELETE /admin/voice-campeon-survey/:surveyId — Delete temporary survey
+  fastify.delete<{
+    Params: { surveyId: string };
+    Reply: void | ApiErrorResponse;
+  }>("/voice-campeon-survey/:surveyId", async (request, reply) => {
+    const { surveyId } = request.params;
+
+    const surveyData = await fastify.redis.get(`voice:survey:${surveyId}`);
+    if (!surveyData) {
+      return reply.status(404).send({
+        error: "Survey not found",
+        code: "NOT_FOUND",
+      } as ApiErrorResponse);
+    }
+
+    const survey = JSON.parse(surveyData) as { tenantId: string };
+
+    // Verify tenant ownership
+    if (survey.tenantId !== request.tenantId) {
+      return reply.status(403).send({
+        error: "Access denied",
+        code: "FORBIDDEN",
+      } as ApiErrorResponse);
+    }
+
+    await fastify.redis.del(`voice:survey:${surveyId}`);
+    return reply.status(204).send();
   });
 };
 

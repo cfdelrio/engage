@@ -14,7 +14,9 @@ export default function NewVoiceCampaignPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Create Voice Campaign</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">
+            Create Voice Campaign
+          </h1>
           <p className="text-muted-foreground mt-1">
             Set up a new voice campaign with custom script and voice settings.
           </p>

@@ -1,4 +1,7 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export function Dialog({
@@ -10,14 +13,19 @@ export function Dialog({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  if (!open) return null;
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60"
       onClick={() => onOpenChange?.(false)}
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

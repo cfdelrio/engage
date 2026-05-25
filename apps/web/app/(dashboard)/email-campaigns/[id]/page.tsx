@@ -25,7 +25,7 @@ export default async function EmailCampaignDetailPage({
             Back
           </Button>
         </Link>
-        <h1 className="text-4xl font-bold">Email Campaign</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">Email Campaign</h1>
       </div>
 
       <Tabs defaultValue="settings" className="w-full">

@@ -14,7 +14,9 @@ export default function NewSmsCampaignPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Create SMS Campaign</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">
+            Create SMS Campaign
+          </h1>
           <p className="text-muted-foreground mt-1">
             Set up a new SMS campaign with custom message and delivery triggers.
           </p>
