@@ -4,7 +4,7 @@ import { apiFetch } from "@/lib/api-client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Save } from "lucide-react";
+import { Plus, Save, Trash2 } from "lucide-react";
 import {
   whatsAppCampaignSchema,
   type WhatsAppCampaignValues,
@@ -47,13 +47,27 @@ export function WhatsAppCampaignBuilder({
       name: "",
       description: "",
       body: "",
+      headerType: "none",
+      headerValue: "",
+      footerText: "",
+      buttons: [],
       triggerType: "manual",
       eventType: "",
     },
   });
 
+  const {
+    fields: buttonFields,
+    append: appendButton,
+    remove: removeButton,
+  } = useFieldArray({
+    control,
+    name: "buttons",
+  });
+
   const bodyValue = watch("body");
   const watchTriggerType = watch("triggerType");
+  const watchHeaderType = watch("headerType");
 
   useEffect(() => {
     if (!campaignId) return;
@@ -67,6 +81,10 @@ export function WhatsAppCampaignBuilder({
           name: campaign.name,
           description: campaign.description ?? "",
           body: campaign.body ?? "",
+          headerType: campaign.headerType ?? "none",
+          headerValue: campaign.headerValue ?? "",
+          footerText: campaign.footerText ?? "",
+          buttons: Array.isArray(campaign.buttons) ? campaign.buttons : [],
           triggerType: campaign.triggerType ?? "manual",
           eventType: campaign.eventType ?? "",
         });
@@ -91,9 +109,7 @@ export function WhatsAppCampaignBuilder({
 
       const response = await apiFetch(url, {
         method,
-        headers: {
-          "content-type": "application/json",
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(data),
       });
 
@@ -118,6 +134,7 @@ export function WhatsAppCampaignBuilder({
         <div className="p-4 bg-red-50 text-red-600 rounded-lg">{apiError}</div>
       )}
 
+      {/* Name + Trigger */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label>Campaign Name *</Label>
@@ -165,13 +182,11 @@ export function WhatsAppCampaignBuilder({
                 {errors.eventType.message}
               </p>
             )}
-            <p className="text-xs text-muted-foreground mt-1">
-              Nombre exacto del evento que dispara esta campaña
-            </p>
           </div>
         )}
       </div>
 
+      {/* Description */}
       <div>
         <Label>Description</Label>
         <Textarea
@@ -181,6 +196,53 @@ export function WhatsAppCampaignBuilder({
         />
       </div>
 
+      {/* Header */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Header (opcional)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label>Header Type</Label>
+            <Controller
+              name="headerType"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="text">Text</SelectItem>
+                    <SelectItem value="image">Image URL</SelectItem>
+                    <SelectItem value="document">Document URL</SelectItem>
+                    <SelectItem value="video">Video URL</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+          {watchHeaderType !== "none" && (
+            <div>
+              <Label>
+                {watchHeaderType === "text" ? "Header Text" : "Media URL"}
+              </Label>
+              <Input
+                {...register("headerValue")}
+                placeholder={
+                  watchHeaderType === "text"
+                    ? "Header text (max 60 chars)"
+                    : "https://..."
+                }
+                className="mt-2"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Body */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Message *</CardTitle>
@@ -198,6 +260,86 @@ export function WhatsAppCampaignBuilder({
             {bodyValue?.length ?? 0} / 4096 characters
           </div>
         </CardContent>
+      </Card>
+
+      {/* Footer */}
+      <div>
+        <Label>Footer (opcional)</Label>
+        <Input
+          {...register("footerText")}
+          placeholder="e.g., Reply STOP to unsubscribe"
+          className="mt-2"
+          maxLength={60}
+        />
+        {errors.footerText && (
+          <p className="text-sm text-red-600 mt-1">
+            {errors.footerText.message}
+          </p>
+        )}
+      </div>
+
+      {/* Buttons */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-sm">Buttons (máx 3)</CardTitle>
+          {buttonFields.length < 3 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                appendButton({ type: "reply", text: "", value: "" })
+              }
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add Button
+            </Button>
+          )}
+        </CardHeader>
+        {buttonFields.length > 0 && (
+          <CardContent className="space-y-3">
+            {buttonFields.map((field, index) => (
+              <div key={field.id} className="flex gap-2 items-start">
+                <Controller
+                  name={`buttons.${index}.type`}
+                  control={control}
+                  render={({ field: f }) => (
+                    <Select value={f.value} onValueChange={f.onChange}>
+                      <SelectTrigger className="w-28 shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="reply">Reply</SelectItem>
+                        <SelectItem value="url">URL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <Input
+                  {...register(`buttons.${index}.text`)}
+                  placeholder="Button text"
+                  maxLength={20}
+                />
+                <Input
+                  {...register(`buttons.${index}.value`)}
+                  placeholder={
+                    watch(`buttons.${index}.type`) === "url"
+                      ? "https://..."
+                      : "payload"
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeButton(index)}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        )}
       </Card>
 
       <div className="flex gap-2">
