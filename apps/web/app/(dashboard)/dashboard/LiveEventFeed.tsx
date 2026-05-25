@@ -100,9 +100,14 @@ function relativeTime(iso: string): string {
   if (diff < 5) return "ahora";
   if (diff < 60) return `${diff}s`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  return new Date(iso).toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
+  if (diff < 86400)
+    return new Date(iso).toLocaleTimeString("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  return new Date(iso).toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
   });
 }
 
@@ -367,7 +372,10 @@ export function LiveEventFeed() {
         ws.onmessage = (msg) => {
           try {
             const event = JSON.parse(msg.data as string) as LiveEvent;
-            setLiveEvents((prev) => [event, ...prev].slice(0, 50));
+            setLiveEvents((prev) => {
+              if (prev.some((e) => e.id === event.id)) return prev;
+              return [event, ...prev].slice(0, 50);
+            });
             setCount((c) => c + 1);
           } catch {
             // ignore malformed messages
