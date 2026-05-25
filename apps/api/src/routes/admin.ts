@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { generateApiKey } from "@engage/core";
 import { REDIS_KEYS } from "@engage/core";
+import { encrypt } from "@engage/core";
 import { asJson } from "../utils/prisma.js";
 import type {
   ApiKeyInfoResponse,
@@ -57,6 +58,97 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       },
     });
   });
+
+  // ─── AI Model Keys ────────────────────────────────────────────────────────
+  fastify.get("/tenant/ai-keys", async (request) => {
+    const tenant = await fastify.prisma.tenant.findUniqueOrThrow({
+      where: { id: request.tenantId },
+      select: { settings: true },
+    });
+    const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+    const encryptedKeys = (settings["encryptedAiKeys"] ?? {}) as Record<
+      string,
+      string
+    >;
+    return {
+      hasAnthropicKey: Boolean(encryptedKeys["anthropic"]),
+      hasOpenaiKey: Boolean(encryptedKeys["openai"]),
+    };
+  });
+
+  fastify.put("/tenant/ai-keys", async (request, reply) => {
+    const body = z
+      .object({
+        provider: z.enum(["anthropic", "openai"]),
+        key: z.string().min(1),
+      })
+      .parse(request.body);
+
+    const encKey = process.env["PROVIDER_CONFIG_KEY"];
+    if (!encKey || encKey.length !== 32) {
+      return reply
+        .status(500)
+        .send({
+          error: "Encryption key not configured",
+          code: "CONFIG_ERROR",
+        } as ApiErrorResponse);
+    }
+
+    const encrypted = encrypt(body.key, encKey);
+
+    const tenant = await fastify.prisma.tenant.findUniqueOrThrow({
+      where: { id: request.tenantId },
+      select: { settings: true },
+    });
+    const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+    const encryptedKeys = {
+      ...((settings["encryptedAiKeys"] ?? {}) as Record<string, string>),
+    };
+    encryptedKeys[body.provider] = encrypted;
+
+    await fastify.prisma.tenant.update({
+      where: { id: request.tenantId },
+      data: {
+        settings: asJson({ ...settings, encryptedAiKeys: encryptedKeys }),
+      },
+    });
+
+    return { provider: body.provider, configured: true };
+  });
+
+  fastify.delete<{ Params: { provider: string } }>(
+    "/tenant/ai-keys/:provider",
+    async (request, reply) => {
+      const { provider } = request.params;
+      if (provider !== "anthropic" && provider !== "openai") {
+        return reply
+          .status(400)
+          .send({
+            error: "Invalid provider",
+            code: "INVALID_REQUEST",
+          } as ApiErrorResponse);
+      }
+
+      const tenant = await fastify.prisma.tenant.findUniqueOrThrow({
+        where: { id: request.tenantId },
+        select: { settings: true },
+      });
+      const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+      const encryptedKeys = {
+        ...((settings["encryptedAiKeys"] ?? {}) as Record<string, string>),
+      };
+      delete encryptedKeys[provider];
+
+      await fastify.prisma.tenant.update({
+        where: { id: request.tenantId },
+        data: {
+          settings: asJson({ ...settings, encryptedAiKeys: encryptedKeys }),
+        },
+      });
+
+      return reply.status(204).send();
+    },
+  );
 
   // ─── API Keys ─────────────────────────────────────────────────────────────
   // GET /admin/api-keys — List all API keys for tenant

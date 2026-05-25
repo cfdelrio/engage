@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TenantCard } from "./_components/TenantCard";
 import { ApiKeysManager } from "./_components/ApiKeysManager";
 import { FeatureFlagsCard } from "./_components/FeatureFlagsCard";
+import { AiKeysCard } from "./_components/AiKeysCard";
 
 export default function SettingsPage() {
   return (
@@ -19,6 +20,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+          <TabsTrigger value="ai-models">Modelos de IA</TabsTrigger>
           <TabsTrigger value="feature-flags">Feature Flags</TabsTrigger>
         </TabsList>
 
@@ -28,6 +30,10 @@ export default function SettingsPage() {
 
         <TabsContent value="api-keys" className="mt-6">
           <ApiKeysManager />
+        </TabsContent>
+
+        <TabsContent value="ai-models" className="mt-6">
+          <AiKeysCard />
         </TabsContent>
 
         <TabsContent value="feature-flags" className="mt-6">
