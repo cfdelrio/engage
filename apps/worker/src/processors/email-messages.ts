@@ -99,9 +99,9 @@ export async function processEmailMessage(job: Job<EmailMessageJob>) {
       provider: "resend",
       to: email,
       subject: renderedSubject,
-      body: renderedBodyHtml,
+      body: renderedBodyText ?? "",
+      bodyHtml: renderedBodyHtml,
       metadata: {
-        bodyText: renderedBodyText,
         fromName: fromName ?? campaign.fromName ?? "ORKESTAI ENGAGE",
         fromEmail: fromEmail ?? campaign.fromEmail ?? "noreply@orkestai.com",
         replyTo: replyTo ?? campaign.replyTo,
