@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "concurrency": "11",
+  "globalEnv": ["DATABASE_URL", "REDIS_URL", "SHADOW_DATABASE_URL"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
