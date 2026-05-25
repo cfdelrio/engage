@@ -35,6 +35,10 @@ Feature flags si hace falta, módulos desacoplados, migraciones seguras, rollout
 
 No borrar tablas, no cambiar contratos destructivamente, no resetear campañas, no invalidar eventos históricos. No rehacer navegación/dashboard/flows sin necesidad.
 
+### 7. Cambios de DB siempre por migration — nunca por seed
+
+Cualquier cambio de esquema o de datos en producción debe implementarse como un archivo de migration de Prisma en `packages/database/prisma/migrations/`, **no** modificando `seed.ts`. Las migrations corren automáticamente vía `migrate deploy` en cada deploy (ver `infra/scripts/restart-all.sh`). El seed es solo para datos iniciales en entornos nuevos — no es un mecanismo de actualización para producción.
+
 ---
 
 ## Arquitectura — Bounded Contexts

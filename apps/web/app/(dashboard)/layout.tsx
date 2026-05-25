@@ -48,6 +48,7 @@ const navSections = [
   {
     label: "Gestionar",
     items: [
+      { href: "/events", label: "Eventos", icon: Zap },
       { href: "/users", label: "Users", icon: Users },
       { href: "/channels", label: "Channels", icon: Radio },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },

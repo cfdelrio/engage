@@ -33,6 +33,7 @@ interface RuleData {
 export function RuleBuilder({ ruleId }: { ruleId?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rule, setRule] = useState<RuleData>({
     name: "",
@@ -46,6 +47,29 @@ export function RuleBuilder({ ruleId }: { ruleId?: string }) {
     actions: [],
     cooldownSeconds: undefined,
   });
+
+  // Load existing rule when editing
+  useEffect(() => {
+    if (!ruleId) return;
+    setFetchLoading(true);
+    apiFetch(`/v1/rules/${ruleId}`, {})
+      .then((r) => r.json())
+      .then((data) => {
+        setRule({
+          name: data.name ?? "",
+          description: data.description ?? "",
+          enabled: data.enabled ?? true,
+          priority: data.priority ?? 0,
+          conditions: data.conditions ?? { operator: "AND", conditions: [] },
+          actions: data.actions ?? [],
+          cooldownSeconds: data.cooldownSeconds ?? undefined,
+        });
+      })
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Failed to load rule"),
+      )
+      .finally(() => setFetchLoading(false));
+  }, [ruleId]);
 
   // Prefill from AI Rule Builder ("Edit manually" flow)
   useEffect(() => {
@@ -114,6 +138,16 @@ export function RuleBuilder({ ruleId }: { ruleId?: string }) {
       setLoading(false);
     }
   };
+
+  if (fetchLoading) {
+    return (
+      <div className="space-y-4 max-w-6xl">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-6xl">

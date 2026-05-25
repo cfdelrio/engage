@@ -475,7 +475,21 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
           .send({ error: "orkestai-voice not configured (missing env vars)" });
 
       type FlowStep = z.infer<typeof flowStepSchema>;
-      const flowSteps = campaign.flowSteps as FlowStep[] | null;
+      let flowSteps = campaign.flowSteps as FlowStep[] | null;
+
+      // If no local flow steps but campaign is linked to an orkestai-voice campaign,
+      // fetch the flow definition from there so rules can trigger imported campaigns
+      // without duplicating the flow steps in ENGAGE.
+      if (
+        (!flowSteps || flowSteps.length === 0) &&
+        campaign.orkestaiCampaignId
+      ) {
+        const remote = await client.getCampaign(campaign.orkestaiCampaignId);
+        if (remote.flow?.steps && remote.flow.steps.length > 0) {
+          flowSteps = remote.flow.steps as FlowStep[];
+        }
+      }
+
       if (!flowSteps || flowSteps.length === 0)
         return reply
           .status(400)
