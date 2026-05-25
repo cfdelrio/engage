@@ -85,7 +85,7 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
       const newCount = await redis.eval(
         `
         local current = redis.call("GET", KEYS[1])
-        if current and tonumber(current) >= tonumber(ARGV[1]) then
+        if current and tonumber(current) > tonumber(ARGV[1]) then
           return tonumber(current)
         end
         local val = redis.call("INCR", KEYS[1])
