@@ -34,8 +34,8 @@ const templatesRoutes: FastifyPluginAsync = async (fastify) => {
       offset = 0,
     } = request.query as {
       channel?: string;
-      limit?: number;
-      offset?: number;
+      limit?: number | string;
+      offset?: number | string;
     };
 
     const where: Record<string, unknown> = { tenantId: request.tenantId };
@@ -44,8 +44,8 @@ const templatesRoutes: FastifyPluginAsync = async (fastify) => {
     const [templates, total] = await Promise.all([
       fastify.prisma.template.findMany({
         where,
-        skip: offset,
-        take: limit,
+        skip: Number(offset),
+        take: Number(limit),
         orderBy: { createdAt: "desc" },
       }),
       fastify.prisma.template.count({ where }),

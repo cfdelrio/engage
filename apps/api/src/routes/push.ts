@@ -34,8 +34,8 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       offset = 0,
     } = request.query as {
       status?: string;
-      limit?: number;
-      offset?: number;
+      limit?: number | string;
+      offset?: number | string;
     };
 
     const where: Record<string, unknown> = { tenantId: request.tenantId };
@@ -44,8 +44,8 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     const [campaigns, total] = await Promise.all([
       fastify.prisma.pushCampaign.findMany({
         where,
-        skip: offset,
-        take: limit,
+        skip: Number(offset),
+        take: Number(limit),
         orderBy: { createdAt: "desc" },
       }),
       fastify.prisma.pushCampaign.count({ where }),
@@ -279,8 +279,8 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         offset = 0,
         status,
       } = request.query as {
-        limit?: number;
-        offset?: number;
+        limit?: number | string;
+        offset?: number | string;
         status?: string;
       };
 
@@ -293,8 +293,8 @@ const pushCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       const [notifications, total] = await Promise.all([
         fastify.prisma.pushNotification.findMany({
           where,
-          skip: offset,
-          take: limit,
+          skip: Number(offset),
+          take: Number(limit),
           orderBy: { createdAt: "desc" },
         }),
         fastify.prisma.pushNotification.count({ where }),

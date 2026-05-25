@@ -42,8 +42,8 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       offset = 0,
     } = request.query as {
       status?: string;
-      limit?: number;
-      offset?: number;
+      limit?: number | string;
+      offset?: number | string;
     };
 
     const where: Record<string, unknown> = {
@@ -55,8 +55,8 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
     const [campaigns, total] = await Promise.all([
       fastify.prisma.whatsAppCampaign.findMany({
         where,
-        skip: offset,
-        take: limit,
+        skip: Number(offset),
+        take: Number(limit),
         orderBy: { createdAt: "desc" },
       }),
       fastify.prisma.whatsAppCampaign.count({ where }),
@@ -318,8 +318,8 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
         offset = 0,
         status,
       } = request.query as {
-        limit?: number;
-        offset?: number;
+        limit?: number | string;
+        offset?: number | string;
         status?: string;
       };
 
@@ -332,8 +332,8 @@ const whatsappCampaignsRoutes: FastifyPluginAsync = async (fastify) => {
       const [messages, total] = await Promise.all([
         fastify.prisma.whatsAppMessage.findMany({
           where,
-          skip: offset,
-          take: limit,
+          skip: Number(offset),
+          take: Number(limit),
           orderBy: { createdAt: "desc" },
           include: { interactions: true },
         }),
