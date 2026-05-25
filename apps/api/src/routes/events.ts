@@ -408,7 +408,8 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         description: "List recent events",
         tags: ["events"],
         querystring: z.object({
-          limit: z.coerce.number().min(1).max(200).optional().default(50),
+          limit: z.coerce.number().min(1).max(200).optional().default(100),
+          since: z.string().datetime().optional(),
         }),
         response: {
           200: z.object({
@@ -425,13 +426,18 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { limit } = request.query as { limit: number };
+      const { limit, since } = request.query as {
+        limit: number;
+        since?: string;
+      };
       const tenantId = request.tenantId;
       const events = await fastify.prisma.event.findMany({
-        where: { tenantId },
+        where: {
+          tenantId,
+          ...(since ? { receivedAt: { gte: new Date(since) } } : {}),
+        },
         orderBy: { receivedAt: "desc" },
         take: limit,
-        include: { tenant: false },
         select: {
           id: true,
           type: true,

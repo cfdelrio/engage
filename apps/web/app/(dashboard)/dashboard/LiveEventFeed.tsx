@@ -1,7 +1,7 @@
 "use client";
 
 import { apiFetch } from "@/lib/api-client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Activity, Radio } from "lucide-react";
 
 interface LiveEvent {
@@ -64,14 +64,38 @@ const DEFAULT_CATEGORY: EventCategory = {
   text: "text-violet-600 dark:text-violet-400",
 };
 
+type TimeRange = "1h" | "today" | "7d";
+
+const TIME_RANGES: { key: TimeRange; label: string }[] = [
+  { key: "1h", label: "1h" },
+  { key: "today", label: "Hoy" },
+  { key: "7d", label: "7d" },
+];
+
+function getSince(range: TimeRange): string {
+  const now = Date.now();
+  if (range === "1h") return new Date(now - 3600 * 1000).toISOString();
+  if (range === "today") {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  }
+  return new Date(now - 7 * 24 * 3600 * 1000).toISOString();
+}
+
 function relativeTime(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (diff < 5) return "ahora";
   if (diff < 60) return `${diff}s`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  return new Date(iso).toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
+  if (diff < 86400)
+    return new Date(iso).toLocaleTimeString("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  return new Date(iso).toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
   });
 }
 
@@ -79,6 +103,7 @@ export function LiveEventFeed() {
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [count, setCount] = useState(0);
+  const [range, setRange] = useState<TimeRange>("1h");
   const wsRef = useRef<WebSocket | null>(null);
   const [, setTick] = useState(0);
 
@@ -88,22 +113,25 @@ export function LiveEventFeed() {
     return () => clearInterval(id);
   }, []);
 
-  // Load historical events on mount (newest first)
-  useEffect(() => {
-    apiFetch("/v1/events?limit=50")
-      .then((r) => r.json())
+  const fetchHistory = useCallback((r: TimeRange) => {
+    const since = encodeURIComponent(getSince(r));
+    apiFetch(`/v1/events?limit=100&since=${since}`)
+      .then((res) => res.json())
       .then((data: { events: LiveEvent[] }) => {
         setEvents(data.events ?? []);
       })
       .catch(() => {});
   }, []);
 
+  // Load historical events whenever range changes
+  useEffect(() => {
+    fetchHistory(range);
+  }, [range, fetchHistory]);
+
+  // WebSocket for real-time events
   useEffect(() => {
     let destroyed = false;
 
-    // When served over HTTPS, use the same origin so WSS goes through nginx
-    // (nginx proxies /v1/* to the API with WebSocket support). This avoids
-    // mixed-content blocks when NEXT_PUBLIC_API_URL points to a plain-HTTP URL.
     const apiUrl =
       process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
     const wsUrl =
@@ -127,7 +155,7 @@ export function LiveEventFeed() {
             const event = JSON.parse(msg.data as string) as LiveEvent;
             setEvents((prev) => {
               if (prev.some((e) => e.id === event.id)) return prev;
-              return [event, ...prev].slice(0, 50);
+              return [event, ...prev].slice(0, 100);
             });
             setCount((c) => c + 1);
           } catch {
@@ -155,22 +183,41 @@ export function LiveEventFeed() {
           <span className="text-sm font-semibold">Live Event Stream</span>
           {count > 0 && (
             <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary tabular-nums">
-              {count.toLocaleString("es")}
+              +{count.toLocaleString("es")}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <div
-              className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-500" : "bg-muted-foreground/40"} ${connected ? "animate-live-pulse" : ""}`}
-            />
-            {connected && (
-              <div className="absolute inset-0 h-2 w-2 rounded-full bg-emerald-500 animate-status-ring" />
-            )}
+        <div className="flex items-center gap-3">
+          {/* Time range chips */}
+          <div className="flex items-center gap-1">
+            {TIME_RANGES.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setRange(key)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  range === key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <span className="text-xs text-muted-foreground">
-            {connected ? "Conectado" : "Reconectando..."}
-          </span>
+          {/* Connection status */}
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <div
+                className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-500" : "bg-muted-foreground/40"} ${connected ? "animate-live-pulse" : ""}`}
+              />
+              {connected && (
+                <div className="absolute inset-0 h-2 w-2 rounded-full bg-emerald-500 animate-status-ring" />
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {connected ? "Conectado" : "Reconectando..."}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -182,9 +229,9 @@ export function LiveEventFeed() {
               <Activity className="h-5 w-5 opacity-40" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium">Esperando eventos</p>
+              <p className="text-sm font-medium">Sin eventos en este período</p>
               <p className="text-xs text-muted-foreground/60 mt-0.5">
-                Los eventos aparecen aquí en tiempo real
+                Los nuevos eventos aparecen aquí en tiempo real
               </p>
             </div>
           </div>
