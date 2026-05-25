@@ -135,10 +135,12 @@ skipIfNoDatabaseUrl("Delivery Scheduler with User Preferences", () => {
       await db.channelProvider.deleteMany({ where: { tenantId } });
       await db.user.deleteMany({ where: { tenantId } });
       await db.tenant.delete({ where: { id: tenantId } });
-      await redis.flushdb();
+      // Delete only the specific frequency-cap key — avoids flushing entire Redis
+      // DB which would race with concurrent test files.
+      const capKey = REDIS_KEYS.frequencyCap(tenantId, userId, "email");
+      await redis.del(capKey);
       redis.disconnect();
     } catch (error) {
-      // Ignore cleanup errors if DB is not available
       console.warn("[delivery-scheduler.test] Cleanup failed:", error);
     }
   });
