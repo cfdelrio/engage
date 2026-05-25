@@ -13,7 +13,7 @@ export function Dialog({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 pl-56"
       onClick={() => onOpenChange?.(false)}
     >
       {children}
