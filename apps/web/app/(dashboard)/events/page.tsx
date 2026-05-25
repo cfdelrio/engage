@@ -249,6 +249,7 @@ export default function EventsPage() {
   const [userFilter, setUserFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [typePrefixFilter, setTypePrefixFilter] = useState("");
   const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventRow | null>(null);
@@ -258,12 +259,14 @@ export default function EventsPage() {
     userId: string,
     from: string,
     to: string,
+    typePrefix: string,
     cursor: string | undefined,
     reset: boolean,
   ) => {
     setLoading(true);
     const params = new URLSearchParams({ limit: "50" });
     if (type) params.set("type", type);
+    else if (typePrefix) params.set("typePrefix", typePrefix);
     if (userId) params.set("userId", userId);
     if (from) params.set("from", `${from}T00:00:00.000Z`);
     if (to) params.set("to", `${to}T23:59:59.999Z`);
@@ -287,8 +290,16 @@ export default function EventsPage() {
 
   useEffect(() => {
     cursorRef.current = undefined;
-    doFetch(typeFilter, userFilter, fromDate, toDate, undefined, true);
-  }, [typeFilter, userFilter, fromDate, toDate]);
+    doFetch(
+      typeFilter,
+      userFilter,
+      fromDate,
+      toDate,
+      typePrefixFilter,
+      undefined,
+      true,
+    );
+  }, [typeFilter, userFilter, fromDate, toDate, typePrefixFilter]);
 
   return (
     <div className="space-y-6">
@@ -311,7 +322,15 @@ export default function EventsPage() {
           size="sm"
           onClick={() => {
             cursorRef.current = undefined;
-            doFetch(typeFilter, userFilter, fromDate, toDate, undefined, true);
+            doFetch(
+              typeFilter,
+              userFilter,
+              fromDate,
+              toDate,
+              typePrefixFilter,
+              undefined,
+              true,
+            );
           }}
           disabled={loading}
           className="gap-2"
@@ -341,6 +360,16 @@ export default function EventsPage() {
             className="pl-8 h-8 text-sm"
           />
         </div>
+        <select
+          value={typePrefixFilter}
+          onChange={(e) => setTypePrefixFilter(e.target.value)}
+          className="rounded-md border border-input bg-background px-3 h-8 text-sm text-foreground outline-none cursor-pointer"
+        >
+          <option value="">Todos los tipos</option>
+          <option value="prode">prode.*</option>
+          <option value="user">user.*</option>
+          <option value="match">match.*</option>
+        </select>
         <div className="flex items-center gap-1 rounded-md border border-input bg-background px-3 h-8">
           <span className="text-xs text-muted-foreground">desde</span>
           <input
@@ -359,7 +388,11 @@ export default function EventsPage() {
             className="text-xs bg-transparent text-foreground outline-none w-[100px] cursor-pointer"
           />
         </div>
-        {(typeFilter || userFilter || fromDate || toDate) && (
+        {(typeFilter ||
+          userFilter ||
+          fromDate ||
+          toDate ||
+          typePrefixFilter) && (
           <Button
             variant="ghost"
             size="sm"
@@ -368,6 +401,7 @@ export default function EventsPage() {
               setUserFilter("");
               setFromDate("");
               setToDate("");
+              setTypePrefixFilter("");
             }}
             className="gap-1.5 h-8"
           >
@@ -442,6 +476,7 @@ export default function EventsPage() {
                   userFilter,
                   fromDate,
                   toDate,
+                  typePrefixFilter,
                   cursorRef.current,
                   false,
                 )
