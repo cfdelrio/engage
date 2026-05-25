@@ -164,6 +164,77 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     await fastify.prisma.user.delete({ where: { id } });
     return reply.status(204).send();
   });
+
+  fastify.post("/bulk", async (request, reply) => {
+    const bulkUserSchema = z.object({
+      externalId: z.string().min(1).max(256),
+      email: z.string().email().nullable().optional(),
+      phone: z.string().nullable().optional(),
+      timezone: z.string().optional(),
+      locale: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      metadata: z.record(z.unknown()).optional(),
+    });
+
+    const body = z
+      .object({ users: z.array(bulkUserSchema).min(1).max(500) })
+      .parse(request.body);
+
+    const tenantId = request.tenantId;
+    let created = 0,
+      updated = 0,
+      failed = 0;
+    const errors: Array<{ externalId: string; error: string }> = [];
+
+    for (const u of body.users) {
+      try {
+        const existing = await fastify.prisma.user.findUnique({
+          where: {
+            tenantId_externalId: { tenantId, externalId: u.externalId },
+          },
+          select: { id: true },
+        });
+        await fastify.prisma.user.upsert({
+          where: {
+            tenantId_externalId: { tenantId, externalId: u.externalId },
+          },
+          update: {
+            ...(u.email !== undefined ? { email: u.email } : {}),
+            ...(u.phone !== undefined ? { phone: u.phone } : {}),
+            ...(u.timezone ? { timezone: u.timezone } : {}),
+            ...(u.locale ? { locale: u.locale } : {}),
+            ...(u.tags ? { tags: u.tags } : {}),
+            ...(u.metadata ? { metadata: asJson(u.metadata) } : {}),
+          },
+          create: {
+            tenantId,
+            externalId: u.externalId,
+            ...(u.email ? { email: u.email } : {}),
+            ...(u.phone ? { phone: u.phone } : {}),
+            timezone: u.timezone ?? "America/Argentina/Buenos_Aires",
+            locale: u.locale ?? "es",
+            tags: u.tags ?? [],
+            metadata: asJson(u.metadata ?? {}),
+          },
+        });
+        existing ? updated++ : created++;
+      } catch (err) {
+        failed++;
+        errors.push({
+          externalId: u.externalId,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    }
+
+    return reply.status(200).send({
+      total: body.users.length,
+      created,
+      updated,
+      failed,
+      ...(errors.length > 0 ? { errors } : {}),
+    });
+  });
 };
 
 export default usersRoutes;
