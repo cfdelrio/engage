@@ -201,8 +201,8 @@ const EMAIL_TEMPLATES = [
   },
   {
     name: "email_matchday_summary",
-    subject: "Resumen de fecha — {{user.planilla_nombre}}",
-    body: "Hola {{user.nombre}},\n\nAcá está tu resumen de la fecha:\n- Puntos: {{business_context.puntos}}\n- Posición: #{{business_context.ranking_after.position}}\n- Exactos: {{business_context.exactos}}\n\nSeguí así!",
+    subject: "Resumen de fecha — {{business_context.matchday_name}}",
+    body: "Hola {{user.nombre}},\n\nAcá está tu resumen de {{business_context.matchday_name}}:\n- Puntos: {{business_context.points}}\n- Posición en la fecha: #{{business_context.rank_in_matchday}}\n- Posición global: #{{business_context.global_position}}\n- Ganador de la fecha: {{business_context.top_name}} ({{business_context.top_points}} pts)\n\nSeguí así!",
   },
   {
     name: "email_weekly_digest",
