@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   Radio,
+  User,
   X,
   XCircle,
 } from "lucide-react";
@@ -108,6 +109,21 @@ const DEFAULT_CATEGORY: EventCategory = {
   text: "text-violet-600 dark:text-violet-400",
 };
 
+function absoluteTime(iso: string): string {
+  const d = new Date(iso);
+  const isToday = d.toDateString() === new Date().toDateString();
+  const time = d.toLocaleTimeString("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  if (isToday) return time;
+  const date = d.toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+  return `${date} ${time}`;
+}
+
 function relativeTime(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (diff < 5) return "ahora";
@@ -160,8 +176,11 @@ function EventRow({
       <span className="text-xs font-mono text-muted-foreground/50 truncate max-w-[90px] shrink-0">
         {event.userId.slice(0, 12)}
       </span>
-      <span className="text-[11px] text-muted-foreground/40 shrink-0 tabular-nums">
-        {relativeTime(event.receivedAt)}
+      <span
+        title={relativeTime(event.receivedAt)}
+        className="text-[11px] text-muted-foreground/40 shrink-0 tabular-nums"
+      >
+        {absoluteTime(event.receivedAt)}
       </span>
     </button>
   );
@@ -364,6 +383,7 @@ export function LiveEventFeed() {
   const [typePrefix, setTypePrefix] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("receivedAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [userFilter, setUserFilter] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const [, setTick] = useState(0);
 
@@ -371,6 +391,40 @@ export function LiveEventFeed() {
     const id = setInterval(() => setTick((t) => t + 1), 10_000);
     return () => clearInterval(id);
   }, []);
+
+  // Restore filters from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("event-feed-filters") ?? "{}",
+      );
+      if (saved.sortKey) setSortKey(saved.sortKey as SortKey);
+      if (saved.sortDir) setSortDir(saved.sortDir as SortDir);
+      if (saved.userFilter) setUserFilter(saved.userFilter);
+      if (saved.fromDate) setFromDate(saved.fromDate);
+      if (saved.toDate) setToDate(saved.toDate);
+      if (saved.typePrefix) setTypePrefix(saved.typePrefix);
+      if (saved.activeTab) setActiveTab(saved.activeTab as "live" | "history");
+    } catch {}
+  }, []);
+
+  // Persist filters to localStorage on change
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "event-feed-filters",
+        JSON.stringify({
+          sortKey,
+          sortDir,
+          userFilter,
+          fromDate,
+          toDate,
+          typePrefix,
+          activeTab,
+        }),
+      );
+    } catch {}
+  }, [sortKey, sortDir, userFilter, fromDate, toDate, typePrefix, activeTab]);
 
   // WebSocket for live events
   useEffect(() => {
@@ -462,14 +516,21 @@ export function LiveEventFeed() {
   };
 
   const baseEvents = activeTab === "live" ? liveEvents : history;
-  const displayEvents = [...baseEvents].sort((a, b) => {
-    let cmp = 0;
-    if (sortKey === "type") cmp = a.type.localeCompare(b.type);
-    else if (sortKey === "userId") cmp = a.userId.localeCompare(b.userId);
-    else
-      cmp = new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime();
-    return sortDir === "asc" ? cmp : -cmp;
-  });
+  const displayEvents = [...baseEvents]
+    .filter(
+      (e) =>
+        !userFilter.trim() ||
+        e.userId.toLowerCase().includes(userFilter.trim().toLowerCase()),
+    )
+    .sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "type") cmp = a.type.localeCompare(b.type);
+      else if (sortKey === "userId") cmp = a.userId.localeCompare(b.userId);
+      else
+        cmp =
+          new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime();
+      return sortDir === "asc" ? cmp : -cmp;
+    });
 
   return (
     <>
@@ -563,6 +624,7 @@ export function LiveEventFeed() {
                       setFromDate("");
                       setToDate("");
                       setTypePrefix("");
+                      setUserFilter("");
                     }}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                     title="Limpiar filtros"
@@ -586,6 +648,26 @@ export function LiveEventFeed() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* User filter bar */}
+        <div className="flex items-center gap-2 px-5 py-1.5 border-b border-border/60 bg-muted/10">
+          <User className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          <input
+            type="text"
+            placeholder="Filtrar por usuario..."
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
+            className="flex-1 text-[11px] bg-transparent text-foreground placeholder:text-muted-foreground/40 outline-none"
+          />
+          {userFilter && (
+            <button
+              onClick={() => setUserFilter("")}
+              className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
 
         {/* Column headers */}
