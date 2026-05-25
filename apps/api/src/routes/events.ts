@@ -401,6 +401,45 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  fastify.get("/", async (request) => {
+    const {
+      type,
+      userId,
+      from,
+      to,
+      limit = "50",
+      cursor,
+    } = request.query as Record<string, string>;
+    const take = Math.min(parseInt(limit) || 50, 200);
+    return fastify.prisma.event.findMany({
+      where: {
+        tenantId: request.tenantId,
+        ...(type && { type }),
+        ...(userId && { userId }),
+        ...(from || to
+          ? {
+              receivedAt: {
+                ...(from && { gte: new Date(from) }),
+                ...(to && { lte: new Date(to) }),
+              },
+            }
+          : {}),
+        ...(cursor && { id: { lt: cursor } }),
+      },
+      orderBy: { receivedAt: "desc" },
+      take,
+      select: {
+        id: true,
+        type: true,
+        userId: true,
+        receivedAt: true,
+        processedAt: true,
+        payload: true,
+        metadata: true,
+      },
+    });
+  });
+
   fastify.get<{ Params: { eventId: string } }>(
     "/:eventId",
     {
@@ -414,7 +453,13 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       const { eventId } = request.params;
       const event = await fastify.prisma.event.findFirst({
         where: { id: eventId, tenantId: request.tenantId },
-        include: { processingLogs: true },
+        include: {
+          processingLogs: true,
+          ruleExecutions: {
+            include: { rule: { select: { name: true } } },
+            orderBy: { executedAt: "asc" },
+          },
+        },
       });
       if (!event) return reply.status(404).send({ error: "Event not found" });
       return event;
