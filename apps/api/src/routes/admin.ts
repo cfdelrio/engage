@@ -76,7 +76,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       orderBy: { createdAt: "desc" },
     });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return keys.map((key: any) => ({
       id: key.id,
       name: key.name,
@@ -500,6 +500,46 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     return { flag, enabled, scope };
+  });
+
+  // GET /admin/engage-verify/user/:userId
+  // Called by prode-caballito-be to look up a user's contact details and consent flags.
+  // :userId is the user's externalId (prode's UUID).
+  fastify.get("/engage-verify/user/:userId", async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+
+    const user = await fastify.prisma.user.findFirst({
+      where: { externalId: userId, tenantId: request.tenantId },
+      select: {
+        id: true,
+        externalId: true,
+        email: true,
+        phone: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) return reply.status(404).send({ error: "User not found" });
+
+    const meta = (user.metadata ?? {}) as Record<string, unknown>;
+
+    return {
+      id: user.id,
+      externalId: user.externalId,
+      email: user.email ?? null,
+      phone: user.phone ?? null,
+      name:
+        (meta["nombre"] as string | undefined) ??
+        (meta["name"] as string | undefined) ??
+        null,
+      whatsapp_consent: meta["whatsapp_consent"] === true,
+      sms_consent: meta["sms_consent"] === true,
+      email_consent: meta["email_consent"] !== false,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   });
 };
 

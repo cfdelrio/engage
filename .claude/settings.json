@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "engage": {
+      "command": "node",
+      "args": ["apps/mcp/dist/index.js"],
+      "env": {
+        "ENGAGE_API_URL": "http://localhost:3001",
+        "ENGAGE_API_KEY": "oek_9vf62jr5n6gc4edpvxl28p"
+      }
+    }
+  }
+}
