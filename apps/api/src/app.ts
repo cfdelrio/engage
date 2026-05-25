@@ -42,8 +42,8 @@ import aiRulesRoutes from "./routes/ai-rules.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   if (!process.env["INTERNAL_API_URL"]) {
-    throw new Error(
-      "INTERNAL_API_URL environment variable is required (used for Twilio callbacks and service-to-service communication)",
+    console.warn(
+      "[app] INTERNAL_API_URL not set — Twilio callback URLs will default to http://localhost:3001. Set this in production.",
     );
   }
 

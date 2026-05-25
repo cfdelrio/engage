@@ -49,11 +49,8 @@ describe("Webhook Signature Verification — security paths (no DB required)", (
   const originalEnv = { ...process.env };
 
   beforeAll(async () => {
-    // Ensure INTERNAL_API_URL is set so buildApp() doesn't throw
     process.env["INTERNAL_API_URL"] =
       process.env["INTERNAL_API_URL"] ?? "http://localhost:3001";
-    process.env["DATABASE_URL"] =
-      process.env["DATABASE_URL"] ?? "postgresql://x:x@localhost/x"; // placeholder
     app = await buildApp();
   });
 
