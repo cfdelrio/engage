@@ -264,7 +264,7 @@ skipIfNoDatabaseUrl("Event Ingestion Routes", () => {
       expect(body.events[1].status).toBe("duplicate");
     });
 
-    it("should report individual errors without failing batch", async () => {
+    it("should reject batch with invalid items at validation stage", async () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/events/batch",
@@ -276,15 +276,14 @@ skipIfNoDatabaseUrl("Event Ingestion Routes", () => {
           },
           {
             userId: "user-missing-type",
-            // missing type - should cause error
+            // missing type - Fastify validates entire batch upfront
           },
         ],
       });
 
-      expect(response.statusCode).toBe(202);
-      const body = JSON.parse(response.body);
-      expect(body.succeeded).toBeGreaterThanOrEqual(1);
-      expect(body.failed).toBeGreaterThanOrEqual(0);
+      // Fastify+Zod validates the entire body before handler runs
+      // One invalid item → 400 for whole batch (not partial 202)
+      expect(response.statusCode).toBe(400);
     });
   });
 

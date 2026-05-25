@@ -541,6 +541,125 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       updatedAt: user.updatedAt,
     };
   });
+
+  // ─── Voice Campaign Surveys ───────────────────────────────────────────────
+  // POST /admin/voice-campeon-survey — Create temporary survey prompt
+  fastify.post<{
+    Body: {
+      prompt: string;
+      variables?: Record<string, string>;
+      ttl?: number;
+    };
+    Reply:
+      | { surveyId: string; prompt: string; expiresIn: number }
+      | ApiErrorResponse;
+  }>("/voice-campeon-survey", async (request, reply) => {
+    const body = z
+      .object({
+        prompt: z
+          .string()
+          .min(1, "Prompt is required")
+          .max(2000, "Prompt too long"),
+        variables: z.record(z.string()).optional(),
+        ttl: z.number().int().min(60).max(86400).default(3600), // default 1 hour
+      })
+      .parse(request.body);
+
+    const surveyId = `survey_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const surveyData = {
+      tenantId: request.tenantId,
+      prompt: body.prompt,
+      variables: body.variables || {},
+      createdAt: new Date().toISOString(),
+    };
+
+    // Store in Redis with TTL
+    await fastify.redis.setex(
+      `voice:survey:${surveyId}`,
+      body.ttl,
+      JSON.stringify(surveyData),
+    );
+
+    return reply.status(201).send({
+      surveyId,
+      prompt: body.prompt,
+      expiresIn: body.ttl,
+    });
+  });
+
+  // GET /admin/voice-campeon-survey/:surveyId — Retrieve temporary survey
+  fastify.get<{
+    Params: { surveyId: string };
+    Reply:
+      | {
+          surveyId: string;
+          prompt: string;
+          variables: Record<string, string>;
+          createdAt: string;
+        }
+      | ApiErrorResponse;
+  }>("/voice-campeon-survey/:surveyId", async (request, reply) => {
+    const { surveyId } = request.params;
+
+    const surveyData = await fastify.redis.get(`voice:survey:${surveyId}`);
+    if (!surveyData) {
+      return reply.status(404).send({
+        error: "Survey not found or expired",
+        code: "NOT_FOUND",
+      } as ApiErrorResponse);
+    }
+
+    const survey = JSON.parse(surveyData) as {
+      tenantId: string;
+      prompt: string;
+      variables: Record<string, string>;
+      createdAt: string;
+    };
+
+    // Verify tenant ownership
+    if (survey.tenantId !== request.tenantId) {
+      return reply.status(403).send({
+        error: "Access denied",
+        code: "FORBIDDEN",
+      } as ApiErrorResponse);
+    }
+
+    return {
+      surveyId,
+      prompt: survey.prompt,
+      variables: survey.variables,
+      createdAt: survey.createdAt,
+    };
+  });
+
+  // DELETE /admin/voice-campeon-survey/:surveyId — Delete temporary survey
+  fastify.delete<{
+    Params: { surveyId: string };
+    Reply: void | ApiErrorResponse;
+  }>("/voice-campeon-survey/:surveyId", async (request, reply) => {
+    const { surveyId } = request.params;
+
+    const surveyData = await fastify.redis.get(`voice:survey:${surveyId}`);
+    if (!surveyData) {
+      return reply.status(404).send({
+        error: "Survey not found",
+        code: "NOT_FOUND",
+      } as ApiErrorResponse);
+    }
+
+    const survey = JSON.parse(surveyData) as { tenantId: string };
+
+    // Verify tenant ownership
+    if (survey.tenantId !== request.tenantId) {
+      return reply.status(403).send({
+        error: "Access denied",
+        code: "FORBIDDEN",
+      } as ApiErrorResponse);
+    }
+
+    await fastify.redis.del(`voice:survey:${surveyId}`);
+    return reply.status(204).send();
+  });
 };
 
 export default adminRoutes;
