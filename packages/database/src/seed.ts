@@ -157,7 +157,7 @@ const WA_TEMPLATES = [
   {
     name: "wa_payment_pending",
     subject: "",
-    body: "💳 {{user.nombre}}, tu pago está pendiente. Para seguir jugando en {{user.planilla_nombre}} necesitás regularizar tu situación.",
+    body: "💳 {{user.nombre}}, tu pago está pendiente. Para seguir jugando en {{business_context.planilla_nombre}} necesitás regularizar tu situación.",
     aiInstructions: null,
   },
   {
@@ -175,7 +175,7 @@ const WA_TEMPLATES = [
   {
     name: "wa_match_rescheduled",
     subject: "",
-    body: "📅 El partido {{business_context.match.local}} vs {{business_context.match.away}} fue reprogramado para el {{business_context.nueva_fecha}}. Revisá tus pronósticos.",
+    body: "📅 El partido {{business_context.match.local}} vs {{business_context.match.away}} fue reprogramado para el {{business_context.match.new_datetime}}. Revisá tus pronósticos.",
     aiInstructions: null,
   },
   {
@@ -325,7 +325,7 @@ const EMAIL_TEMPLATES = [
       "📅 Cambio de fecha: {{business_context.match.local}} vs {{business_context.match.away}}",
     body:
       H +
-      '<tr><td style="padding:28px 32px 8px;"><p style="margin:0;font-size:15px;color:#1E293B;">Hola <strong>{{user.nombre}}</strong>, el partido <strong>{{business_context.match.local}} vs {{business_context.match.away}}</strong> fue reprogramado para el <strong>{{business_context.nueva_fecha}}</strong>.</p><p style="margin:12px 0 0;font-size:15px;color:#475569;">Revisá tus pronósticos si es necesario.</p></td></tr>' +
+      '<tr><td style="padding:28px 32px 8px;"><p style="margin:0;font-size:15px;color:#1E293B;">Hola <strong>{{user.nombre}}</strong>, el partido <strong>{{business_context.match.local}} vs {{business_context.match.away}}</strong> fue reprogramado para el <strong>{{business_context.match.new_datetime}}</strong>.</p><p style="margin:12px 0 0;font-size:15px;color:#475569;">Revisá tus pronósticos si es necesario.</p></td></tr>' +
       CTA("https://prodecaballito.com/apuestas", "Ver mis pronósticos →") +
       F,
   },
@@ -385,7 +385,7 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_second_half",
-    body: "⚽ Segundo tiempo: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}",
+    body: "⚽ ¡Segundo tiempo! {{business_context.match.local}} vs {{business_context.match.away}}. Tu apuesta: {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}} 🤞",
   },
   {
     name: "sms_ranking_entered",
@@ -417,11 +417,11 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_tournament_tomorrow",
-    body: "🏟️ ¡Mañana arranca {{user.tournament_name}}! ¿Ya tenés tus pronósticos, {{user.nombre}}?",
+    body: "🏟️ ¡Mañana arranca {{business_context.tournament_name}}! ¿Ya tenés tus pronósticos, {{user.nombre}}?",
   },
   {
     name: "sms_match_rescheduled",
-    body: "📅 {{business_context.match.local}} vs {{business_context.match.away}} se reprogramó al {{business_context.nueva_fecha}}. ProdeCaballito.",
+    body: "📅 {{business_context.match.local}} vs {{business_context.match.away}} se reprogramó al {{business_context.match.new_datetime}}. ProdeCaballito.",
   },
   {
     name: "sms_planilla_cierre",
