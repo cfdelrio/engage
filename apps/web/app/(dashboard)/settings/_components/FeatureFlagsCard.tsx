@@ -23,24 +23,26 @@ interface FeatureFlag {
 
 const FLAG_META: Record<string, { label: string; description: string }> = {
   ai_engagement_decisions: {
-    label: "AI Engagement Decisions",
-    description: "Use AI to select channel, timing, and copy variants",
+    label: "Decisiones de IA",
+    description:
+      "Usar IA para seleccionar el canal, el momento y las variantes de contenido",
   },
   voice_campaigns: {
-    label: "Voice Campaigns",
-    description: "Enable Twilio voice call campaigns with TTS",
+    label: "Campañas de voz",
+    description: "Activar campañas de llamadas de voz con Twilio y TTS",
   },
   whatsapp_channel: {
-    label: "WhatsApp Channel",
-    description: "Enable WhatsApp message delivery",
+    label: "Canal WhatsApp",
+    description: "Activar el envío de mensajes por WhatsApp",
   },
   analytics_v2: {
     label: "Analytics v2",
-    description: "Enhanced analytics with AI performance metrics",
+    description: "Analytics mejorado con métricas de performance de IA",
   },
   event_replay: {
-    label: "Event Replay",
-    description: "Replay historical events through the processing pipeline",
+    label: "Replay de eventos",
+    description:
+      "Reproducir eventos históricos a través del pipeline de procesamiento",
   },
 };
 
@@ -95,7 +97,7 @@ export function FeatureFlagsCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Feature Flags</CardTitle>
+          <CardTitle>Funcionalidades</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -113,7 +115,8 @@ export function FeatureFlagsCard() {
       <CardHeader>
         <CardTitle>Feature Flags</CardTitle>
         <CardDescription>
-          Toggle features for this tenant. Changes apply immediately.
+          Activá o desactivá funcionalidades para este tenant. Los cambios se
+          aplican de inmediato.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -134,7 +137,7 @@ export function FeatureFlagsCard() {
                     </div>
                     {flag.tenantOverride !== null && (
                       <Badge variant="outline" className="text-xs mt-1">
-                        tenant override
+                        override de tenant
                       </Badge>
                     )}
                   </div>
@@ -143,7 +146,7 @@ export function FeatureFlagsCard() {
                       variant={isEnabled ? "default" : "secondary"}
                       className="text-xs"
                     >
-                      {isEnabled ? "Enabled" : "Disabled"}
+                      {isEnabled ? "Activo" : "Inactivo"}
                     </Badge>
                     <Button
                       variant={isEnabled ? "outline" : "default"}
@@ -154,8 +157,8 @@ export function FeatureFlagsCard() {
                       {toggling === flag.flag
                         ? "..."
                         : isEnabled
-                          ? "Disable"
-                          : "Enable"}
+                          ? "Desactivar"
+                          : "Activar"}
                     </Button>
                   </div>
                 </div>
@@ -165,7 +168,7 @@ export function FeatureFlagsCard() {
           })}
           {flags.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
-              No feature flags available.
+              No hay funcionalidades configuradas.
             </p>
           )}
         </div>
