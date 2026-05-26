@@ -113,7 +113,7 @@ export function FeatureFlagsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Feature Flags</CardTitle>
+        <CardTitle>Funcionalidades</CardTitle>
         <CardDescription>
           Activá o desactivá funcionalidades para este tenant. Los cambios se
           aplican de inmediato.
