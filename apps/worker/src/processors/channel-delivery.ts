@@ -7,6 +7,7 @@ interface ChannelDeliveryJobPayload {
   deliveryId: string;
   tenantId: string;
   userId: string;
+  eventId?: string;
   channel: string;
   providerName: string;
   payload: DeliveryPayload;
@@ -17,12 +18,12 @@ export function createChannelDeliveryWorker(
   channelRegistry: ChannelProviderRegistry,
 ) {
   return async (job: Job<ChannelDeliveryJobPayload>) => {
-    const { deliveryId, channel, providerName, payload } = job.data;
+    const { deliveryId, eventId, channel, providerName, payload } = job.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const registryKeys = [...(channelRegistry as any)["providers"].keys()];
     console.log(
-      `[channel-delivery] job=${job.id} channel=${channel} providerName=${providerName} registryKeys=${JSON.stringify(registryKeys)} attempt=${job.attemptsMade}`,
+      `[channel-delivery] job=${job.id} eventId=${eventId ?? "n/a"} channel=${channel} providerName=${providerName} registryKeys=${JSON.stringify(registryKeys)} attempt=${job.attemptsMade}`,
     );
 
     const provider =

@@ -268,6 +268,7 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
           tenantId,
           engagementDecisionId,
           userId,
+          eventId: decision.eventId,
           channel,
           provider: providerRecord.provider,
           status: "queued",
@@ -295,6 +296,7 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         deliveryId: delivery.id,
         tenantId,
         userId,
+        eventId: decision.eventId,
         channel,
         providerName: providerRecord.provider,
         payload: {

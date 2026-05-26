@@ -452,7 +452,9 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id/trigger",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const { userId } = z.object({ userId: z.string() }).parse(request.body);
+      const { userId, eventId } = z
+        .object({ userId: z.string(), eventId: z.string().optional() })
+        .parse(request.body);
 
       const [campaign, user] = await Promise.all([
         fastify.prisma.voiceCampaign.findFirst({
@@ -518,6 +520,7 @@ const voiceCampaignRoutes: FastifyPluginAsync = async (fastify) => {
           voiceCampaignId: campaign.id,
           tenantId: request.tenantId,
           userId,
+          ...(eventId ? { eventId } : {}),
           phone: user.phone,
           status: "ringing",
           metadata: asJson({
