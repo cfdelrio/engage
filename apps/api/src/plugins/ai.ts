@@ -17,9 +17,7 @@ declare module "fastify" {
     aiLayer: AIOrchestrationLayer;
     ruleInterpreter: RuleInterpreter;
     ruleAnalyst: RuleAnalyst;
-    createScopedAI: (
-      tenantId: string,
-    ) => Promise<{
+    createScopedAI: (tenantId: string) => Promise<{
       ruleAnalyst: RuleAnalyst;
       ruleInterpreter: RuleInterpreter;
     }>;
@@ -108,8 +106,10 @@ const aiPlugin: FastifyPluginAsync = async (fastify) => {
         };
         tenantProviderCache.set(tenantId, entry);
         return entry;
-      } catch {
-        // decryption failure → try next provider
+      } catch (err) {
+        fastify.log.error(
+          `[ai] Failed to decrypt ${name} key for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
     return undefined;
@@ -131,8 +131,14 @@ const aiPlugin: FastifyPluginAsync = async (fastify) => {
     };
   });
 
+  if (!process.env["PROVIDER_CONFIG_KEY"]) {
+    fastify.log.warn(
+      "[ai] PROVIDER_CONFIG_KEY not set — tenant AI keys from Settings will not work. Set this env var to enable per-tenant AI keys.",
+    );
+  }
+
   fastify.log.info(
-    `AI layer initialized with provider: ${defaultProvider}, ruleInterpreter: ${ruleInterpreter ? "ready" : "failed"}`,
+    `[ai] initialized provider=${defaultProvider} tenantKeys=${process.env["PROVIDER_CONFIG_KEY"] ? "enabled" : "disabled (no PROVIDER_CONFIG_KEY)"}`,
   );
 };
 

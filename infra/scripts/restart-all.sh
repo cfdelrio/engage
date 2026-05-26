@@ -18,7 +18,7 @@ fi
 set -a; source .env; set +a
 
 # Validate required env vars
-REQUIRED_VARS=(DATABASE_URL REDIS_URL ANTHROPIC_API_KEY RESEND_API_KEY TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN)
+REQUIRED_VARS=(DATABASE_URL REDIS_URL RESEND_API_KEY TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN PROVIDER_CONFIG_KEY)
 MISSING=()
 for var in "${REQUIRED_VARS[@]}"; do
   [ -z "${!var}" ] && MISSING+=("$var")
@@ -34,31 +34,28 @@ fi
 LAST_DEPLOY=$(cat .last-deploy-commit 2>/dev/null || echo "")
 CURRENT=$(git rev-parse HEAD)
 
+# API and Worker always rebuild — builds are fast with turbo cache (~15s),
+# and skipping risks deploying stale dist when only plugin/package files changed.
+BUILD_API=true; BUILD_WORKER=true; BUILD_WEB=false; BUILD_INFRA=false
+
 if [ -z "$LAST_DEPLOY" ]; then
   echo "  No previous deploy found — full rebuild"
-  BUILD_API=true BUILD_WORKER=true BUILD_WEB=true BUILD_INFRA=true
+  BUILD_WEB=true BUILD_INFRA=true
 else
   CHANGED=$(git diff --name-only "$LAST_DEPLOY" "$CURRENT" 2>/dev/null || echo "")
   echo "  Changed since last deploy:"
   echo "$CHANGED" | sed 's/^/    /' | head -20
 
-  BUILD_API=false; BUILD_WORKER=false; BUILD_WEB=false; BUILD_INFRA=false
-
   while IFS= read -r file; do
-    [[ "$file" =~ ^apps/api/ ]]                                                      && BUILD_API=true
-    [[ "$file" =~ ^apps/worker/ ]]                                                   && BUILD_WORKER=true
-    [[ "$file" =~ ^apps/web/ ]]                                                      && BUILD_WEB=true
-    [[ "$file" =~ ^infra/systemd/ ]]                                                 && BUILD_INFRA=true
-    [[ "$file" =~ ^packages/(ai|channels|event-bus|rules-engine|database|core|analytics|providers)/ ]] && BUILD_API=true && BUILD_WORKER=true
-    [[ "$file" =~ ^packages/core/ ]]                                                 && BUILD_WEB=true
-    [[ "$file" =~ ^pnpm-lock\.yaml$ ]]                                               && BUILD_API=true && BUILD_WORKER=true && BUILD_WEB=true
+    [[ "$file" =~ ^apps/web/ ]]        && BUILD_WEB=true
+    [[ "$file" =~ ^infra/systemd/ ]]   && BUILD_INFRA=true
+    [[ "$file" =~ ^packages/core/ ]]   && BUILD_WEB=true
+    [[ "$file" =~ ^pnpm-lock\.yaml$ ]] && BUILD_WEB=true
   done <<< "$CHANGED"
 fi
 
-# Force rebuild if dist artifacts are missing (recovery from failed previous build)
-[ ! -f "apps/api/dist/index.js" ]    && { echo "  ⚠️  API dist missing — forcing rebuild"; BUILD_API=true; }
-[ ! -f "apps/worker/dist/index.js" ] && { echo "  ⚠️  Worker dist missing — forcing rebuild"; BUILD_WORKER=true; }
-[ ! -d "apps/web/.next" ]            && { echo "  ⚠️  Web dist missing — forcing rebuild"; BUILD_WEB=true; }
+# Force rebuild web if dist missing
+[ ! -d "apps/web/.next" ] && { echo "  ⚠️  Web dist missing — forcing rebuild"; BUILD_WEB=true; }
 
 echo "  → API: $BUILD_API | Worker: $BUILD_WORKER | Web: $BUILD_WEB | Infra: $BUILD_INFRA"
 
