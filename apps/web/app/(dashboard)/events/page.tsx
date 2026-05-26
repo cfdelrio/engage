@@ -247,6 +247,7 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
+  const [metadataSearch, setMetadataSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [typePrefixFilter, setTypePrefixFilter] = useState("");
@@ -258,6 +259,7 @@ export default function EventsPage() {
   const doFetch = (
     type: string,
     userId: string,
+    metadata: string,
     from: string,
     to: string,
     typePrefix: string,
@@ -270,6 +272,7 @@ export default function EventsPage() {
     if (type) params.set("type", type);
     else if (typePrefix) params.set("typePrefix", typePrefix);
     if (userId) params.set("userId", userId);
+    if (metadata) params.set("metadataSearch", metadata);
     if (from) params.set("from", `${from}T00:00:00.000Z`);
     if (to) params.set("to", `${to}T23:59:59.999Z`);
     if (deliveryStatus) params.set("deliveryStatus", deliveryStatus);
@@ -296,6 +299,7 @@ export default function EventsPage() {
     doFetch(
       typeFilter,
       userFilter,
+      metadataSearch,
       fromDate,
       toDate,
       typePrefixFilter,
@@ -306,6 +310,7 @@ export default function EventsPage() {
   }, [
     typeFilter,
     userFilter,
+    metadataSearch,
     fromDate,
     toDate,
     typePrefixFilter,
@@ -336,6 +341,7 @@ export default function EventsPage() {
             doFetch(
               typeFilter,
               userFilter,
+              metadataSearch,
               fromDate,
               toDate,
               typePrefixFilter,
@@ -369,6 +375,15 @@ export default function EventsPage() {
             placeholder="User ID..."
             value={userFilter}
             onChange={(e) => setUserFilter(e.target.value)}
+            className="pl-8 h-8 text-sm"
+          />
+        </div>
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Email / Teléfono / Nombre..."
+            value={metadataSearch}
+            onChange={(e) => setMetadataSearch(e.target.value)}
             className="pl-8 h-8 text-sm"
           />
         </div>
@@ -413,6 +428,7 @@ export default function EventsPage() {
         </select>
         {(typeFilter ||
           userFilter ||
+          metadataSearch ||
           fromDate ||
           toDate ||
           typePrefixFilter ||
@@ -423,6 +439,7 @@ export default function EventsPage() {
             onClick={() => {
               setTypeFilter("");
               setUserFilter("");
+              setMetadataSearch("");
               setFromDate("");
               setToDate("");
               setTypePrefixFilter("");
@@ -499,6 +516,7 @@ export default function EventsPage() {
                 doFetch(
                   typeFilter,
                   userFilter,
+                  metadataSearch,
                   fromDate,
                   toDate,
                   typePrefixFilter,
