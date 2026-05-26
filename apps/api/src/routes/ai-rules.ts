@@ -92,6 +92,11 @@ const aiRulesRoutes: FastifyPluginAsync = async (fastify) => {
             detail: err.message,
           });
         }
+        return reply.status(503).send({
+          error:
+            "AI service error — verify your API key in Settings > Modelos de IA.",
+          detail: err.message,
+        });
       }
       throw err;
     }
@@ -140,6 +145,11 @@ const aiRulesRoutes: FastifyPluginAsync = async (fastify) => {
             detail: err.message,
           });
         }
+        return reply.status(503).send({
+          error:
+            "AI service error — verify your API key in Settings > Modelos de IA.",
+          detail: err.message,
+        });
       }
       throw err;
     }

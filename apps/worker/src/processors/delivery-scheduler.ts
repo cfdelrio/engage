@@ -305,7 +305,8 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
           provider: providerRecord.provider,
           to,
           subject: renderedSubject,
-          body: renderedBody,
+          body: channel === "email" ? "" : renderedBody,
+          ...(channel === "email" ? { bodyHtml: renderedBody } : {}),
           metadata: twilioTemplateMeta,
           ...(channel === "voice" && eventPayload.business_context
             ? { businessContext: eventPayload.business_context }
