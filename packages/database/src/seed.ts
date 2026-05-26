@@ -99,6 +99,32 @@ const PRODE_EVENT_TYPES = [
     description:
       "Outbound voice survey call (TODO: validate script format with ProdeCaballito)",
   },
+  {
+    type: "prode.voice_nuevo_lider",
+    description: "Voice: llamada al nuevo líder del ranking",
+  },
+  {
+    type: "prode.voice_perfect_score",
+    description: "Voice: llamada al usuario que acertó un exacto",
+  },
+  {
+    type: "prode.voice_match_reminder",
+    description:
+      "Voice: recordatorio de partido próximo (25-35 min antes del kickoff)",
+  },
+  {
+    type: "prode.voice_weekly_summary",
+    description: "Voice: resumen semanal del ranking",
+  },
+  {
+    type: "prode.voice_survey_campeon",
+    description: "Voice: encuesta de predicción de campeón mundial",
+  },
+  {
+    type: "prode.voice_trash_talk",
+    description:
+      "Voice: notificación de rivalidad (un usuario superó a otro en el ranking)",
+  },
 ] as const;
 
 // ─── WhatsApp Pre-approved Meta Templates ────────────────────────────────────
@@ -884,6 +910,54 @@ async function main() {
       priority: 5,
       cooldownSeconds: 86400,
       actions: [{ type: "SEND_NOTIFICATION", params: { channel: "voice" } }],
+    },
+    {
+      name: "PC: voice_nuevo_lider → Voice",
+      eventType: "prode.voice_nuevo_lider",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 86400,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_perfect_score → Voice",
+      eventType: "prode.voice_perfect_score",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 86400,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_match_reminder → Voice",
+      eventType: "prode.voice_match_reminder",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 3600,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_weekly_summary → Voice",
+      eventType: "prode.voice_weekly_summary",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 604800,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_survey_campeon → Voice",
+      eventType: "prode.voice_survey_campeon",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 86400,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_trash_talk → Voice",
+      eventType: "prode.voice_trash_talk",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 3600,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
     },
   ];
 
