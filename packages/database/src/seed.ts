@@ -157,7 +157,7 @@ const WA_TEMPLATES = [
   {
     name: "wa_payment_pending",
     subject: "",
-    body: "💳 {{user.nombre}}, tu pago está pendiente. Para seguir jugando en {{user.planilla_nombre}} necesitás regularizar tu situación.",
+    body: "💳 {{user.nombre}}, tu pago está pendiente. Para seguir jugando en {{business_context.planilla_nombre}} necesitás regularizar tu situación.",
     aiInstructions: null,
   },
   {
@@ -385,7 +385,7 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_second_half",
-    body: "⚽ Segundo tiempo: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}",
+    body: "⚽ ¡Segundo tiempo! {{business_context.match.local}} vs {{business_context.match.away}}. Tu apuesta: {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}} 🤞",
   },
   {
     name: "sms_ranking_entered",
@@ -417,7 +417,7 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_tournament_tomorrow",
-    body: "🏟️ ¡Mañana arranca {{user.tournament_name}}! ¿Ya tenés tus pronósticos, {{user.nombre}}?",
+    body: "🏟️ ¡Mañana arranca {{business_context.tournament_name}}! ¿Ya tenés tus pronósticos, {{user.nombre}}?",
   },
   {
     name: "sms_match_rescheduled",
