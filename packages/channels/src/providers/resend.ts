@@ -23,15 +23,14 @@ export class ResendEmailProvider implements ChannelProvider {
         from: this.from,
         to: payload.to,
         subject: payload.subject ?? "Notification",
-        text: payload.body,
+        ...(payload.bodyHtml
+          ? { html: payload.bodyHtml }
+          : { text: payload.body }),
         headers: {
           "X-Engage-Delivery-Id": payload.deliveryId,
           "X-Engage-Tenant-Id": payload.tenantId,
         },
       };
-      if (payload.bodyHtml) {
-        emailPayload.html = payload.bodyHtml;
-      }
       const result = await this.client.emails.send(emailPayload);
 
       if (result.error) {
