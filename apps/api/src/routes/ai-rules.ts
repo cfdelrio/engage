@@ -73,7 +73,8 @@ const aiRulesRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const interpretation = await fastify.ruleInterpreter.interpret(
+      const { ruleInterpreter } = await fastify.createScopedAI(tenantId);
+      const interpretation = await ruleInterpreter.interpret(
         message,
         tenantId,
         conversationHistory,
@@ -118,7 +119,8 @@ const aiRulesRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const analysis = await fastify.ruleAnalyst.query(
+      const { ruleAnalyst } = await fastify.createScopedAI(tenantId);
+      const analysis = await ruleAnalyst.query(
         question,
         tenantId,
         rules as SerializedRule[],
