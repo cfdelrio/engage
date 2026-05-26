@@ -187,77 +187,182 @@ const WA_TEMPLATES = [
 ] as const;
 
 // ─── Email Templates ──────────────────────────────────────────────────────────
+// HTML responsive mobile-first: navy #001A4B / orange #F47C00 / white background
+// Handlebars context: { user: { nombre, email, ...metadata }, ...event.payload }
+// business_context fields come from event.payload.business_context
+
+const H =
+  '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#F8FAFC;font-family:Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFC;"><tr><td align="center" style="padding:24px 16px;"><table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #E2E8F0;"><tr><td style="background:#001A4B;padding:20px 32px;text-align:center;"><span style="font-size:22px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">⚽ PRODE Caballito</span></td></tr>';
+const F =
+  '<tr><td style="background:#F8FAFC;padding:20px 32px;text-align:center;border-top:1px solid #E2E8F0;"><p style="margin:0;font-size:13px;color:#94A3B8;">Con cariño, el equipo de PRODE Caballito ❤️ | <a href="https://prodecaballito.com" style="color:#F47C00;text-decoration:none;">prodecaballito.com</a></p></td></tr></table></td></tr></table></body></html>';
+const CTA = (url: string, text: string) =>
+  `<tr><td style="padding:8px 32px 32px;text-align:center;"><a href="${url}" style="display:inline-block;background:#F47C00;color:#ffffff;font-family:'Arial Black',Arial,sans-serif;font-weight:900;font-size:16px;padding:16px 36px;border-radius:50px;text-decoration:none;">${text}</a></td></tr>`;
 
 const EMAIL_TEMPLATES = [
   {
     name: "email_verification_code",
-    subject: "Tu código de acceso a ProdeCaballito",
-    body: "Hola {{user.nombre}},\n\nTu código de verificación es: **{{business_context.code}}**\n\nVence en 10 minutos.",
+    subject: "🎯 Código de Verificación - PRODE Caballito",
+    body:
+      H +
+      '<tr><td style="padding:32px 32px 16px;text-align:center;"><p style="margin:0;font-size:16px;color:#475569;">Hola, <strong style="color:#001A4B;">{{user.nombre}}</strong></p><p style="margin:10px 0 0;font-size:16px;color:#1E293B;">Tu código de verificación es:</p></td></tr>' +
+      '<tr><td style="padding:16px 32px;text-align:center;"><div style="display:inline-block;background:#F1F5F9;border:2px dashed #CBD5E1;border-radius:12px;padding:24px 40px;"><span style="font-family:\'Courier New\',Courier,monospace;font-size:42px;font-weight:700;color:#001A4B;letter-spacing:8px;">{{business_context.code}}</span></div></td></tr>' +
+      '<tr><td style="padding:16px 32px 32px;text-align:center;"><p style="margin:0;font-size:14px;color:#64748B;">Este código <strong>expira en 15 minutos</strong>.</p><p style="margin:12px 0 0;font-size:13px;color:#94A3B8;">Si no solicitaste esto, ignorá este correo.</p></td></tr>' +
+      F,
   },
   {
     name: "email_welcome",
-    subject: "¡Bienvenido a ProdeCaballito, {{user.nombre}}!",
-    body: "Hola {{user.nombre}},\n\nYa estás registrado en {{user.planilla_nombre}}. ¡A pronosticar!",
+    subject:
+      "🔥 ¡{{user.nombre}}, el Mundial 2026 arranca — ya sos parte del PRODE!",
+    body:
+      H +
+      '<tr><td style="background:#001A4B;padding:0 32px 32px;text-align:center;"><p style="margin:0;font-size:38px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#F47C00;letter-spacing:-1px;line-height:1.1;">ESTO YA EMPEZÓ</p><p style="margin:8px 0 0;font-size:18px;color:#93C5FD;font-weight:700;">¿VAS A JUGAR O MIRAR?</p></td></tr>' +
+      '<tr><td style="padding:28px 32px 8px;"><p style="margin:0;font-size:16px;color:#1E293B;">Hola <strong style="color:#001A4B;">{{user.nombre}}</strong>, YA ESTÁS ADENTRO del PRODE Caballito.</p><p style="margin:10px 0 0;font-size:15px;color:#475569;line-height:1.6;">Cargá tus pronósticos antes de que empiece la acción.</p></td></tr>' +
+      '<tr><td style="padding:16px 32px 8px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;"><tr><td style="background:#F1F5F9;padding:10px 16px;"><p style="margin:0;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">CÓMO JUGAR EN 3 PASOS</p></td></tr><tr><td style="padding:12px 16px;border-top:1px solid #E2E8F0;"><p style="margin:0;font-size:14px;color:#1E293B;"><strong style="color:#F47C00;">1.</strong> Entrá a /apuestas → seleccioná el torneo</p></td></tr><tr><td style="padding:12px 16px;border-top:1px solid #E2E8F0;"><p style="margin:0;font-size:14px;color:#1E293B;"><strong style="color:#F47C00;">2.</strong> Ingresá el marcador para cada partido</p></td></tr><tr><td style="padding:12px 16px;border-top:1px solid #E2E8F0;"><p style="margin:0;font-size:14px;color:#1E293B;"><strong style="color:#F47C00;">3.</strong> ¡Guardá y listo! (se guarda automático)</p></td></tr></table></td></tr>' +
+      '<tr><td style="padding:16px 32px 8px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;"><tr><td colspan="2" style="background:#001A4B;padding:10px 16px;text-align:center;"><p style="margin:0;font-size:12px;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.5px;">SISTEMA DE PUNTOS</p></td></tr><tr><td style="padding:10px 16px;border-top:1px solid #E2E8F0;font-size:14px;color:#1E293B;">Marcador exacto (ej: 2-1 = 2-1)</td><td style="padding:10px 16px;border-top:1px solid #E2E8F0;text-align:right;font-size:16px;font-weight:900;color:#F47C00;">4 pts</td></tr><tr><td style="padding:10px 16px;border-top:1px solid #E2E8F0;font-size:14px;color:#1E293B;">Resultado correcto (local gana)</td><td style="padding:10px 16px;border-top:1px solid #E2E8F0;text-align:right;font-size:16px;font-weight:900;color:#001A4B;">3 pts</td></tr><tr><td style="padding:10px 16px;border-top:1px solid #E2E8F0;font-size:14px;color:#1E293B;">No acertaste nada</td><td style="padding:10px 16px;border-top:1px solid #E2E8F0;text-align:right;font-size:16px;font-weight:700;color:#94A3B8;">0 pts</td></tr></table></td></tr>' +
+      '<tr><td style="padding:16px 32px 8px;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:12px 16px;"><p style="margin:0;font-size:14px;color:#92400E;">⏰ <strong>Las apuestas cierran 5 minutos antes del primer partido.</strong></p></td></tr></table></td></tr>' +
+      CTA("https://prodecaballito.com/apuestas", "⚽ EMPEZAR A JUGAR AHORA →") +
+      F,
   },
   {
     name: "email_result_individual",
     subject:
-      "Resultado: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}",
-    body: "Hola {{user.nombre}},\n\nResultado: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}\n\nTu pronóstico: {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}}\nPuntos obtenidos: {{business_context.bet.puntos_obtenidos}}\nRanking actual: #{{business_context.ranking_after.position}} en {{user.planilla_nombre}}",
+      "🎯 Resultado: {{business_context.home_team}} {{business_context.resultado_local}}-{{business_context.resultado_visitante}} {{business_context.away_team}} — sumaste {{business_context.puntos_obtenidos}} pts",
+    body:
+      H +
+      '<tr><td style="background:#001A4B;padding:28px 32px;text-align:center;"><p style="margin:0;font-size:30px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">{{business_context.home_team}}</p><p style="margin:8px 0;font-size:44px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#F47C00;letter-spacing:2px;">{{business_context.resultado_local}} - {{business_context.resultado_visitante}}</p><p style="margin:0;font-size:30px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">{{business_context.away_team}}</p></td></tr>' +
+      '<tr><td style="padding:24px 32px 8px;"><p style="margin:0;font-size:15px;color:#475569;">Hola <strong style="color:#001A4B;">{{user.nombre}}</strong>, así te fue en este partido:</p></td></tr>' +
+      '<tr><td style="padding:8px 32px 8px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;"><tr><td width="50%" style="padding:16px;text-align:center;border-right:1px solid #E2E8F0;"><p style="margin:0;font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">TU PRONÓSTICO</p><p style="margin:8px 0 0;font-size:32px;font-weight:900;color:#001A4B;font-family:\'Arial Black\',Arial,sans-serif;">{{business_context.goles_local}}-{{business_context.goles_visitante}}</p></td><td width="50%" style="padding:16px;text-align:center;"><p style="margin:0;font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">RESULTADO REAL</p><p style="margin:8px 0 0;font-size:32px;font-weight:900;color:#001A4B;font-family:\'Arial Black\',Arial,sans-serif;">{{business_context.resultado_local}}-{{business_context.resultado_visitante}}</p></td></tr></table></td></tr>' +
+      '<tr><td style="padding:16px 32px 8px;text-align:center;"><div style="display:inline-block;background:#F47C00;color:#ffffff;padding:12px 28px;border-radius:50px;font-weight:900;font-size:20px;font-family:\'Arial Black\',Arial,sans-serif;">+{{business_context.puntos_obtenidos}} pts{{#if business_context.outcome}} — {{business_context.outcome}}{{/if}}</div></td></tr>' +
+      '<tr><td style="padding:8px 32px 8px;text-align:center;"><p style="margin:0;font-size:15px;color:#475569;">Tu posición en el ranking: <strong style="color:#001A4B;font-size:18px;">#{{business_context.ranking_position}}</strong></p></td></tr>' +
+      CTA("https://prodecaballito.com/ranking", "Ver ranking →") +
+      F,
   },
   {
     name: "email_result_broadcast",
     subject: "Resultados de la fecha — {{user.planilla_nombre}}",
-    body: "Hola {{user.nombre}},\n\nYa están los resultados de la fecha en {{user.planilla_nombre}}. Entrá a ver tu posición.",
+    body:
+      H +
+      '<tr><td style="padding:28px 32px 8px;text-align:center;"><p style="margin:0;font-size:28px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#001A4B;">⚽ RESULTADOS</p></td></tr>' +
+      '<tr><td style="padding:8px 32px 8px;"><p style="margin:0;font-size:15px;color:#475569;">Hola <strong style="color:#001A4B;">{{user.nombre}}</strong>, ya están los resultados de la fecha en <strong>{{user.planilla_nombre}}</strong>. Entrá a ver tu posición.</p></td></tr>' +
+      CTA("https://prodecaballito.com/ranking", "Ver mi posición →") +
+      F,
   },
   {
     name: "email_payment_pending",
     subject: "⚠️ Pago pendiente en ProdeCaballito",
-    body: "Hola {{user.nombre}},\n\nTenés un pago pendiente para continuar participando en {{user.planilla_nombre}}. Regularizá tu situación para no perder tu posición.",
+    body:
+      H +
+      '<tr><td style="background:#FEF2F2;padding:20px 32px;text-align:center;border-bottom:1px solid #FECACA;"><p style="margin:0;font-size:20px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#DC2626;">⚠️ PAGO PENDIENTE</p></td></tr>' +
+      '<tr><td style="padding:24px 32px 8px;"><p style="margin:0;font-size:15px;color:#1E293B;">Hola <strong>{{user.nombre}}</strong>, tenés un pago pendiente para continuar participando en <strong>{{user.planilla_nombre}}</strong>.</p><p style="margin:12px 0 0;font-size:15px;color:#475569;">Regularizá tu situación para no perder tu posición.</p></td></tr>' +
+      CTA("https://prodecaballito.com", "Regularizar pago →") +
+      F,
   },
   {
     name: "email_winner_personal",
-    subject: "🏆 ¡Ganaste la fecha en {{user.planilla_nombre}}!",
-    body: "Hola {{user.nombre}},\n\n¡Felicitaciones! Ganaste la fecha con {{business_context.points}} puntos en {{user.planilla_nombre}}. ¡Sos el mejor!",
+    subject: "🏆 ¡{{user.nombre}}, ganaste {{business_context.matchday_name}}!",
+    body:
+      H +
+      '{{#if business_context.image_url}}<tr><td style="padding:0;"><img src="{{business_context.image_url}}" alt="¡Ganaste!" width="600" style="width:100%;max-width:600px;display:block;"></td></tr>{{/if}}' +
+      '<tr><td style="background:#001A4B;padding:28px 32px;text-align:center;"><p style="margin:0;font-size:14px;color:#93C5FD;text-transform:uppercase;letter-spacing:1px;">{{business_context.matchday_name}}</p><p style="margin:8px 0;font-size:42px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#F47C00;letter-spacing:-1px;line-height:1.1;">¡GANASTE!</p><p style="margin:0;font-size:22px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#ffffff;">CON {{business_context.points}} PUNTOS</p></td></tr>' +
+      '<tr><td style="padding:24px 32px 8px;text-align:center;"><p style="margin:0;font-size:16px;color:#1E293B;line-height:1.6;font-style:italic;">{{business_context.scorer_line}}</p></td></tr>' +
+      CTA(
+        "https://prodecaballito.com/ganadas",
+        "Ver mi historial de victorias →",
+      ) +
+      F,
   },
   {
     name: "email_winner_broadcast",
-    subject: "🏆 Hay un ganador en {{user.planilla_nombre}}",
-    body: "Hola {{user.nombre}},\n\n{{business_context.winner_name}} ganó la fecha en {{user.planilla_nombre}} con {{business_context.points}} puntos. ¿Podés superarlo la próxima?",
+    subject:
+      "🏆 {{business_context.winner_name}} ganó {{business_context.matchday_name}}",
+    body:
+      H +
+      '<tr><td style="background:#001A4B;padding:28px 32px;text-align:center;"><p style="margin:0;font-size:13px;color:#93C5FD;text-transform:uppercase;letter-spacing:1px;">CRACK DE LA FECHA</p><p style="margin:8px 0;font-size:36px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#F47C00;letter-spacing:-0.5px;">{{business_context.winner_name}}</p><p style="margin:0;font-size:18px;color:#ffffff;font-weight:700;">{{business_context.points}} puntos · {{business_context.matchday_name}}</p></td></tr>' +
+      '<tr><td style="padding:24px 32px 8px;"><p style="margin:0;font-size:15px;color:#475569;">Hola <strong style="color:#001A4B;">{{user.nombre}}</strong>, {{business_context.scorer_line}}</p></td></tr>' +
+      CTA("https://prodecaballito.com/ranking", "Ver ranking →") +
+      F,
   },
   {
     name: "email_matchday_summary",
     subject: "Resumen de fecha — {{business_context.matchday_name}}",
-    body: "Hola {{user.nombre}},\n\nAcá está tu resumen de {{business_context.matchday_name}}:\n- Puntos: {{business_context.points}}\n- Posición en la fecha: #{{business_context.rank_in_matchday}}\n- Posición global: #{{business_context.global_position}}\n- Ganador de la fecha: {{business_context.top_name}} ({{business_context.top_points}} pts)\n\nSeguí así!",
+    body:
+      H +
+      '<tr><td style="padding:28px 32px 8px;text-align:center;"><p style="margin:0;font-size:24px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#001A4B;">Tu resumen ⚽</p><p style="margin:6px 0 0;font-size:15px;color:#64748B;">{{business_context.matchday_name}}</p></td></tr>' +
+      '<tr><td style="padding:8px 32px 16px;"><p style="margin:0;font-size:15px;color:#475569;">Hola <strong style="color:#001A4B;">{{user.nombre}}</strong>, acá están tus números:</p></td></tr>' +
+      '<tr><td style="padding:0 32px 16px;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td width="33%" style="padding:0 4px 0 0;text-align:center;"><div style="background:#F1F5F9;border-radius:8px;padding:16px 8px;"><div style="font-size:30px;font-weight:900;color:#F47C00;font-family:\'Arial Black\',Arial,sans-serif;">{{business_context.points}}</div><div style="font-size:11px;color:#64748B;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">Puntos</div></div></td><td width="34%" style="padding:0 2px;text-align:center;"><div style="background:#F1F5F9;border-radius:8px;padding:16px 8px;"><div style="font-size:30px;font-weight:900;color:#001A4B;font-family:\'Arial Black\',Arial,sans-serif;">#{{business_context.rank_in_matchday}}</div><div style="font-size:11px;color:#64748B;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">En la fecha</div></div></td><td width="33%" style="padding:0 0 0 4px;text-align:center;"><div style="background:#F1F5F9;border-radius:8px;padding:16px 8px;"><div style="font-size:30px;font-weight:900;color:#001A4B;font-family:\'Arial Black\',Arial,sans-serif;">#{{business_context.global_position}}</div><div style="font-size:11px;color:#64748B;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">Global</div></div></td></tr></table></td></tr>' +
+      '<tr><td style="padding:0 32px 8px;"><div style="background:#F1F5F9;border-radius:8px;padding:14px 16px;"><p style="margin:0;font-size:12px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Ganador de la fecha</p><p style="margin:4px 0 0;font-size:16px;font-weight:700;color:#001A4B;">🏆 {{business_context.top_name}} — {{business_context.top_points}} pts</p></div></td></tr>' +
+      CTA("https://prodecaballito.com/ranking", "Ver ranking completo →") +
+      F,
   },
   {
     name: "email_weekly_digest",
-    subject: "Tu semana en ProdeCaballito",
-    body: "Hola {{user.nombre}},\n\nEsta semana en {{user.planilla_nombre}}:\n- Posición: #{{user.ranking_position}}\n- Puntos acumulados: {{user.puntos_totales}}\n- Racha exactos: {{user.current_streak}}\n\n¡Seguí pronosticando!",
+    subject:
+      "📊 Tu semana en PRODE — posición #{{business_context.ranking_position}}",
+    body:
+      H +
+      '<tr><td style="padding:28px 32px 8px;"><p style="margin:0;font-size:16px;color:#1E293B;">Hola <strong style="color:#001A4B;">{{user.nombre}}</strong>, así cerró tu semana:</p></td></tr>' +
+      '<tr><td style="padding:8px 32px 16px;"><div style="background:#001A4B;border-radius:8px;padding:20px 24px;text-align:center;"><p style="margin:0;font-size:13px;color:#93C5FD;text-transform:uppercase;letter-spacing:0.5px;">Tu posición</p><p style="margin:6px 0;font-size:40px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#F47C00;">#{{business_context.ranking_position}}</p><p style="margin:0;font-size:16px;color:#ffffff;font-weight:700;">{{business_context.puntos_totales}} puntos totales</p></div></td></tr>' +
+      '{{#if business_context.diferencia_puntos}}<tr><td style="padding:0 32px 8px;"><div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:14px 16px;"><p style="margin:0;font-size:14px;color:#1D4ED8;">📈 Te faltan <strong>{{business_context.diferencia_puntos}} pts</strong> para entrar al top 5.</p></div></td></tr>{{/if}}' +
+      '<tr><td style="padding:8px 32px 8px;"><div style="background:#F1F5F9;border-radius:8px;padding:14px 16px;"><p style="margin:0;font-size:12px;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Tu mejor jornada</p><p style="margin:4px 0 0;font-size:15px;font-weight:700;color:#001A4B;">{{business_context.best_round_pts}} pts — Jornada {{business_context.best_round_jornada}}</p></div></td></tr>' +
+      '{{#if business_context.pending_bets}}<tr><td style="padding:8px 32px 8px;"><div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:12px 16px;"><p style="margin:0;font-size:14px;color:#92400E;">⏰ <strong>Tenés {{business_context.pending_bets}} pronóstico(s) pendiente(s).</strong> ¡No te los pierdas!</p></div></td></tr>{{/if}}' +
+      CTA("https://prodecaballito.com/apuestas", "Apostar ahora →") +
+      F,
   },
   {
     name: "email_bet_reminder",
-    subject: "⚽ ¡No olvidés tus pronósticos!",
-    body: "Hola {{user.nombre}},\n\nTodavía no cargaste tus pronósticos para la próxima fecha en {{user.planilla_nombre}}. El cierre es pronto.",
+    subject:
+      "⏰ Cerrás en {{business_context.minutes_left}} min — {{business_context.pending_bets}} pronóstico(s) sin cargar",
+    body:
+      H +
+      '<tr><td style="background:#DC2626;padding:24px 32px;text-align:center;"><p style="margin:0;font-size:26px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#ffffff;line-height:1.2;">⏰ CERRÁS EN {{business_context.minutes_left}} MINUTOS</p></td></tr>' +
+      '<tr><td style="padding:24px 32px 8px;"><p style="margin:0;font-size:16px;color:#1E293B;line-height:1.6;"><strong style="color:#001A4B;">{{user.nombre}}</strong>, te quedan <strong style="color:#DC2626;">{{business_context.minutes_left}} minutos</strong> para cargar tus pronósticos en <strong>{{business_context.tournament_name}}</strong>.</p>{{#if business_context.first_match}}<p style="margin:12px 0 0;font-size:15px;color:#475569;">El primer partido es <strong>{{business_context.first_match.local}} vs {{business_context.first_match.away}}</strong>.</p>{{/if}}</td></tr>' +
+      CTA("https://prodecaballito.com/apuestas", "⚡ CARGAR AHORA →") +
+      F,
   },
   {
     name: "email_match_rescheduled",
     subject:
       "📅 Cambio de fecha: {{business_context.match.local}} vs {{business_context.match.away}}",
-    body: "Hola {{user.nombre}},\n\nEl partido {{business_context.match.local}} vs {{business_context.match.away}} fue reprogramado para el {{business_context.nueva_fecha}}. Revisá tus pronósticos si es necesario.",
+    body:
+      H +
+      '<tr><td style="padding:28px 32px 8px;"><p style="margin:0;font-size:15px;color:#1E293B;">Hola <strong>{{user.nombre}}</strong>, el partido <strong>{{business_context.match.local}} vs {{business_context.match.away}}</strong> fue reprogramado para el <strong>{{business_context.nueva_fecha}}</strong>.</p><p style="margin:12px 0 0;font-size:15px;color:#475569;">Revisá tus pronósticos si es necesario.</p></td></tr>' +
+      CTA("https://prodecaballito.com/apuestas", "Ver mis pronósticos →") +
+      F,
   },
   {
     name: "email_tournament_tomorrow",
     subject: "🏟️ ¡Mañana empieza el torneo!",
-    body: "Hola {{user.nombre}},\n\nMañana arranca la acción en {{user.planilla_nombre}}. ¿Ya tenés listos tus pronósticos?",
+    body:
+      H +
+      '<tr><td style="background:#001A4B;padding:24px 32px;text-align:center;"><p style="margin:0;font-size:28px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#F47C00;">MAÑANA ARRANCA ⚽</p></td></tr>' +
+      '<tr><td style="padding:24px 32px 8px;"><p style="margin:0;font-size:15px;color:#1E293B;">Hola <strong>{{user.nombre}}</strong>, mañana arranca la acción en <strong>{{user.planilla_nombre}}</strong>. ¿Ya tenés listos tus pronósticos?</p></td></tr>' +
+      CTA("https://prodecaballito.com/apuestas", "Cargar pronósticos →") +
+      F,
   },
   {
     name: "email_planilla_cierre",
     subject:
-      "Planilla cerrada — Resultados finales de {{user.planilla_nombre}}",
-    body: "Hola {{user.nombre}},\n\nLa planilla {{business_context.planilla_nombre}} cerró en {{business_context.torneo_name}}. ¡Hasta la próxima!",
+      '✅ Tu planilla "{{business_context.planilla_nombre}}" está lista para {{business_context.torneo_name}}',
+    body:
+      H +
+      '<tr><td style="background:#059669;padding:20px 32px;text-align:center;"><p style="margin:0;font-size:22px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#ffffff;">✅ PLANILLA LISTA</p><p style="margin:6px 0 0;font-size:15px;color:#D1FAE5;">{{business_context.planilla_nombre}} · {{business_context.torneo_name}}</p></td></tr>' +
+      '<tr><td style="padding:24px 32px 8px;"><p style="margin:0;font-size:15px;color:#475569;">Hola <strong style="color:#001A4B;">{{user.nombre}}</strong>, tus pronósticos para <strong>{{business_context.torneo_name}}</strong>:</p></td></tr>' +
+      '<tr><td style="padding:8px 32px 16px;"><table width="100%" cellpadding="0" cellspacing="0" style="border-radius:8px;overflow:hidden;border:1px solid #E2E8F0;"><tr style="background:#001A4B;"><td style="padding:10px 14px;font-size:12px;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:0.5px;">PARTIDO</td><td style="padding:10px 14px;font-size:12px;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">TU PRONÓSTICO</td></tr>{{#each business_context.matches}}<tr style="border-top:1px solid #E2E8F0;"><td style="padding:12px 14px;font-size:14px;color:#1E293B;">{{this.home_team}} vs {{this.away_team}}</td><td style="padding:12px 14px;font-size:14px;font-weight:700;color:#001A4B;text-align:right;">{{#if this.goles_local}}{{this.goles_local}}-{{this.goles_visitante}}{{else}}—{{/if}}</td></tr>{{/each}}</table></td></tr>' +
+      CTA("https://prodecaballito.com/apuestas", "Ver mi planilla →") +
+      F,
   },
-] as const;
+  {
+    name: "email_new_leader",
+    subject:
+      "🏆 ¡{{user.nombre}}, sos el nuevo líder de {{business_context.tournament_name}}!",
+    body:
+      H +
+      '<tr><td style="background:#001A4B;padding:32px 32px;text-align:center;"><p style="margin:0;font-size:16px;color:#93C5FD;text-transform:uppercase;letter-spacing:2px;">RANKING</p><p style="margin:8px 0;font-size:52px;font-family:\'Arial Black\',Arial,sans-serif;font-weight:900;color:#F47C00;letter-spacing:-2px;line-height:1;">¡LLEGASTE<br>AL #1!</p><p style="margin:12px 0 0;font-size:20px;color:#ffffff;font-weight:700;">{{business_context.puntos_totales}} puntos</p></td></tr>' +
+      '<tr><td style="padding:24px 32px 8px;text-align:center;"><p style="margin:0;font-size:16px;color:#1E293B;"><strong style="color:#001A4B;">{{user.nombre}}</strong>, sos el nuevo líder de <strong>{{business_context.tournament_name}}</strong>.</p><p style="margin:12px 0 0;font-size:15px;color:#475569;">Ahora a defenderlo. 💪</p></td></tr>' +
+      CTA("https://prodecaballito.com/ranking", "Ver mi posición →") +
+      F,
+  },
+];
 
 // ─── SMS Templates ────────────────────────────────────────────────────────────
 
