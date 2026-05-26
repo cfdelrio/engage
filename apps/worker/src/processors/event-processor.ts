@@ -471,7 +471,7 @@ export function createEventProcessor(
                   "content-type": "application/json",
                   "x-api-key": apiKey,
                 },
-                body: JSON.stringify({ userId }),
+                body: JSON.stringify({ userId, eventId }),
               },
             );
             if (!response.ok) {

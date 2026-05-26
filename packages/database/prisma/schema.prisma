@@ -411,6 +411,7 @@ model Delivery {
   tenantId             String
   engagementDecisionId String
   userId               String
+  eventId              String?
   channel              String
   provider             String
   status               String    @default("queued")
@@ -435,6 +436,7 @@ model Delivery {
   @@index([tenantId, channel, status])
   @@index([tenantId, userId, createdAt])
   @@index([providerMessageId])
+  @@index([eventId])
   @@map("deliveries")
 }
 
@@ -676,6 +678,7 @@ model VoiceCall {
   voiceCampaignId     String
   tenantId            String
   userId              String
+  eventId             String?
   phone               String
   status              String    @default("queued")
   twilioCallSid       String?   @unique
@@ -708,6 +711,7 @@ model VoiceCall {
 
   @@index([voiceCampaignId])
   @@index([tenantId, userId])
+  @@index([eventId])
   @@map("voice_calls")
 }
 
