@@ -1,3 +1,13 @@
+/**
+ * Twilio-direct voice call processor (QUEUES.VOICE_CALLS).
+ *
+ * This path places calls using ENGAGE's own Twilio credentials and renders
+ * TwiML locally. It is NOT triggered by the event-rules engine — that path
+ * uses START_VOICE_CAMPAIGN → /v1/voice-campaigns/:id/trigger → orkestai-voice.
+ *
+ * Use this processor for manual or programmatic one-off calls by enqueuing
+ * directly to QUEUES.VOICE_CALLS.
+ */
 import type { Job } from "bullmq";
 import { prisma } from "@engage/database";
 import twilio from "twilio";

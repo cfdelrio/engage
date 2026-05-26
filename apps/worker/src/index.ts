@@ -194,7 +194,11 @@ async function main() {
     processSmsMessage,
     5,
   );
-  const voiceCallWorker = createWorker("voice.calls", processVoiceCall, 3);
+  // Twilio-direct voice path: handles individual calls placed without going through orkestai-voice.
+  // This queue is NOT enqueued by the event-rules engine — START_VOICE_CAMPAIGN rules use the
+  // /v1/voice-campaigns/:id/trigger endpoint → orkestai-voice instead.
+  // Reserved for manual or programmatic one-off calls via direct queue.add(QUEUES.VOICE_CALLS, ...).
+  const voiceCallWorker = createWorker(QUEUES.VOICE_CALLS, processVoiceCall, 3);
   const whatsappMessageWorker = createWorker(
     "whatsapp.messages",
     processWhatsAppMessage,
