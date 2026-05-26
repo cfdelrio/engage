@@ -1,3 +1,4 @@
+import fp from "fastify-plugin";
 import type { FastifyPluginAsync } from "fastify";
 import {
   AIProviderRegistry,
@@ -142,4 +143,4 @@ const aiPlugin: FastifyPluginAsync = async (fastify) => {
   );
 };
 
-export default aiPlugin;
+export default fp(aiPlugin);
