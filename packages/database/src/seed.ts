@@ -205,7 +205,7 @@ const EMAIL_TEMPLATES = [
     body:
       H +
       '<tr><td style="padding:32px 32px 16px;text-align:center;"><p style="margin:0;font-size:16px;color:#475569;">Hola, <strong style="color:#001A4B;">{{user.nombre}}</strong></p><p style="margin:10px 0 0;font-size:16px;color:#1E293B;">Tu código de verificación es:</p></td></tr>' +
-      '<tr><td style="padding:16px 32px;text-align:center;"><div style="display:inline-block;background:#F1F5F9;border:2px dashed #CBD5E1;border-radius:12px;padding:24px 40px;"><span style="font-family:\'Courier New\',Courier,monospace;font-size:42px;font-weight:700;color:#001A4B;letter-spacing:8px;">{{business_context.code}}</span></div></td></tr>' +
+      '<tr><td style="padding:16px 32px;text-align:center;"><div style="display:inline-block;background:#F1F5F9;border:2px dashed #CBD5E1;border-radius:12px;padding:24px 40px;"><span style="font-family:\'Courier New\',Courier,monospace;font-size:42px;font-weight:700;color:#001A4B;letter-spacing:8px;">{{code}}</span></div></td></tr>' +
       '<tr><td style="padding:16px 32px 32px;text-align:center;"><p style="margin:0;font-size:14px;color:#64748B;">Este código <strong>expira en 15 minutos</strong>.</p><p style="margin:12px 0 0;font-size:13px;color:#94A3B8;">Si no solicitaste esto, ignorá este correo.</p></td></tr>' +
       F,
   },
@@ -369,7 +369,7 @@ const EMAIL_TEMPLATES = [
 const SMS_TEMPLATES = [
   {
     name: "sms_verification_code",
-    body: "ProdeCaballito: Tu código es {{business_context.code}}. Vence en 10 min.",
+    body: "ProdeCaballito: Tu código es {{code}}. Vence en 10 min.",
   },
   {
     name: "sms_bet_reminder",
