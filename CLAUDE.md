@@ -145,12 +145,32 @@ git checkout -b release/v1.2.0
 # 6. Merge de vuelta a develop
 ```
 
+### Sincronización de ramas (prevenir desincronización)
+
+**Problema**: Ramas de desarrollo que se crean desde una versión antigua de `main` pueden quedarse desincronizadas si `main` avanza significativamente. Esto causa que los cambios en branches de desarrollo usen versiones obsoletas de dependencias, plugins o patrones.
+
+**Solución**: Siempre crear branches desde `main` ACTUALIZADO y rebasear si se quedan atrás:
+
+```bash
+# Al crear una rama nueva:
+git fetch origin
+git checkout -b fix/my-fix origin/main  # Crear desde main remoto, no local
+
+# Si una rama ya existe y está atrás:
+git fetch origin
+git rebase origin/main
+git push -f origin fix/my-fix  # Force push después de rebase
+```
+
+**En CI**: Antes de mergear, GitHub requiere que la rama esté up-to-date con el target. Para features a `develop`: rebasear sobre `origin/develop`.
+
 ### Reglas
 
 - ✅ Todas las features **por PR a `develop`**
 - ✅ Código **solo llega a producción vía `main`**
 - ✅ GitHub Actions **auto-deploya en pushes a `main`**
 - ✅ **Sin commits directos a `main` o `develop`** (siempre PR)
+- ✅ **Branches siempre desde `origin/main` o `origin/develop`** (remoto, actualizado)
 
 ### Validación previa a pushear
 
