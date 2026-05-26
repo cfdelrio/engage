@@ -175,7 +175,7 @@ const WA_TEMPLATES = [
   {
     name: "wa_match_rescheduled",
     subject: "",
-    body: "📅 El partido {{business_context.match.local}} vs {{business_context.match.away}} fue reprogramado para el {{business_context.nueva_fecha}}. Revisá tus pronósticos.",
+    body: "📅 El partido {{business_context.match.local}} vs {{business_context.match.away}} fue reprogramado para el {{business_context.match.new_datetime}}. Revisá tus pronósticos.",
     aiInstructions: null,
   },
   {
@@ -325,7 +325,7 @@ const EMAIL_TEMPLATES = [
       "📅 Cambio de fecha: {{business_context.match.local}} vs {{business_context.match.away}}",
     body:
       H +
-      '<tr><td style="padding:28px 32px 8px;"><p style="margin:0;font-size:15px;color:#1E293B;">Hola <strong>{{user.nombre}}</strong>, el partido <strong>{{business_context.match.local}} vs {{business_context.match.away}}</strong> fue reprogramado para el <strong>{{business_context.nueva_fecha}}</strong>.</p><p style="margin:12px 0 0;font-size:15px;color:#475569;">Revisá tus pronósticos si es necesario.</p></td></tr>' +
+      '<tr><td style="padding:28px 32px 8px;"><p style="margin:0;font-size:15px;color:#1E293B;">Hola <strong>{{user.nombre}}</strong>, el partido <strong>{{business_context.match.local}} vs {{business_context.match.away}}</strong> fue reprogramado para el <strong>{{business_context.match.new_datetime}}</strong>.</p><p style="margin:12px 0 0;font-size:15px;color:#475569;">Revisá tus pronósticos si es necesario.</p></td></tr>' +
       CTA("https://prodecaballito.com/apuestas", "Ver mis pronósticos →") +
       F,
   },
@@ -421,7 +421,7 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_match_rescheduled",
-    body: "📅 {{business_context.match.local}} vs {{business_context.match.away}} se reprogramó al {{business_context.nueva_fecha}}. ProdeCaballito.",
+    body: "📅 {{business_context.match.local}} vs {{business_context.match.away}} se reprogramó al {{business_context.match.new_datetime}}. ProdeCaballito.",
   },
   {
     name: "sms_planilla_cierre",
