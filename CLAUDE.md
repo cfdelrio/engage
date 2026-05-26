@@ -281,21 +281,22 @@ PGPASSWORD=engage psql -h localhost -U engage -d engage
 
 ## Variables de entorno (.env)
 
-| Variable                      | Descripción                                                      |
-| ----------------------------- | ---------------------------------------------------------------- |
-| `DATABASE_URL`                | PostgreSQL connection string                                     |
-| `REDIS_URL`                   | Redis connection string                                          |
-| `RESEND_API_KEY`              | API key de Resend (email)                                        |
-| `RESEND_FROM_EMAIL`           | From address verificado (ej: `notifications@prodecaballito.com`) |
-| `INFOBIP_API_KEY`             | API key de Infobip (SMS)                                         |
-| `INFOBIP_BASE_URL`            | Base URL de Infobip (ej: `https://XXXX.api.infobip.com`)         |
-| `INFOBIP_SMS_FROM`            | Sender ID de Infobip (ej: `14198089784`)                         |
-| `TWILIO_ACCOUNT_SID`          | Account SID de Twilio                                            |
-| `TWILIO_AUTH_TOKEN`           | Auth Token de Twilio                                             |
-| `TWILIO_FROM_NUMBER`          | Número Twilio para voz (E.164)                                   |
-| `TWILIO_WHATSAPP_FROM_NUMBER` | Número WhatsApp (`+14155238886` para sandbox)                    |
-| `ANTHROPIC_API_KEY`           | API key de Anthropic (AI layer)                                  |
-| `API_BASE_URL`                | URL pública del API (para webhooks de Twilio)                    |
+| Variable                      | Descripción                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                | PostgreSQL connection string                                                         |
+| `REDIS_URL`                   | Redis connection string                                                              |
+| `RESEND_API_KEY`              | API key de Resend (email)                                                            |
+| `RESEND_FROM_EMAIL`           | From address verificado (ej: `notifications@prodecaballito.com`)                     |
+| `INFOBIP_API_KEY`             | API key de Infobip (SMS)                                                             |
+| `INFOBIP_BASE_URL`            | Base URL de Infobip (ej: `https://XXXX.api.infobip.com`)                             |
+| `INFOBIP_SMS_FROM`            | Sender ID de Infobip (ej: `14198089784`)                                             |
+| `TWILIO_ACCOUNT_SID`          | Account SID de Twilio                                                                |
+| `TWILIO_AUTH_TOKEN`           | Auth Token de Twilio                                                                 |
+| `TWILIO_FROM_NUMBER`          | Número Twilio para voz (E.164)                                                       |
+| `TWILIO_WHATSAPP_FROM_NUMBER` | Número WhatsApp (`+14155238886` para sandbox)                                        |
+| `ANTHROPIC_API_KEY`           | API key de Anthropic (AI layer, opcional si tenants usan Settings)                   |
+| `PROVIDER_CONFIG_KEY`         | Clave AES-256 de 32 bytes para encriptar AI keys por tenant (`openssl rand -hex 16`) |
+| `API_BASE_URL`                | URL pública del API (para webhooks de Twilio)                                        |
 
 ## Channel Providers en DB
 

@@ -458,6 +458,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       deliveryStatus,
       limit = "50",
       cursor,
+      metadataSearch,
     } = request.query as Record<string, string>;
     const take = Math.min(parseInt(limit) || 50, 200);
     return fastify.prisma.event.findMany({
@@ -486,6 +487,30 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
                 },
               }
             : {}),
+        ...(metadataSearch
+          ? {
+              OR: [
+                {
+                  metadata: {
+                    path: ["user_contact", "email"],
+                    string_contains: metadataSearch,
+                  },
+                },
+                {
+                  metadata: {
+                    path: ["user_contact", "phone"],
+                    string_contains: metadataSearch,
+                  },
+                },
+                {
+                  metadata: {
+                    path: ["user_contact", "nombre"],
+                    string_contains: metadataSearch,
+                  },
+                },
+              ],
+            }
+          : {}),
         ...(cursor && { id: { lt: cursor } }),
       },
       orderBy: { receivedAt: "desc" },

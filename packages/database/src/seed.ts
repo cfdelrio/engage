@@ -99,6 +99,32 @@ const PRODE_EVENT_TYPES = [
     description:
       "Llamada de encuesta de satisfacción para usuarios de ProdeCaballito",
   },
+  {
+    type: "prode.voice_nuevo_lider",
+    description: "Voice: llamada al nuevo líder del ranking",
+  },
+  {
+    type: "prode.voice_perfect_score",
+    description: "Voice: llamada al usuario que acertó un exacto",
+  },
+  {
+    type: "prode.voice_match_reminder",
+    description:
+      "Voice: recordatorio de partido próximo (25-35 min antes del kickoff)",
+  },
+  {
+    type: "prode.voice_weekly_summary",
+    description: "Voice: resumen semanal del ranking",
+  },
+  {
+    type: "prode.voice_survey_campeon",
+    description: "Voice: encuesta de predicción de campeón mundial",
+  },
+  {
+    type: "prode.voice_trash_talk",
+    description:
+      "Voice: notificación de rivalidad (un usuario superó a otro en el ranking)",
+  },
 ] as const;
 
 // ─── WhatsApp Pre-approved Meta Templates ────────────────────────────────────
@@ -113,7 +139,7 @@ const WA_TEMPLATES = [
   {
     name: "wa_resultado_partido",
     subject: "HX7ed5ef7d53402b094a81ecd8d4cbf5af",
-    body: "Resultado {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}. Vos pronosticaste {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}} y sumaste {{business_context.puntos}} pts.",
+    body: "Resultado {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}. Vos pronosticaste {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}} y sumaste {{business_context.bet.puntos_obtenidos}} pts.",
     aiInstructions: null,
   },
   {
@@ -125,7 +151,7 @@ const WA_TEMPLATES = [
   {
     name: "wa_bet_reminder",
     subject: "",
-    body: "⚽ Hola {{user.nombre}}! Todavía no cargaste tus pronósticos para la fecha. Te quedan {{business_context.horas}} horas. Entrá ya!",
+    body: "⚽ Hola {{user.nombre}}! Todavía no cargaste tus pronósticos para la fecha. Te quedan {{business_context.remind_minutes}} minutos. Entrá ya!",
     aiInstructions: null,
   },
   {
@@ -143,7 +169,7 @@ const WA_TEMPLATES = [
   {
     name: "wa_near_podio",
     subject: "",
-    body: "🏅 {{user.nombre}}, estás a solo {{business_context.posiciones}} lugar(es) del podio en {{user.planilla_nombre}}. ¡Dale que llegás!",
+    body: "🏅 {{user.nombre}}, estás a {{business_context.gap}} puntos del podio en {{business_context.planilla_nombre}}. ¡Dale que llegás!",
     aiInstructions: null,
   },
   {
@@ -155,7 +181,7 @@ const WA_TEMPLATES = [
   {
     name: "wa_cutoff_reminder",
     subject: "",
-    body: "⏰ ¡ÚLTIMO AVISO! El cierre de pronósticos para {{business_context.fecha_nombre}} es en {{business_context.minutos}} minutos.",
+    body: "⏰ ¡ÚLTIMO AVISO! El cierre de pronósticos para {{business_context.tournament_name}} es en {{business_context.minutes_left}} minutos.",
     aiInstructions: null,
   },
 ] as const;
@@ -177,7 +203,7 @@ const EMAIL_TEMPLATES = [
     name: "email_result_individual",
     subject:
       "Resultado: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}",
-    body: "Hola {{user.nombre}},\n\nResultado: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}\n\nTu pronóstico: {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}}\nPuntos obtenidos: {{business_context.puntos}}\nRanking actual: #{{business_context.ranking_after.position}} en {{user.planilla_nombre}}",
+    body: "Hola {{user.nombre}},\n\nResultado: {{business_context.match.local}} {{business_context.match.goles_local}}-{{business_context.match.goles_visitante}} {{business_context.match.away}}\n\nTu pronóstico: {{business_context.bet.goles_local}}-{{business_context.bet.goles_visitante}}\nPuntos obtenidos: {{business_context.bet.puntos_obtenidos}}\nRanking actual: #{{business_context.ranking_after.position}} en {{user.planilla_nombre}}",
   },
   {
     name: "email_result_broadcast",
@@ -192,17 +218,17 @@ const EMAIL_TEMPLATES = [
   {
     name: "email_winner_personal",
     subject: "🏆 ¡Ganaste la fecha en {{user.planilla_nombre}}!",
-    body: "Hola {{user.nombre}},\n\n¡Felicitaciones! Ganaste la fecha con {{business_context.puntos}} puntos en {{user.planilla_nombre}}. ¡Sos el mejor!",
+    body: "Hola {{user.nombre}},\n\n¡Felicitaciones! Ganaste la fecha con {{business_context.points}} puntos en {{user.planilla_nombre}}. ¡Sos el mejor!",
   },
   {
     name: "email_winner_broadcast",
     subject: "🏆 Hay un ganador en {{user.planilla_nombre}}",
-    body: "Hola {{user.nombre}},\n\n{{business_context.ganador}} ganó la fecha en {{user.planilla_nombre}} con {{business_context.puntos}} puntos. ¿Podés superarlo la próxima?",
+    body: "Hola {{user.nombre}},\n\n{{business_context.winner_name}} ganó la fecha en {{user.planilla_nombre}} con {{business_context.points}} puntos. ¿Podés superarlo la próxima?",
   },
   {
     name: "email_matchday_summary",
-    subject: "Resumen de fecha — {{user.planilla_nombre}}",
-    body: "Hola {{user.nombre}},\n\nAcá está tu resumen de la fecha:\n- Puntos: {{business_context.puntos}}\n- Posición: #{{business_context.ranking_after.position}}\n- Exactos: {{business_context.exactos}}\n\nSeguí así!",
+    subject: "Resumen de fecha — {{business_context.matchday_name}}",
+    body: "Hola {{user.nombre}},\n\nAcá está tu resumen de {{business_context.matchday_name}}:\n- Puntos: {{business_context.points}}\n- Posición en la fecha: #{{business_context.rank_in_matchday}}\n- Posición global: #{{business_context.global_position}}\n- Ganador de la fecha: {{business_context.top_name}} ({{business_context.top_points}} pts)\n\nSeguí así!",
   },
   {
     name: "email_weekly_digest",
@@ -229,7 +255,7 @@ const EMAIL_TEMPLATES = [
     name: "email_planilla_cierre",
     subject:
       "Planilla cerrada — Resultados finales de {{user.planilla_nombre}}",
-    body: "Hola {{user.nombre}},\n\nLa planilla {{user.planilla_nombre}} cerró. Tu posición final fue #{{business_context.ranking_after.position}} con {{business_context.puntos}} puntos totales. ¡Hasta la próxima!",
+    body: "Hola {{user.nombre}},\n\nLa planilla {{business_context.planilla_nombre}} cerró en {{business_context.torneo_name}}. ¡Hasta la próxima!",
   },
 ] as const;
 
@@ -242,11 +268,11 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_bet_reminder",
-    body: "⚽ {{user.nombre}}: faltan {{business_context.horas}}hs para el cierre. ¡Cargá tus pronósticos en ProdeCaballito!",
+    body: "⚽ {{user.nombre}}: faltan {{business_context.remind_minutes}} min para el cierre. ¡Cargá tus pronósticos en ProdeCaballito!",
   },
   {
     name: "sms_cutoff_reminder",
-    body: "⏰ URGENTE {{user.nombre}}: el cierre es en {{business_context.minutos}} minutos. ¡Ya!",
+    body: "⏰ URGENTE {{user.nombre}}: el cierre es en {{business_context.minutes_left}} minutos. ¡Ya!",
   },
   {
     name: "sms_kickoff",
@@ -258,11 +284,11 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_ranking_entered",
-    body: "🏅 {{user.nombre}} entró al top {{business_context.ranking_after.position}} en {{user.planilla_nombre}}! Seguí así.",
+    body: "🏅 {{user.nombre}} entró al puesto #{{business_context.new_rank}} en {{business_context.planilla_nombre}}! Seguí así.",
   },
   {
     name: "sms_ranking_up",
-    body: "📈 {{user.nombre}} subió al puesto #{{business_context.ranking_after.position}} en {{user.planilla_nombre}} (+{{business_context.ranking_after.delta}} lugares).",
+    body: "📈 {{user.nombre}} subió al puesto #{{business_context.new_rank}} en {{business_context.planilla_nombre}} (+{{business_context.delta}} lugares).",
   },
   {
     name: "sms_ranking_passed",
@@ -270,11 +296,11 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_personal_record",
-    body: "🎯 {{user.nombre}} batiste tu récord! {{business_context.puntos}} pts en una fecha. ¡Crack!",
+    body: "🎯 {{user.nombre}} batiste tu récord! {{business_context.points}} pts en una fecha. ¡Crack!",
   },
   {
     name: "sms_streak_exactos",
-    body: "🔥 {{user.nombre}}: {{user.current_streak}} exactos consecutivos! Estás en racha.",
+    body: "🔥 {{user.nombre}}: {{business_context.streak}} exactos consecutivos! Estás en racha.",
   },
   {
     name: "sms_payment_pending",
@@ -282,7 +308,7 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_near_podio",
-    body: "🏅 {{user.nombre}}, ¡estás a {{business_context.posiciones}} del podio en {{user.planilla_nombre}}! Dale.",
+    body: "🏅 {{user.nombre}}, ¡estás a {{business_context.gap}} puntos del podio en {{business_context.planilla_nombre}}! Dale.",
   },
   {
     name: "sms_tournament_tomorrow",
@@ -294,7 +320,7 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_planilla_cierre",
-    body: "🏁 {{user.planilla_nombre}} cerró. {{user.nombre}} terminó #{{business_context.ranking_after.position}} con {{business_context.puntos}}pts. ¡Hasta la próxima!",
+    body: "🏁 {{business_context.planilla_nombre}} cerró en {{business_context.torneo_name}}. ¡Gracias por jugar, {{user.nombre}}!",
   },
 ] as const;
 
@@ -884,6 +910,54 @@ async function main() {
       priority: 5,
       cooldownSeconds: 86400,
       actions: [{ type: "SEND_NOTIFICATION", params: { channel: "voice" } }],
+    },
+    {
+      name: "PC: voice_nuevo_lider → Voice",
+      eventType: "prode.voice_nuevo_lider",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 86400,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_perfect_score → Voice",
+      eventType: "prode.voice_perfect_score",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 86400,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_match_reminder → Voice",
+      eventType: "prode.voice_match_reminder",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 3600,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_weekly_summary → Voice",
+      eventType: "prode.voice_weekly_summary",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 604800,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_survey_campeon → Voice",
+      eventType: "prode.voice_survey_campeon",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 86400,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
+    },
+    {
+      name: "PC: voice_trash_talk → Voice",
+      eventType: "prode.voice_trash_talk",
+      enabled: false,
+      priority: 5,
+      cooldownSeconds: 3600,
+      actions: [{ type: "START_VOICE_CAMPAIGN", params: { campaignId: "" } }],
     },
   ];
 

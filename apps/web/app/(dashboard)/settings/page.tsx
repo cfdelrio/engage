@@ -10,9 +10,10 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[26px] font-bold tracking-tight">Settings</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">Configuración</h1>
         <p className="text-muted-foreground mt-2">
-          Manage tenant configuration, API keys, and feature flags
+          Administrá la configuración del tenant, las API keys y las
+          funcionalidades
         </p>
       </div>
 
@@ -21,7 +22,7 @@ export default function SettingsPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
           <TabsTrigger value="ai-models">Modelos de IA</TabsTrigger>
-          <TabsTrigger value="feature-flags">Feature Flags</TabsTrigger>
+          <TabsTrigger value="feature-flags">Funcionalidades</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-6">

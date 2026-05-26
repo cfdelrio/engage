@@ -214,30 +214,43 @@ function EventDetailDialog({
       .finally(() => setLoading(false));
   }, [event.id, event.userId]);
 
+  const matchedRules = detail?.ruleExecutions?.filter((r) => r.matched) ?? [];
+  const unmatchedRules =
+    detail?.ruleExecutions?.filter((r) => !r.matched) ?? [];
+  const sortedRules = [...matchedRules, ...unmatchedRules];
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
-        <DialogHeader className="pb-2 shrink-0">
+      <DialogContent className="max-w-2xl max-h-[82vh] flex flex-col overflow-hidden p-0">
+        {/* Header */}
+        <DialogHeader className="px-5 pt-5 pb-4 shrink-0 border-b border-border">
           <div className="flex items-start gap-3">
             <span
-              className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${cat.bg} ${cat.text}`}
+              className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium shrink-0 ${cat.bg} ${cat.text}`}
             >
               {cat.label}
             </span>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-sm font-mono font-medium truncate">
+              <DialogTitle className="text-sm font-mono font-semibold leading-snug break-all">
                 {event.type}
               </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                user: {event.userId} · {relativeTime(event.receivedAt)}
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
+                <span className="font-mono">{event.userId}</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span>{absoluteTime(event.receivedAt)}</span>
                 {event.processedAt && (
-                  <span className="ml-2 text-emerald-600">· procesado</span>
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="text-emerald-600 font-medium">
+                      procesado
+                    </span>
+                  </>
                 )}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-muted-foreground hover:text-foreground shrink-0"
+              className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
             >
               <X className="h-4 w-4" />
             </button>
@@ -245,27 +258,38 @@ function EventDetailDialog({
         </DialogHeader>
 
         {loading ? (
-          <div className="space-y-2 py-4">
+          <div className="space-y-3 px-5 py-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 bg-muted rounded animate-pulse" />
+              <div key={i} className="h-9 bg-muted rounded-lg animate-pulse" />
             ))}
           </div>
         ) : (
           <Tabs defaultValue="payload" className="flex-1 flex flex-col min-h-0">
-            <TabsList className="shrink-0 w-full grid grid-cols-3">
-              <TabsTrigger value="payload">Payload</TabsTrigger>
-              <TabsTrigger value="rules">
+            <TabsList className="shrink-0 w-full grid grid-cols-3 rounded-none border-b border-border bg-transparent h-10 px-5 gap-0">
+              <TabsTrigger
+                value="payload"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs"
+              >
+                Payload
+              </TabsTrigger>
+              <TabsTrigger
+                value="rules"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs"
+              >
                 Reglas
                 {detail?.ruleExecutions && (
-                  <span className="ml-1.5 text-[10px] bg-muted rounded-full px-1.5">
-                    {detail.ruleExecutions.length}
+                  <span className="ml-1.5 text-[10px] bg-muted rounded-full px-1.5 py-px tabular-nums">
+                    {matchedRules.length}/{detail.ruleExecutions.length}
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="deliveries">
+              <TabsTrigger
+                value="deliveries"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs"
+              >
                 Deliveries
                 {deliveries.length > 0 && (
-                  <span className="ml-1.5 text-[10px] bg-muted rounded-full px-1.5">
+                  <span className="ml-1.5 text-[10px] bg-muted rounded-full px-1.5 py-px tabular-nums">
                     {deliveries.length}
                   </span>
                 )}
@@ -274,7 +298,7 @@ function EventDetailDialog({
 
             <TabsContent
               value="payload"
-              className="flex-1 overflow-auto mt-2 min-h-0"
+              className="flex-1 overflow-auto min-h-0 px-5 py-4"
             >
               <pre className="text-xs bg-muted rounded-lg p-4 overflow-auto whitespace-pre-wrap break-all font-mono leading-relaxed">
                 {JSON.stringify(
@@ -287,46 +311,63 @@ function EventDetailDialog({
 
             <TabsContent
               value="rules"
-              className="flex-1 overflow-auto mt-2 min-h-0"
+              className="flex-1 overflow-auto min-h-0 px-5 py-4"
             >
-              {!detail?.ruleExecutions?.length ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
+              {!sortedRules.length ? (
+                <p className="text-sm text-muted-foreground text-center py-10">
                   No hay ejecuciones de reglas para este evento
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {detail.ruleExecutions.map((re) => (
-                    <div
-                      key={re.id}
-                      className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5"
-                    >
-                      {re.matched ? (
+                <div className="space-y-1.5">
+                  {matchedRules.length > 0 && (
+                    <p className="text-[11px] font-medium text-emerald-600 mb-2.5">
+                      {matchedRules.length} de {sortedRules.length} reglas
+                      activadas
+                    </p>
+                  )}
+                  {sortedRules.map((re) =>
+                    re.matched ? (
+                      <div
+                        key={re.id}
+                        className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/8 px-3 py-2.5"
+                      >
                         <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                      )}
-                      <span className="text-sm flex-1 truncate">
-                        {re.rule?.name ?? re.id}
-                      </span>
-                      <Badge variant={re.matched ? "default" : "secondary"}>
-                        {re.matched ? "match" : "no match"}
-                      </Badge>
-                    </div>
-                  ))}
+                        <span className="text-sm font-medium flex-1 truncate text-emerald-700 dark:text-emerald-400">
+                          {re.rule?.name ?? re.id}
+                        </span>
+                        <Badge className="text-[10px] bg-emerald-500 text-white border-0 shrink-0">
+                          match
+                        </Badge>
+                      </div>
+                    ) : (
+                      <div
+                        key={re.id}
+                        className="flex items-center gap-3 rounded-lg border border-border/40 bg-muted/30 px-3 py-2"
+                      >
+                        <XCircle className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+                        <span className="text-xs text-muted-foreground/60 flex-1 truncate">
+                          {re.rule?.name ?? re.id}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/40 shrink-0">
+                          no match
+                        </span>
+                      </div>
+                    ),
+                  )}
                 </div>
               )}
             </TabsContent>
 
             <TabsContent
               value="deliveries"
-              className="flex-1 overflow-auto mt-2 min-h-0"
+              className="flex-1 overflow-auto min-h-0 px-5 py-4"
             >
               {!deliveries.length ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
+                <p className="text-sm text-muted-foreground text-center py-10">
                   No hay deliveries para este usuario en los últimos registros
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {deliveries.map((d) => (
                     <div
                       key={d.id}
@@ -354,7 +395,7 @@ function EventDetailDialog({
                         </span>
                       )}
                       {d.failureReason && (
-                        <span className="text-xs text-red-500 truncate max-w-[200px]">
+                        <span className="text-xs text-destructive truncate max-w-[200px]">
                           {d.failureReason}
                         </span>
                       )}
