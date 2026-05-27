@@ -375,8 +375,10 @@ model Template {
   body            String
   bodyHtml        String?
   variables       Json     @default("[]")
-  aiInstructions  String?
-  version         Int      @default(1)
+  aiInstructions        String?
+  twilioContentSid      String?
+  twilioApprovalStatus  String?
+  version               Int      @default(1)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
