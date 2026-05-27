@@ -611,6 +611,45 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // POST /twilio/template-approval — fired by Twilio when Meta approves/rejects a Content Template
+  fastify.post(
+    "/twilio/template-approval",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!verifyTwilio(request, reply)) return;
+      const form = request.body as Record<string, string>;
+      const contentSid = form["ContentTemplateSid"];
+      const status = form["ContentStatus"]; // "approved" | "rejected"
+      const channel = form["Channel"]; // "whatsapp"
+
+      if (!contentSid || channel !== "whatsapp") {
+        return reply.status(200).send({ ok: true });
+      }
+
+      const template = await fastify.prisma.template.findFirst({
+        where: { twilioContentSid: contentSid },
+      });
+      if (!template) return reply.status(200).send({ ok: true });
+
+      if (status === "approved") {
+        await fastify.prisma.template.update({
+          where: { id: template.id },
+          data: { subject: contentSid, twilioApprovalStatus: "approved" },
+        });
+        fastify.log.info(
+          `[wa-approval] ${template.name} approved → SID ${contentSid} active`,
+        );
+      } else if (status === "rejected") {
+        await fastify.prisma.template.update({
+          where: { id: template.id },
+          data: { twilioApprovalStatus: "rejected" },
+        });
+        fastify.log.warn(`[wa-approval] ${template.name} rejected by Meta`);
+      }
+
+      return reply.status(200).send({ ok: true });
+    },
+  );
+
   // orkestai-voice webhooks: call.completed, campaign.completed
   fastify.post(
     "/orkestai-voice",
