@@ -63,7 +63,7 @@ jobs:
           }
 
           async function sendSms(message) {
-            if (!FROM || !TO) { console.log("SMS skipped — TWILIO_FROM_NUMBER or NOTIFY_PHONE not set"); return; }
+            if (!FROM || !TO) { console.log("SMS skipped - TWILIO_FROM_NUMBER or NOTIFY_PHONE not set"); return; }
             const res = await post("api.twilio.com", `/2010-04-01/Accounts/${ACCOUNT_SID}/Messages.json`,
               { From: FROM, To: TO, Body: message });
             console.log(`SMS sent: ${res.status}`);
@@ -103,7 +103,7 @@ jobs:
               await sendSms(`ENGAGE: ${rejected.length} WA template(s) rechazados por Meta: ${rejected.map(t => t.name).join(", ")}. Revisar en Twilio Console.`);
             }
             if (approved.length === 0 && rejected.length === 0) {
-              console.log("No changes — all still pending.");
+              console.log("No changes - all still pending.");
             }
           })().catch(e => { console.error(e); process.exit(1); });
           EOF
