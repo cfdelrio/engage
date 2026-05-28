@@ -397,7 +397,7 @@ const SMS_TEMPLATES = [
   },
   {
     name: "sms_ranking_passed",
-    body: "😤 {{user.nombre}}, te superaron en {{user.planilla_nombre}}. Ahora estás #{{business_context.ranking_after.position}}. ¡A reaccionar!",
+    body: "😤 {{user.nombre}}, te superaron en {{business_context.planilla_nombre}}. Ahora estás #{{business_context.new_rank}}. ¡A reaccionar!",
   },
   {
     name: "sms_personal_record",
@@ -410,6 +410,14 @@ const SMS_TEMPLATES = [
   {
     name: "sms_payment_pending",
     body: "💳 {{user.nombre}}: tenés un pago pendiente en ProdeCaballito. Regularizá para seguir jugando.",
+  },
+  {
+    name: "sms_broadcast_manual",
+    body: "📢 {{business_context.message}}",
+  },
+  {
+    name: "wa_broadcast_manual",
+    body: "📢 {{business_context.message}}",
   },
   {
     name: "sms_near_podio",
@@ -1004,8 +1012,20 @@ async function main() {
       cooldownSeconds: 0,
       actions: [
         { type: "SEND_NOTIFICATION", params: { channel: "email" } },
-        { type: "SEND_NOTIFICATION", params: { channel: "sms" } },
-        { type: "SEND_NOTIFICATION", params: { channel: "whatsapp" } },
+        {
+          type: "SEND_NOTIFICATION",
+          params: {
+            channel: "sms",
+            templateId: tplMap["sms_broadcast_manual"],
+          },
+        },
+        {
+          type: "SEND_NOTIFICATION",
+          params: {
+            channel: "whatsapp",
+            templateId: tplMap["wa_broadcast_manual"],
+          },
+        },
       ],
     },
     {
