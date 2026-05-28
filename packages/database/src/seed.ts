@@ -1203,6 +1203,7 @@ async function main() {
         eventType: "prode.voice_survey",
         flowSteps: voiceSurveyFlowSteps,
         ttsProvider: "elevenlabs",
+        elevenLabsVoiceId: "sOwJCppWuH3vZrwPgwJQ",
         aiInstructions:
           "Hablá con entusiasmo futbolero argentino, amigable y cercano. Sé breve y claro.",
         script: "",
@@ -1270,6 +1271,7 @@ async function main() {
         eventType: "prode.voice_match_reminder",
         flowSteps: voiceMatchReminderFlowSteps,
         ttsProvider: "elevenlabs",
+        elevenLabsVoiceId: "sOwJCppWuH3vZrwPgwJQ",
         aiInstructions:
           "Hablá con urgencia amigable y entusiasmo futbolero. Sé breve y claro.",
         script: "",
