@@ -2,7 +2,7 @@ name: Check WA Template Approvals
 
 on:
   schedule:
-    - cron: "0 */4 * * *" # every 4 hours
+    - cron: "0 12 * * *" # daily at 12:00 UTC (9am Argentina)
   workflow_dispatch: # allow manual trigger
 
 jobs:
