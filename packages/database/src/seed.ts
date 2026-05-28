@@ -1240,7 +1240,73 @@ async function main() {
     },
   });
 
-  console.log(`Voice campaigns: 1 created/verified`);
+  // Wire voice_match_reminder rule
+  const voiceMatchReminderFlowSteps = [
+    {
+      id: "s1",
+      type: "say",
+      text: "¡Hola! Te llama ProdeCaballito. Tenés un partido que empieza pronto y el cierre de pronósticos está por terminar. ¡Entrá ya a ProdeCaballito y cargá tu apuesta antes de que sea tarde!",
+    },
+    {
+      id: "s2",
+      type: "say",
+      text: "¡Buena suerte y que empiece el partido!",
+    },
+  ];
+
+  const existingMatchReminder = await prisma.voiceCampaign.findFirst({
+    where: { tenantId: tenant.id, name: "Recordatorio de partido próximo" },
+  });
+
+  let voiceMatchReminderCampaignId: string;
+  if (!existingMatchReminder) {
+    const vc = await prisma.voiceCampaign.create({
+      data: {
+        tenantId: tenant.id,
+        name: "Recordatorio de partido próximo",
+        description: "Llamada cuando un partido empieza en menos de 35 minutos",
+        status: "active",
+        triggerType: "event-based",
+        eventType: "prode.voice_match_reminder",
+        flowSteps: voiceMatchReminderFlowSteps,
+        ttsProvider: "elevenlabs",
+        aiInstructions:
+          "Hablá con urgencia amigable y entusiasmo futbolero. Sé breve y claro.",
+        script: "",
+        voiceConfig: {},
+        audienceFilter: {},
+        audienceSize: 0,
+        stats: {
+          sent: 0,
+          answered: 0,
+          completed: 0,
+          failed: 0,
+          avgDuration: 0,
+        },
+      },
+    });
+    voiceMatchReminderCampaignId = vc.id;
+  } else {
+    voiceMatchReminderCampaignId = existingMatchReminder.id;
+  }
+
+  await prisma.rule.updateMany({
+    where: {
+      tenantId: tenant.id,
+      name: "PC: voice_match_reminder → Voice",
+    },
+    data: {
+      enabled: true,
+      actions: [
+        {
+          type: "START_VOICE_CAMPAIGN",
+          params: { campaignId: voiceMatchReminderCampaignId },
+        },
+      ],
+    },
+  });
+
+  console.log(`Voice campaigns: 2 created/verified`);
 
   // ─── Email Campaigns ──────────────────────────────────────────────────────
   for (const [name, data] of [
