@@ -1,0 +1,109 @@
+name: Check WA Template Approvals
+
+on:
+  schedule:
+    - cron: "0 */4 * * *" # every 4 hours
+  workflow_dispatch: # allow manual trigger
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check approvals, activate in DB and notify via SMS
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+          NOTIFY_PHONE: ${{ secrets.NOTIFY_PHONE }}
+          ENGAGE_WEBHOOK_URL: https://api.engage.orkestai.ar/webhooks/twilio/template-approval
+        run: |
+          node << 'EOF'
+          const https = require("https");
+          const crypto = require("crypto");
+          const querystring = require("querystring");
+
+          const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+          const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+          const FROM = process.env.TWILIO_FROM_NUMBER;
+          const TO = process.env.NOTIFY_PHONE;
+          const WEBHOOK_URL = process.env.ENGAGE_WEBHOOK_URL;
+          const auth = Buffer.from(`${ACCOUNT_SID}:${AUTH_TOKEN}`).toString("base64");
+
+          const TEMPLATES = [
+            { name: "wa_bet_reminder",      sid: "HX68c069e4704c0e861062c69b68c81100" },
+            { name: "wa_cutoff_reminder",   sid: "HXa5512c1351c778f6d18fc03c9dc5fec2" },
+            { name: "wa_match_rescheduled", sid: "HX088ac47374694c74ac2ce1aaceffbfe9" },
+            { name: "wa_near_podio",        sid: "HXba4cc3e4b5740f3cac279d18e7474b9b" },
+            { name: "wa_payment_pending",   sid: "HX2ad942bee7c6d324af9a3e9769be4a5a" },
+          ];
+
+          function get(url) {
+            return new Promise((resolve, reject) => {
+              const u = new URL(url);
+              https.get({ hostname: u.hostname, path: u.pathname, headers: { Authorization: `Basic ${auth}` } }, res => {
+                let d = ""; res.on("data", c => d += c); res.on("end", () => resolve(JSON.parse(d)));
+              }).on("error", reject);
+            });
+          }
+
+          function post(hostname, path, body, extraHeaders = {}) {
+            return new Promise((resolve, reject) => {
+              const data = querystring.stringify(body);
+              const req = https.request({ method: "POST", hostname, path,
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "Content-Length": Buffer.byteLength(data), Authorization: `Basic ${auth}`, ...extraHeaders }
+              }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => resolve({ status: res.statusCode, body: d })); });
+              req.on("error", reject); req.write(data); req.end();
+            });
+          }
+
+          function twilioSignature(url, params) {
+            const sortedKeys = Object.keys(params).sort();
+            const payload = url + sortedKeys.map(k => k + params[k]).join("");
+            return crypto.createHmac("sha1", AUTH_TOKEN).update(payload).digest("base64");
+          }
+
+          async function sendSms(message) {
+            if (!FROM || !TO) { console.log("SMS skipped — TWILIO_FROM_NUMBER or NOTIFY_PHONE not set"); return; }
+            const res = await post("api.twilio.com", `/2010-04-01/Accounts/${ACCOUNT_SID}/Messages.json`,
+              { From: FROM, To: TO, Body: message });
+            console.log(`SMS sent: ${res.status}`);
+          }
+
+          async function activateTemplate(name, sid, twilioStatus) {
+            const params = { Channel: "whatsapp", ContentStatus: twilioStatus, ContentTemplateSid: sid };
+            const sig = twilioSignature(WEBHOOK_URL, params);
+            const u = new URL(WEBHOOK_URL);
+            const res = await post(u.hostname, u.pathname, params, { "X-Twilio-Signature": sig });
+            console.log(`Webhook ${name}: ${res.status} ${res.body}`);
+          }
+
+          (async () => {
+            const approved = [];
+            const rejected = [];
+
+            for (const tpl of TEMPLATES) {
+              const data = await get(`https://content.twilio.com/v1/Content/${tpl.sid}/ApprovalRequests`);
+              const status = data?.whatsapp?.status;
+              console.log(`${tpl.name}: ${status}`);
+              if (status === "approved") approved.push(tpl);
+              if (status === "rejected") rejected.push(tpl);
+            }
+
+            for (const tpl of approved) {
+              await activateTemplate(tpl.name, tpl.sid, "approved");
+            }
+            for (const tpl of rejected) {
+              await activateTemplate(tpl.name, tpl.sid, "rejected");
+            }
+
+            if (approved.length > 0) {
+              await sendSms(`ENGAGE: ${approved.length} WA template(s) aprobados por Meta: ${approved.map(t => t.name).join(", ")}. Ya activos para envios proactivos.`);
+            }
+            if (rejected.length > 0) {
+              await sendSms(`ENGAGE: ${rejected.length} WA template(s) rechazados por Meta: ${rejected.map(t => t.name).join(", ")}. Revisar en Twilio Console.`);
+            }
+            if (approved.length === 0 && rejected.length === 0) {
+              console.log("No changes — all still pending.");
+            }
+          })().catch(e => { console.error(e); process.exit(1); });
+          EOF
