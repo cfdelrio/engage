@@ -17,6 +17,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "node --import tsx/cjs ./src/seed.ts",
     "db:submit-wa-templates": "node --import tsx/cjs ./scripts/submit-wa-templates.ts",
+    "db:resubmit-wa-cta": "node --import tsx/cjs ./scripts/resubmit-wa-templates-with-cta.ts",
     "db:setup": "prisma migrate dev && npm run db:seed",
     "db:studio": "prisma studio",
     "typecheck": "tsc --noEmit"
