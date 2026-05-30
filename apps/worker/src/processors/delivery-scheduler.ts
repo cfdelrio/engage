@@ -176,6 +176,20 @@ export function createDeliveryScheduler(db: PrismaClient, redis: Redis) {
         return;
       }
 
+      // ─── WhatsApp session check (needs template.subject for SID detection) ──
+      if (channel === "whatsapp") {
+        const session = await db.whatsAppSession.findUnique({
+          where: { tenantId_userId: { tenantId, userId } },
+        });
+        const sessionActive =
+          session?.isActive === true && session.expiresAt > new Date();
+        const hasSid = /^HX[a-f0-9]{32}$/.test(template.subject ?? "");
+        if (!sessionActive && !hasSid) {
+          await suppress("wa_no_session_and_no_template_sid");
+          return;
+        }
+      }
+
       let renderedSubject = "";
       let renderedBody = template.body;
 

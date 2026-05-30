@@ -591,6 +591,32 @@ const webhooksRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!user) return reply.status(200).send({ ok: true });
 
+      // Upsert WhatsApp session — opens/extends 24h free-form window
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      await fastify.prisma.whatsAppSession.upsert({
+        where: {
+          tenantId_userId: { tenantId: user.tenantId, userId: user.id },
+        },
+        create: {
+          tenantId: user.tenantId,
+          userId: user.id,
+          phone: phoneNumber,
+          lastInboundAt: now,
+          expiresAt,
+          isActive: true,
+        },
+        update: {
+          lastInboundAt: now,
+          expiresAt,
+          isActive: true,
+          phone: phoneNumber,
+        },
+      });
+      fastify.log.info(
+        `[wa-session] Session upserted for user ${user.id}, expires ${expiresAt.toISOString()}`,
+      );
+
       // Record incoming message as interaction (no delivery record, it's incoming)
       await fastify.prisma.whatsAppInteraction.create({
         data: {

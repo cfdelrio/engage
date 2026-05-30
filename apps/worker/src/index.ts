@@ -17,6 +17,7 @@ import {
   TwilioWhatsAppChannelProvider,
 } from "@engage/channels";
 import { createWorker, QUEUES, getRedis } from "@engage/event-bus";
+import { Queue } from "bullmq";
 import { logger } from "./logger.js";
 import { createEventProcessor } from "./processors/event-processor.js";
 import { createDeliveryScheduler } from "./processors/delivery-scheduler.js";
@@ -205,6 +206,27 @@ async function main() {
     5,
   );
 
+  // ─── WhatsApp session expiry cron (hourly) ───────────────────────────────
+  const waSessionQueue = new Queue(QUEUES.WA_SESSION_EXPIRY, {
+    connection: redis,
+  });
+  await waSessionQueue.upsertJobScheduler("expire-wa-sessions", {
+    every: 60 * 60 * 1000,
+  });
+  const waSessionExpiryWorker = createWorker(
+    QUEUES.WA_SESSION_EXPIRY,
+    async () => {
+      const result = await db.whatsAppSession.updateMany({
+        where: { isActive: true, expiresAt: { lt: new Date() } },
+        data: { isActive: false },
+      });
+      if (result.count > 0) {
+        logger.info(`[wa-session] Marked ${result.count} sessions as expired`);
+      }
+    },
+    1,
+  );
+
   const allWorkers = [
     eventWorker,
     deliverySchedulerWorker,
@@ -213,6 +235,7 @@ async function main() {
     smsCampaignWorker,
     voiceCallWorker,
     whatsappMessageWorker,
+    waSessionExpiryWorker,
   ];
 
   for (const worker of allWorkers) {

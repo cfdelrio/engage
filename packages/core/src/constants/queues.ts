@@ -12,6 +12,7 @@ export const QUEUES = {
   EMAIL_CAMPAIGN_DELIVERY: "email.campaign.delivery",
   SMS_CAMPAIGN_DELIVERY: "sms.campaign.delivery",
   ANALYTICS_SCORE_RECALC: "analytics.score_recalc",
+  WA_SESSION_EXPIRY: "whatsapp.session-expiry",
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
