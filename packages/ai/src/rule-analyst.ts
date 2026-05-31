@@ -40,7 +40,7 @@ function serializeConditions(conditions: unknown): string {
   const g = conditions as { operator: string; conditions: unknown[] };
   if (!Array.isArray(g.conditions)) return String(conditions);
   const parts = g.conditions.map((c) => {
-    if (typeof c === "object" && c !== null && "operator" in c) {
+    if (typeof c === "object" && c !== null && "conditions" in c) {
       return `(${serializeConditions(c)})`;
     }
     const leaf = c as { field: string; operator: string; value?: unknown };
