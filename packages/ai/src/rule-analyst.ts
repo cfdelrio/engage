@@ -38,6 +38,7 @@ function serializeConditions(conditions: unknown): string {
     return String(conditions);
   }
   const g = conditions as { operator: string; conditions: unknown[] };
+  if (!Array.isArray(g.conditions)) return String(conditions);
   const parts = g.conditions.map((c) => {
     if (typeof c === "object" && c !== null && "operator" in c) {
       return `(${serializeConditions(c)})`;
