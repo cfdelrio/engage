@@ -1,7 +1,12 @@
-import type { Condition, ConditionGroup, ConditionOperator, EventContext } from '@engage/core';
+import type {
+  Condition,
+  ConditionGroup,
+  ConditionOperator,
+  EventContext,
+} from "@engage/core";
 
 function getFieldValue(path: string, context: EventContext): unknown {
-  const parts = path.split('.');
+  const parts = path.split(".");
   let current: unknown = context;
   for (const part of parts) {
     if (current === null || current === undefined) return undefined;
@@ -10,32 +15,55 @@ function getFieldValue(path: string, context: EventContext): unknown {
   return current;
 }
 
-function evaluateCondition(condition: Condition, context: EventContext): boolean {
+function evaluateCondition(
+  condition: Condition,
+  context: EventContext,
+): boolean {
   const value = getFieldValue(condition.field, context);
   const target = condition.value;
 
   switch (condition.operator as ConditionOperator) {
-    case 'eq':
+    case "eq":
       return value === target;
-    case 'neq':
+    case "neq":
       return value !== target;
-    case 'gt':
-      return typeof value === 'number' && typeof target === 'number' && value > target;
-    case 'lt':
-      return typeof value === 'number' && typeof target === 'number' && value < target;
-    case 'gte':
-      return typeof value === 'number' && typeof target === 'number' && value >= target;
-    case 'lte':
-      return typeof value === 'number' && typeof target === 'number' && value <= target;
-    case 'in':
+    case "gt":
+      return (
+        typeof value === "number" &&
+        typeof target === "number" &&
+        value > target
+      );
+    case "lt":
+      return (
+        typeof value === "number" &&
+        typeof target === "number" &&
+        value < target
+      );
+    case "gte":
+      return (
+        typeof value === "number" &&
+        typeof target === "number" &&
+        value >= target
+      );
+    case "lte":
+      return (
+        typeof value === "number" &&
+        typeof target === "number" &&
+        value <= target
+      );
+    case "in":
       return Array.isArray(target) && target.includes(value);
-    case 'nin':
+    case "nin":
       return Array.isArray(target) && !target.includes(value);
-    case 'contains':
-      return typeof value === 'string' && typeof target === 'string' && value.includes(target);
-    case 'exists':
+    case "contains":
+      return (
+        typeof value === "string" &&
+        typeof target === "string" &&
+        value.includes(target)
+      );
+    case "exists":
       return value !== undefined && value !== null;
-    case 'changed':
+    case "changed":
       // Requires context.event.payload to have both value and previousValue
       // Convention: payload.{field} = new, payload.previous{Field} = old
       return true; // Simplified — full implementation checks event payload diff
@@ -44,12 +72,17 @@ function evaluateCondition(condition: Condition, context: EventContext): boolean
   }
 }
 
-export function evaluateGroup(group: ConditionGroup, context: EventContext): boolean {
-  if (group.operator === 'AND') {
+export function evaluateGroup(
+  group: ConditionGroup,
+  context: EventContext,
+): boolean {
+  if (!Array.isArray(group.conditions)) return false;
+  if (group.operator === "AND") {
     for (const cond of group.conditions) {
-      const result = 'conditions' in cond
-        ? evaluateGroup(cond as ConditionGroup, context)
-        : evaluateCondition(cond as Condition, context);
+      const result =
+        "conditions" in cond
+          ? evaluateGroup(cond as ConditionGroup, context)
+          : evaluateCondition(cond as Condition, context);
       if (!result) return false; // short-circuit
     }
     return true;
@@ -57,9 +90,10 @@ export function evaluateGroup(group: ConditionGroup, context: EventContext): boo
 
   // OR
   for (const cond of group.conditions) {
-    const result = 'conditions' in cond
-      ? evaluateGroup(cond as ConditionGroup, context)
-      : evaluateCondition(cond as Condition, context);
+    const result =
+      "conditions" in cond
+        ? evaluateGroup(cond as ConditionGroup, context)
+        : evaluateCondition(cond as Condition, context);
     if (result) return true; // short-circuit
   }
   return false;
