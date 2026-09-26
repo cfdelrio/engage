@@ -1,0 +1,31 @@
+name: Renew SSL Certificates
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 0'  # Weekly at 3 AM UTC on Sundays
+
+jobs:
+  renew-ssl:
+    name: Renew Let's Encrypt Certificates
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and renew SSL
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            echo "🔄 Renovando certificados SSL..."
+            certbot renew --non-interactive --quiet
+
+            echo "✅ Certificados renovados"
+            echo "📋 Estado actual de certificados:"
+            certbot certificates
+
+            echo "🔄 Reloading Nginx..."
+            sudo systemctl reload nginx
+
+            echo "✅ Deploy completado"
