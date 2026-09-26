@@ -26,16 +26,16 @@ echo "📋 Current time: $(date)"
 
 echo ""
 echo "📋 Checking current certificates:"
-certbot certificates
+sudo certbot certificates
 
 echo ""
 echo "🔄 Running certbot renew..."
-certbot renew --non-interactive --quiet
+sudo certbot renew --non-interactive --quiet
 
 echo ""
 echo "✅ Certificates renewed successfully"
 echo "📋 Updated certificates:"
-certbot certificates
+sudo certbot certificates
 
 echo ""
 echo "🔄 Reloading Nginx..."
