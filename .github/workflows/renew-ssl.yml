@@ -19,11 +19,11 @@ jobs:
           script_stop: true
           script: |
             echo "🔄 Renovando certificados SSL..."
-            certbot renew --non-interactive --quiet
+            sudo certbot renew --non-interactive --quiet
 
             echo "✅ Certificados renovados"
             echo "📋 Estado actual de certificados:"
-            certbot certificates
+            sudo certbot certificates
 
             echo "🔄 Reloading Nginx..."
             sudo systemctl reload nginx
